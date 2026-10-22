@@ -1,0 +1,7 @@
+# results/ and traces/ are NOT ignored: commit the run records your ledger links to.
+.venv/
+.env
+state/
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Project{% endblock %}</title>
+<style>
+  :root { --bg: #ffffff; --fg: #1d1f23; --muted: #5f6672; --line: #d9dce1; --soft: #f3f4f6;
+          --accent: #2754c5; --agent: #eef3ff; --outside: #fff6e6; --error: #b42318; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16181c; --fg: #e6e8eb; --muted: #9aa1ab; --line: #343840; --soft: #1f2227;
+            --accent: #8fb0ff; --agent: #1e2a44; --outside: #3a2f1c; --error: #ff8a80; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+  nav { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  nav a { color: var(--muted); text-decoration: none; }
+  nav a.here { color: var(--fg); font-weight: 600; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.4rem; margin: 8px 0 12px; }
+  h2 { font-size: 1.1rem; margin: 22px 0 8px; }
+  a { color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  .scroll { overflow-x: auto; }
+  .muted { color: var(--muted); }
+  .notice { padding: 10px 12px; background: var(--soft); border-left: 3px solid var(--accent); margin: 12px 0; }
+  .error { color: var(--error); }
+  textarea, input[type=text] { width: 100%; padding: 8px; font: inherit; color: var(--fg);
+                               background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+  button { padding: 7px 14px; font: inherit; border-radius: 6px; border: 1px solid var(--line);
+           background: var(--soft); color: var(--fg); cursor: pointer; }
+  .line { padding: 8px 10px; margin: 6px 0; border-radius: 6px; background: var(--soft); white-space: pre-wrap; }
+  .line.reply { background: var(--agent); }
+  .line.outside { background: var(--outside); }
+  .line.error { border-left: 3px solid var(--error); }
+  .who { font-size: 12px; color: var(--muted); }
+  code, pre { font-family: ui-monospace, monospace; font-size: 13px; }
+  pre { background: var(--soft); padding: 10px; overflow-x: auto; }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: 24px; }
+  @media (max-width: 720px) { .split { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="{{ 'here' if page == 'home' }}">Home</a>
+  <a href="/console" class="{{ 'here' if page == 'console' }}">Console</a>
+  <a href="/queue" class="{{ 'here' if page == 'queue' }}">Queue</a>
+  <a href="/threads" class="{{ 'here' if page == 'threads' }}">Threads</a>
+  <a href="/approvals" class="{{ 'here' if page == 'approvals' }}">Approvals</a>
+  <a href="/traces" class="{{ 'here' if page in ('traces', 'trace') }}">Traces</a>
+</nav>
+<main>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

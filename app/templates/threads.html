@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Threads{% endblock %}
+{% block content %}
+<h1>Threads</h1>
+<div class="split">
+  <section>
+    {% for t in threads %}
+      <p><a href="/threads?thread={{ t.thread_id | urlencode }}">{{ t.thread_id }}</a><br>
+      <span class="muted">{{ t.messages }} messages{% if t.waiting_for_outside %} · waiting for a reply{% endif %}</span></p>
+    {% else %}
+      <p class="muted">No conversations yet.</p>
+    {% endfor %}
+  </section>
+  <section>
+    {% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
+    {% if thread %}
+      <h2>{{ thread }}</h2>
+      {% for m in messages %}
+        <div class="line {{ 'reply' if m.sender in ('agent', 'operator') else 'outside' }}"><div class="who">{{ m.sender }} · {{ m.at[:19] }}{% if m.seeded %} · seeded input{% endif %}{% if m.handled_by %} · to {{ m.handled_by }}{% endif %}</div>{{ m.text }}</div>
+      {% else %}
+        <p class="muted">No messages on this thread.</p>
+      {% endfor %}
+      <h2>Write as the stranger</h2>
+      <p class="muted">To try a conversation by hand. In experiments, the task file plays this person.
+      The message goes to the agent once: through <code>on_outside_reply</code>, or to a turn waiting
+      on this thread in <code>wait_for_reply</code>.</p>
+      <form method="post" action="/threads/reply">
+        <input type="hidden" name="thread_id" value="{{ thread }}">
+        <p><input type="text" name="sender" value="{{ (messages | rejectattr('sender', 'in', ['agent', 'operator']) | map(attribute='sender') | first) or 'outside' }}" aria-label="Sender"></p>
+        <textarea name="text" rows="3" required></textarea>
+        <p><button>Send</button></p>
+      </form>
+    {% else %}
+      <p class="muted">Choose a thread.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

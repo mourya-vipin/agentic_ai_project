@@ -1,0 +1,30 @@
+# Each switch has a setting and the values it may take. Your agent reads it with
+# harness.runtime.switch("name"); run.py --set name=value sets it for one arm.
+# A group, a name with switches under it and no setting, takes the place of the
+# flat switch of its name:
+#
+#   plan:
+#     refunds: {setting: "on", values: ["off", "on"]}     # plan.refunds
+#
+# added: <date> goes on a switch, never on a group. Quote "off" and "on": YAML
+# reads them bare as false and true. The README's "Your switches" says more.
+
+control:
+  setting: agent
+  values: [workflow, agent]
+  about: Who picks each next step and ends the run. workflow, your code; agent, the model, on the bounded loop. Lecture 1.
+
+plan:
+  setting: "off"
+  values: ["off", "on"]
+  about: Whether the agent writes a plan that is validated before any step runs, and follows it. Lecture 2.
+
+notes:
+  setting: "off"
+  values: ["off", "on"]
+  about: Whether the agent keeps notes outside the conversation, in every context, untouched by compaction. Lecture 2.
+
+critique:
+  setting: "off"
+  values: ["off", "self", "external"]
+  about: The critique loop on the way out. self, the same model rereads its draft; external, a check on an outside signal. Lecture 2.

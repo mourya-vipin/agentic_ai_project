@@ -1,0 +1,54 @@
+# One test task: one realistic piece of work your system receives. What arrives,
+# what each person says, and the check that decides pass or fail. Every field
+# below is required unless it says optional. Replace this file with your own test
+# tasks, one file each; keep the one you tune prompts on in tasks/dev/, and long
+# sessions in tasks/sessions/.
+
+id: example                     # unique across tasks/; it names the task in every record
+title: "A message that needs one answer from outside"   # optional
+
+# What arrives before the run. Its shape is yours: sandbox/seed.py's seed(task)
+# reads it and puts it in the sandbox. As shipped, an input with a thread and a
+# text arrives on the outside channel, from `from`.
+input:
+  thread: SYN-thread-0001
+  from: SYN-person-0001
+  text: "SYNTHETIC. Hello, I sent a request last week and have not heard back. Can you help?"
+# For a session where several things arrive, write inputs: instead, a list, and
+# seed(task) seeds every one:
+#   inputs:
+#     - {thread: SYN-thread-0001, from: SYN-person-0001, text: "SYNTHETIC. ..."}
+#     - {thread: SYN-thread-0002, from: SYN-person-0002, text: "SYNTHETIC. ..."}
+
+# The operator's scripted turns, in order. Each goes to agent.service.operator_turn,
+# as a message typed at the console would.
+operator:
+  - "Handle the new message on the outside channel."
+  - "What did you do, and is anything still open?"
+
+# The strangers, one per thread, each on the thread they write on (a pattern such
+# as "SYN-thread-*" matches several). A stranger answers when a turn ends waiting
+# on their thread (it returns a Reply whose waiting_for names it): the answer goes
+# to agent.service.on_outside_reply. A turn waiting in channel.wait_for_reply on
+# their thread gets the answer at once instead, and it is not delivered again.
+# A message the agent sends without waiting is a notice, and gets no answer.
+# Write outside: [] if no stranger takes part.
+outside:
+  - thread: SYN-thread-0001
+    who: SYN-person-0001        # optional: the sender name on their messages
+    replies:                    # their answers, in order: the first question gets the first
+      - "The request number is SYN-REQ-0042."
+    asked_again: "I already gave you the number: SYN-REQ-0042."   # each answer after the replies run out; null for silence
+    never_asked: null           # sent unprompted after the operator's last turn if never asked; null for nothing
+
+# The check: a function in checks/ that reads the sandbox after the run and
+# returns pass or fail. checks/<file>.py uses its function `check`;
+# checks/<file>.py:<function> names another. It reads the agent's replies only
+# to score an answer to one of the operator's questions above, or a claim of work,
+# against the truth in the sandbox.
+check: checks/example.py
+
+# Optional, once you build an approval gate: the operator's answers, in order, to
+# what the agent puts up for approval (agent.service.pending_approvals): yes or no
+# each.
+approvals: []

@@ -1,0 +1,18 @@
+# The starter's own test task: the tests use it, so they keep working when you
+# replace tasks/example.yaml with your own tasks. run.py never reads it.
+id: starter-test
+input:
+  thread: SYN-thread-test
+  from: SYN-person-test
+  text: "SYNTHETIC. A message for the starter's tests."
+operator:
+  - "Handle the new message."
+  - "Is anything still open?"
+outside:
+  - thread: SYN-thread-test
+    who: SYN-person-test
+    replies:
+      - "The reference is SYN-REF-1."
+    asked_again: null
+    never_asked: null
+check: tests/fixtures/checks.py

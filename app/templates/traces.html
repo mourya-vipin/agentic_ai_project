@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Traces{% endblock %}
+{% block content %}
+<h1>Traces</h1>
+<h2>Runs</h2>
+{% if runs %}
+  <div class="scroll"><table>
+    <tr><th>Run</th><th>Arm</th><th>Task</th><th>Sweep</th><th>Outcome</th><th>Check</th><th>Tokens</th><th>Latency</th></tr>
+    {% for r in runs %}
+      <tr><td><a href="{{ r.link }}">{{ r.run_id }}</a></td><td>{{ r.arm }}</td><td>{{ r.task }}</td>
+          <td>{{ r.sweep }}</td><td>{{ r.outcome }}</td><td>{{ 'pass' if r.passed else 'fail' }}</td>
+          <td>{{ r.tokens }}</td><td>{{ r.latency_s }} s</td></tr>
+    {% endfor %}
+  </table></div>
+  {% if more %}<p class="muted">and {{ more }} older runs.</p>{% endif %}
+{% else %}
+  <p class="muted">No runs yet. <code>python run.py --tasks tasks/ --arm NAME</code> records them in <code>results/</code>.</p>
+{% endif %}
+<h2>Sessions</h2>
+{% for s in sessions %}
+  <p><a href="/traces/session/{{ s.id }}">{{ s.id }}</a> <span class="muted">{{ s.lines }} lines · {{ s.modified }}</span></p>
+{% else %}
+  <p class="muted">No console sessions yet.</p>
+{% endfor %}
+{% endblock %}

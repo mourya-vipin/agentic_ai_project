@@ -1,0 +1,19 @@
+{% for line in history %}
+  {% if line.type == 'operator' %}
+    <div class="line operator"><div class="who">Operator</div>{{ line.text }}</div>
+  {% elif line.type == 'reply' %}
+    <div class="line reply"><div class="who">Agent{% if line.function != 'operator_turn' %} (after {{ line.function }}){% endif %}</div>{{ line.text }}{% for action in line.actions %}
+<span class="muted">· {{ action }}</span>{% endfor %}{% if line.waiting_for %}
+<span class="muted">Waiting for a reply on {{ line.waiting_for }}.</span>{% endif %}</div>
+  {% elif line.type == 'progress' %}
+    <div class="line progress muted">{{ line.text }}</div>
+  {% elif line.type == 'outside' %}
+    <div class="line outside"><div class="who">{{ line.sender }}, on thread {{ line.thread_id }}</div>{{ line.text }}</div>
+  {% elif line.type == 'approval' %}
+    <div class="line"><div class="who">Approval {{ line.approval_id }}</div>{{ 'Approved' if line.approved else 'Denied' }}{% if line.note %}: {{ line.note }}{% endif %}</div>
+  {% elif line.type == 'error' %}
+    <div class="line error"><div class="who">Error in {{ line.function }}</div>{{ line.message }}</div>
+  {% endif %}
+{% else %}
+  <p class="muted">No messages yet.</p>
+{% endfor %}

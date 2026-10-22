@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+{% if record %}<h2>Record</h2><pre>{{ record }}</pre>{% endif %}
+<h2>Trace</h2>
+{% if lines %}
+  <div class="scroll"><table>
+    <tr><th>Time (UTC)</th><th>Line</th><th>Detail</th></tr>
+    {% for x in lines %}<tr><td>{{ x.at }}</td><td>{{ x.type }}</td><td><code>{{ x.detail }}</code></td></tr>{% endfor %}
+  </table></div>
+{% else %}
+  <p class="muted">No trace lines.</p>
+{% endif %}
+{% endblock %}

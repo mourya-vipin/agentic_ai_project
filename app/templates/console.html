@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Console{% endblock %}
+{% block content %}
+<h1>Console</h1>
+<div class="split">
+  <section>
+    <form method="post" action="/console/new"><button>New session</button></form>
+    <h2>Sessions</h2>
+    {% for s in sessions %}
+      <p><a href="/console/{{ s.id }}">{{ s.id }}</a><br><span class="muted">{{ s.turns }} messages{% if s.first %} · {{ s.first }}{% endif %}</span></p>
+    {% else %}
+      <p class="muted">No sessions yet.</p>
+    {% endfor %}
+  </section>
+  <section>
+    {% if session_id %}
+      <h2>Session {{ session_id }}</h2>
+      <div id="history">{% include "_history.html" %}</div>
+      <form id="turn" method="post" action="/console/{{ session_id }}/turn">
+        <textarea name="text" rows="3" required placeholder="A message to the agent"></textarea>
+        <p><button>Send</button> <span id="status" class="muted"></span></p>
+      </form>
+      <script>
+        // Send a message without leaving the page. The form stays open while the agent
+        // works, so a second message reaches operator_turn mid-task.
+        const form = document.getElementById("turn");
+        const box = document.getElementById("history");
+        const status = document.getElementById("status");
+        let pending = 0;
+        async function refresh() {
+          const response = await fetch("/console/{{ session_id }}/history");
+          if (!response.ok) return;
+          const html = await response.text();
+          if (html !== box.dataset.last) { box.innerHTML = html; box.dataset.last = html; }
+        }
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const body = new URLSearchParams(new FormData(form));
+          form.querySelector("textarea").value = "";
+          pending += 1;
+          status.textContent = "working";
+          const poll = setInterval(refresh, 1000);
+          try {
+            await fetch(form.action, {method: "POST", body: body, headers: {"Accept": "application/json"}});
+          } finally {
+            clearInterval(poll);
+            pending -= 1;
+            if (pending === 0) status.textContent = "";
+            refresh();
+          }
+        });
+        setInterval(refresh, 3000);
+      </script>
+    {% else %}
+      <p class="muted">Open a session, or start a new one. Each message goes to the agent
+      through <code>operator_turn</code> in <code>agent/service.py</code>.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

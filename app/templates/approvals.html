@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Approvals{% endblock %}
+{% block content %}
+<h1>Approvals</h1>
+{% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% for item in items %}
+  <div class="line">
+    <div class="who">Approval {{ item.id }}</div>
+    <div class="scroll"><table>
+      {% for k, v in item.items() if k != 'id' %}<tr><th>{{ k }}</th><td>{{ v }}</td></tr>{% endfor %}
+    </table></div>
+    <form method="post" action="/approvals">
+      <input type="hidden" name="approval_id" value="{{ item.id }}">
+      <p><input type="text" name="note" placeholder="A note (optional)"></p>
+      <button name="decision" value="approve">Approve</button>
+      <button name="decision" value="deny">Deny</button>
+    </form>
+  </div>
+{% else %}
+  {% if not error %}
+  <p class="muted">Nothing waits for approval. Your approval gate fills this page. Your
+  agent lists what waits here through <code>pending_approvals()</code> in
+  <code>agent/service.py</code>, and the answer goes back through <code>decide_approval()</code>.</p>
+  {% endif %}
+{% endfor %}
+{% endblock %}

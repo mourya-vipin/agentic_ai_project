@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Queue{% endblock %}
+{% block content %}
+<h1>Queue</h1>
+<h2>Waiting in the sandbox</h2>
+{% if item_error %}<p class="error">{{ item_error }}</p>{% endif %}
+{% if items %}
+  <div class="scroll"><table>
+    <tr><th>ID</th><th>Summary</th><th>Status</th><th>Since</th><th>More</th></tr>
+    {% for i in items %}
+      <tr><td>{{ i.id }}</td><td>{{ i.summary }}</td><td>{{ i.status }}</td><td>{{ i.since }}</td>
+          <td class="muted">{% for k, v in i.items() if k not in ('id', 'summary', 'status', 'since') %}{{ k }}: {{ v }}{% if not loop.last %}; {% endif %}{% endfor %}</td></tr>
+    {% endfor %}
+  </table></div>
+{% elif not item_error %}
+  <p class="muted">Nothing is waiting. <code>sandbox/queue.py</code> says what goes here.</p>
+{% endif %}
+<h2>Waiting for an outside reply</h2>
+{% for t in waiting %}
+  <p><a href="/threads?thread={{ t.thread_id | urlencode }}">{{ t.thread_id }}</a> <span class="muted">since {{ t.last_at }}: {{ t.last_text[:140] }}</span></p>
+{% else %}
+  <p class="muted">No thread waits for a reply.</p>
+{% endfor %}
+<h2>Waiting for approval</h2>
+{% if approval_error %}<p class="error">{{ approval_error }}</p>{% endif %}
+{% if approvals %}
+  <p><a href="/approvals">{{ approvals | length }} waiting</a></p>
+{% elif not approval_error %}
+  <p class="muted">Nothing waits for approval.</p>
+{% endif %}
+{% endblock %}
