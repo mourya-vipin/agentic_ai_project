@@ -35,6 +35,7 @@ your model calls labelled as theirs.
 
 from __future__ import annotations
 
+from agent import router
 from harness.turns import Reply  # noqa: F401  (what each turn returns)
 
 
@@ -42,8 +43,7 @@ def operator_turn(session_id: str, text: str) -> Reply:
     """One message from the operator in this session: give a task, add to it, ask
     about it. Route the case to its path, as your routing and the switches say, and
     reply."""
-    raise NotImplementedError("operator_turn: route each case to its path here, the agent path for the use cases "
-                              "the gates give it, workflows for the rest")
+    return router.handle_operator(session_id, text)
 
 
 def on_outside_reply(thread_id: str, text: str) -> Reply:

@@ -1,30 +1,39 @@
-# Each switch has a setting and the values it may take. Your agent reads it with
-# harness.runtime.switch("name"); run.py --set name=value sets it for one arm.
-# A group, a name with switches under it and no setting, takes the place of the
-# flat switch of its name:
+# Each switch has a setting and the values it may take. Our code reads it with
+# harness.runtime.switch("group.name"); run.py --set group.name=value sets it for one arm.
+# Every setting here is what the decision table in docs/milestones/M1.md says.
 #
-#   plan:
-#     refunds: {setting: "on", values: ["off", "on"]}     # plan.refunds
-#
-# added: <date> goes on a switch, never on a group. Quote "off" and "on": YAML
-# reads them bare as false and true. The README's "Your switches" says more.
+# Rules: values list only the paths we have built. Quote "off" and "on". A switch added
+# after the first committed run in results/ carries added: YYYY-MM-DD on the switch itself,
+# never on its group. Each owner edits only their own group.
 
+# Who picks each next step and ends the run, per use case (Lecture 1, the four gates).
+# Owner: Aman Panigrahi.
 control:
-  setting: agent
-  values: [workflow, agent]
-  about: Who picks each next step and ends the run. workflow, your code; agent, the model, on the bounded loop. Lecture 1.
+  standard_grant:      {setting: workflow, values: [workflow], about: "U1, a grant the role policy allows. Fails gate 1: fixed steps once parsed."}
+  onboarding:          {setting: workflow, values: [workflow], about: "U2, a new starter from the HR feed. Fails gate 1: the role table fixes the steps."}
+  offboarding:         {setting: workflow, values: [workflow], about: "U3, a contract ended or a leaver. Fails gate 1."}
+  nonstandard_request: {setting: agent,    values: [agent],    about: "U4, any request that is not one policy-allowed group. Passes all four gates."}
+  operator_review:     {setting: agent,    values: [agent],    about: "U5, the operator's questions. Read-only investigation."}
+  bulk_change:         {setting: agent,    values: [agent],    about: "U6, the operator's own bulk instructions."}
 
+# Whether a use case on the agent path writes a plan that is validated first (Lecture 2, slides 5, 54).
+# Owner: Shruti Tewaney.
 plan:
-  setting: "off"
-  values: ["off", "on"]
-  about: Whether the agent writes a plan that is validated before any step runs, and follows it. Lecture 2.
+  bulk_change: {setting: "on", values: ["off", "on"], about: "U6 as a planned agent; off runs it on the bounded loop."}
+
+# The critique loop on an outgoing action (Lecture 2, slide 43). Owner: Shruti Tewaney.
+critique:
+  requester_reply: {setting: external, values: ["off", "external"], about: "reply_draft checked against the sandbox's records before it is written."}
+
+# Usage examples in a tool's definition (Lecture 3, slide 18). Owner: Vipin Mourya.
+examples:
+  access_grant: {setting: "on", values: ["off", "on"], about: "A typical call, then a contractor's time-boxed grant."}
+
+# Strict mode on a tool's definition (Lecture 3, slides 20 to 22). Owner: Vipin Mourya.
+strict:
+  access_propose_change: {setting: "on", values: ["off", "on"], about: "Every argument written by the model; a malformed call costs a turn."}
 
 notes:
   setting: "off"
   values: ["off", "on"]
-  about: Whether the agent keeps notes outside the conversation, in every context, untouched by compaction. Lecture 2.
-
-critique:
-  setting: "off"
-  values: ["off", "self", "external"]
-  about: The critique loop on the way out. self, the same model rereads its draft; external, a check on an outside signal. Lecture 2.
+  about: Whether the agent keeps notes outside the conversation, untouched by compaction. Stays off until Milestone 2.
