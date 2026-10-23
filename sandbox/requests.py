@@ -31,7 +31,7 @@ def create(thread_id, source, text, *, requester_id=None, subject_id=None, reque
 
 def get(request_id: str) -> dict | None:
     with db.connect() as conn:
-        return conn.execute("SELECT * FROM requests WHERE id = ?", (str(request_id).upper(),)).fetchone()
+        return conn.execute("SELECT * FROM requests WHERE id = ?", (str(request_id).strip().upper(),)).fetchone()
 
 
 def by_thread(thread_id: str) -> dict | None:
@@ -58,16 +58,16 @@ def set_status(request_id, status, *, stamp, note="") -> dict:
         raise ValueError(f"status is one of {', '.join(STATUSES)}, not {status!r}")
     with db.connect() as conn:
         cur = conn.execute("UPDATE requests SET status = ?, note = ? WHERE id = ?", (status, note or None,
-                                                                                     str(request_id).upper()))
+                                                                                     str(request_id).strip().upper()))
         if cur.rowcount == 0:
             raise KeyError(f"no request {request_id}")
-        db.audit(conn, actor="system", action="set_status", stamp=stamp, request_id=str(request_id).upper(),
+        db.audit(conn, actor="system", action="set_status", stamp=stamp, request_id=str(request_id).strip().upper(),
                  detail={"status": status, "note": note})
-        return conn.execute("SELECT * FROM requests WHERE id = ?", (str(request_id).upper(),)).fetchone()
+        return conn.execute("SELECT * FROM requests WHERE id = ?", (str(request_id).strip().upper(),)).fetchone()
 
 
 def set_route(request_id, route, *, stamp) -> None:
     with db.connect() as conn:
-        conn.execute("UPDATE requests SET route = ? WHERE id = ?", (route, str(request_id).upper()))
-        db.audit(conn, actor="system", action="set_route", stamp=stamp, request_id=str(request_id).upper(),
+        conn.execute("UPDATE requests SET route = ? WHERE id = ?", (route, str(request_id).strip().upper()))
+        db.audit(conn, actor="system", action="set_route", stamp=stamp, request_id=str(request_id).strip().upper(),
                  detail={"route": route})

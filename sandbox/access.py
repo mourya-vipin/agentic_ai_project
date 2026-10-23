@@ -39,14 +39,14 @@ def memberships(employee_id: str, active_only: bool = True) -> list[dict]:
     if active_only:
         sql += " AND m.removed_at IS NULL"
     with db.connect() as conn:
-        return conn.execute(sql + " ORDER BY m.group_id, m.id", (str(employee_id).upper(),)).fetchall()
+        return conn.execute(sql + " ORDER BY m.group_id, m.id", (str(employee_id).strip().upper(),)).fetchall()
 
 
 def members(group_id: str) -> list[dict]:
     with db.connect() as conn:
         return conn.execute(f"SELECT {MEMBERSHIP_COLUMNS} FROM memberships m JOIN groups g ON g.id = m.group_id "
                             "WHERE m.group_id = ? AND m.removed_at IS NULL ORDER BY m.employee_id",
-                            (str(group_id).upper(),)).fetchall()
+                            (str(group_id).strip().upper(),)).fetchall()
 
 
 def by_request(request_id: str) -> list[dict]:
@@ -63,7 +63,7 @@ def by_request(request_id: str) -> list[dict]:
 def grant(employee_id, group_id, *, request_id, key, stamp, actor, expires_at=None) -> dict:
     """{"status": "granted" | "already_member", "membership_id": int}; a repeated key
     returns the first result."""
-    employee_id, group_id = str(employee_id).upper(), str(group_id).upper()
+    employee_id, group_id = str(employee_id).strip().upper(), str(group_id).strip().upper()
     with db.connect() as conn:
         first = _seen(conn, key)
         if first is not None:
@@ -88,7 +88,7 @@ def grant(employee_id, group_id, *, request_id, key, stamp, actor, expires_at=No
 def revoke(employee_id, group_id, *, request_id, key, stamp, actor, reason) -> dict:
     """{"status": "removed" | "not_a_member" | "protected", ...}; a protected group is
     never removed; a repeated key returns the first result."""
-    employee_id, group_id = str(employee_id).upper(), str(group_id).upper()
+    employee_id, group_id = str(employee_id).strip().upper(), str(group_id).strip().upper()
     with db.connect() as conn:
         first = _seen(conn, key)
         if first is not None:

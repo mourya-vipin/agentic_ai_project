@@ -21,13 +21,13 @@ GROUP_COLUMNS = ("g.id, g.system_id, s.name AS system_name, g.name, g.level, g.s
 def get_group(group_id: str) -> dict | None:
     with db.connect() as conn:
         return conn.execute(f"SELECT {GROUP_COLUMNS} FROM groups g JOIN systems s ON s.id = g.system_id "
-                            "WHERE g.id = ?", (str(group_id).upper(),)).fetchone()
+                            "WHERE g.id = ?", (str(group_id).strip().upper(),)).fetchone()
 
 
 def get_system(system_id: str) -> dict | None:
     with db.connect() as conn:
         return conn.execute("SELECT id, name, owner_dept, sensitivity FROM systems WHERE id = ?",
-                            (str(system_id).upper(),)).fetchone()
+                            (str(system_id).strip().upper(),)).fetchone()
 
 
 def search_groups(query: str = "", system_id: str | None = None, limit: int = 10) -> list[dict]:
@@ -38,7 +38,7 @@ def search_groups(query: str = "", system_id: str | None = None, limit: int = 10
     args: list = [like, like, like]
     if system_id:
         sql += " AND g.system_id = ?"
-        args.append(str(system_id).upper())
+        args.append(str(system_id).strip().upper())
     with db.connect() as conn:
         return conn.execute(sql + " ORDER BY g.id LIMIT ?", (*args, int(limit))).fetchall()
 

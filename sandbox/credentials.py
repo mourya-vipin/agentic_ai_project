@@ -57,4 +57,4 @@ def for_employee(employee_id: str) -> list[dict]:
     """The person's credentials: IDs, kinds and dates, never the secrets."""
     with db.connect() as conn:
         return conn.execute(f"SELECT {PUBLIC} FROM credentials WHERE employee_id = ? ORDER BY id",
-                            (str(employee_id).upper(),)).fetchall()
+                            (str(employee_id).strip().upper(),)).fetchall()

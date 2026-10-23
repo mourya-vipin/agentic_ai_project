@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Pending{% endblock %}
+{% block content %}
+{% include "_product_nav.html" %}
+<h1>Waiting for the operator</h1>
+<p class="muted">What the system prepared but may not do alone: it sits below the approval line until you act on it here.</p>
+{% if items %}<div class="scroll"><table><tr><th>ID</th><th>Kind</th><th>Request</th><th>Person</th><th>Detail</th><th></th></tr>
+{% for p in items %}<tr><td>{{ p.id }}</td><td>{{ p.kind }}</td>
+  <td>{% if p.request_id %}<a href="/requests/{{ p.request_id }}">{{ p.request_id }}</a>{% endif %}</td>
+  <td>{% if p.employee_id %}<a href="/people/{{ p.employee_id }}">{{ p.employee_id }}</a>{% endif %}</td>
+  <td>{% if p.action %}{{ p.action }} {{ p.group_id }}. {% endif %}{{ p.reason or '' }}{% if p.body %}<div class="line">{{ p.body }}</div>{% endif %}</td>
+  <td>{% if p.kind == 'proposed_change' %}<form method="post" action="/pending/{{ p.id }}/apply"><button>Apply</button></form>
+      {% elif p.kind == 'reply_draft' %}<form method="post" action="/pending/{{ p.id }}/send"><button>Send as operator</button></form>
+      {% else %}<form method="post" action="/pending/{{ p.id }}/close"><input type="hidden" name="status" value="done"><button>Mark done</button></form>{% endif %}
+      <form method="post" action="/pending/{{ p.id }}/close"><input type="hidden" name="status" value="dismissed"><button>Dismiss</button></form></td></tr>{% endfor %}
+</table></div>{% else %}<p class="muted">Nothing waits for you.</p>{% endif %}
+{% endblock %}

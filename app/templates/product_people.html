@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}People{% endblock %}
+{% block content %}
+{% include "_product_nav.html" %}
+<h1>People</h1>
+<form method="get" action="/people"><input type="text" name="q" value="{{ q }}" placeholder="name, email, ID or title" style="max-width: 420px"> <button>Search</button></form>
+{% if q %}
+  {% if found %}<div class="scroll"><table><tr><th>ID</th><th>Name</th><th>Title</th><th>Department</th><th>Status</th></tr>
+  {% for p in found %}<tr><td><a href="/people/{{ p.id }}">{{ p.id }}</a></td><td>{{ p.name }}</td><td>{{ p.title }}</td><td>{{ p.dept }}</td><td>{{ p.status }}{% if p.end_date %} (until {{ p.end_date }}){% endif %}</td></tr>{% endfor %}
+  </table></div>{% else %}<p class="muted">No one matches "{{ q }}".</p>{% endif %}
+{% endif %}
+{% endblock %}

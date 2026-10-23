@@ -1,9 +1,20 @@
 {% extends "base.html" %}
+{% block title %}Access requests{% endblock %}
 {% block content %}
-<h1>Your product</h1>
-<p>This page is yours. Put your product's own features here: the records your
-agent works on, and a way to do the core task by hand, with no agent at all.</p>
-<p class="muted">Edit <code>app/product.py</code> and <code>app/templates/home.html</code>.
-The pages in the menu are the operator's: the console, the queue, the threads,
-the approvals and the traces.</p>
+{% include "_product_nav.html" %}
+<h1>Access requests</h1>
+<p>{{ open_count }} open · {{ pending_count }} waiting on <a href="/pending">the pending list</a></p>
+{% if requests %}
+<div class="scroll"><table>
+  <tr><th>Request</th><th>Received</th><th>From</th><th>Message</th><th>Status</th><th>Route</th></tr>
+  {% for r in requests %}
+  <tr><td><a href="/requests/{{ r.id }}">{{ r.id }}</a></td><td>{{ r.received_at }}</td>
+      <td>{% if r.requester_id %}<a href="/people/{{ r.requester_id }}">{{ people[r.requester_id].name if people[r.requester_id] else r.requester_id }}</a>{% else %}<span class="muted">{{ 'HR feed' if r.source == 'hr_feed' else 'unknown sender' }}</span>{% endif %}</td>
+      <td>{{ r.text[:110] }}{% if r.text|length > 110 %}…{% endif %}</td><td>{{ r.status }}</td>
+      <td class="muted">{{ r.route or '' }}</td></tr>
+  {% endfor %}
+</table></div>
+{% else %}
+<p class="muted">No requests. <code>make app</code> seeds the demo day.</p>
+{% endif %}
 {% endblock %}

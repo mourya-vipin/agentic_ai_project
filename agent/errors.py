@@ -33,3 +33,13 @@ class PermanentError(ToolError):
 
 class ProtocolError(ToolError):
     error_class = "protocol"
+
+
+class EndRun(ToolError):
+    """The call must end the loop (a draft held at the critique's bound): the
+    registry returns end_reason with the message, and the loop stops."""
+    error_class = "permanent"
+
+    def __init__(self, message: str, end_reason: str):
+        super().__init__(message)
+        self.end_reason = end_reason

@@ -40,7 +40,7 @@ def create(kind, *, request_id, employee_id, key, stamp, action=None, group_id=N
 
 def get(pending_id: str) -> dict | None:
     with db.connect() as conn:
-        return conn.execute("SELECT * FROM pending_actions WHERE id = ?", (str(pending_id).upper(),)).fetchone()
+        return conn.execute("SELECT * FROM pending_actions WHERE id = ?", (str(pending_id).strip().upper(),)).fetchone()
 
 
 def open_items(kind: str | None = None) -> list[dict]:
@@ -54,7 +54,7 @@ def open_items(kind: str | None = None) -> list[dict]:
 def by_request(request_id: str) -> list[dict]:
     with db.connect() as conn:
         return conn.execute("SELECT * FROM pending_actions WHERE request_id = ? ORDER BY id",
-                            (str(request_id).upper(),)).fetchall()
+                            (str(request_id).strip().upper(),)).fetchall()
 
 
 def close(pending_id, status, *, stamp) -> None:
@@ -63,7 +63,7 @@ def close(pending_id, status, *, stamp) -> None:
         raise ValueError(f"a pending record closes as done or dismissed, not {status!r}")
     with db.connect() as conn:
         cur = conn.execute("UPDATE pending_actions SET status = ?, closed_at = ?, closed_stamp = ? "
-                           "WHERE id = ? AND status = 'open'", (status, wall_now(), stamp, str(pending_id).upper()))
+                           "WHERE id = ? AND status = 'open'", (status, wall_now(), stamp, str(pending_id).strip().upper()))
         if cur.rowcount == 0:
             raise KeyError(f"no open pending record {pending_id}")
         db.audit(conn, actor="operator", action=f"pending_{status}", stamp=stamp, detail={"pending_id": pending_id})
