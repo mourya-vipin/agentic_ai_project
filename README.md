@@ -1,3 +1,55 @@
+# IT access desk
+
+Team 9 (Vipin Mourya, Aman Panigrahi, Shruti Tewaney), Agentic AI Engineering, Milestone 1.
+
+A local web application for the IT administrator of a 250-person company. Access requests arrive all day on
+the help desk's channel: from employees ("I need write access to Jira") and from the HR system's feed (a new
+starter, an ended contract). Routine requests run as workflows. Requests that vary go to a bounded agent:
+"the same access as a colleague", a request on someone else's behalf, a sensitive group. So do the
+operator's own questions and bulk changes. Everything the system may not do alone is written down as a
+pending record for the operator to act on by hand. Every record is synthetic; every effect lands in a local
+sandbox.
+
+## The one command
+
+Needs only Python 3.10 or later and an OpenAI API key; nothing else to install.
+
+```bash
+make setup                      # once: the virtual environment and the dependencies
+export OPENAI_API_KEY=...       # the model's key, in your shell (never in a file in the repository)
+make app                        # resets the sandbox, seeds the demo day, serves http://localhost:8000
+```
+
+`make app BACKEND=never-stops` serves the same app on a scripted model, spending no tokens.
+
+## The model
+
+`gpt-4.1-mini` through OpenAI (`settings.yaml`). Its price line is in `pricing.yaml`: $0.40 per million input
+tokens, $1.60 per million output, $0.10 per million cached input, read 2026-10-21 from
+https://developers.openai.com/api/docs/pricing.
+
+## Running an arm, and the analysis script
+
+```bash
+python run.py --tasks tasks/ --sweeps 3 --arm baseline            # every test task, three sweeps
+python -m harness.summarize results/baseline                       # the starter's summary table
+python experiments/analysis/analyze.py results/baseline            # every other number in our write-up
+make test && make check                                            # tests and structure checks, no tokens
+```
+
+## Where things are
+
+| | |
+|---|---|
+| `sandbox/` | the company's data, the mock identity API, notices, the seed (`sandbox/seed.py` documents the test task inputs) |
+| `app/product.py` | the product's own pages: requests, people, pending records |
+| `agent/` | the agent: `service.py` (the one entry point), the router, workflows, the bounded loop, the planner and executor, the critique, the tool registry and tools |
+| `tasks/`, `checks/` | the test tasks and their checks |
+| `docs/milestones/M1.md` | the Milestone 1 write-up |
+| `CHANGES.md` | what each milestone added, removed and limited, and what we reused |
+
+---
+
 # Your project
 
 This repository is your team's project: a local web application in which your

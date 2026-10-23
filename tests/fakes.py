@@ -36,6 +36,51 @@ class StubRegistry:
 
 # -- Vipin Mourya: registry, tools, sandbox -------------------------------------------
 
+# One bad argument for each tool a model may call, by canonical name (Part 3, task 5).
+BAD_ARGS = {
+    "directory_get_employee": {"employee_id": "Priya Nair"},
+    "directory_search_employees": {"query": "x" * 200},
+    "directory_list_contractors_ended": {"before": "last Friday"},
+    "access_list_memberships": {"employee_id": "priya"},
+    "catalog_search_groups": {"query": "finance", "system_id": "Finance Reports"},
+    "policy_check_access": {"employee_id": "SYN-EMP-0031", "group_id": "payroll admin"},
+    "requests_get": {"request_id": "REQ-5"},
+    "requests_list_today": {"day": "today"},
+    "access_grant": {"employee_id": "SYN-EMP-0031", "group_id": "SYN-GRP-PAYROLL-ADMIN", "request_id": "SYN-REQ-0001"},
+    "access_revoke": {"employee_id": "SYN-EMP-0031", "group_id": "jira"},
+    "access_revoke_all": {"employee_id": "all contractors"},
+    "access_propose_change": {"action": "approve", "employee_id": "SYN-EMP-0031", "group_id": "SYN-GRP-PAYROLL-ADMIN"},
+    "reply_draft": {"recipient_employee_id": "SYN-EMP-0031", "body": ""},
+    "manager_confirmation_draft": {"employee_id": "SYN-EMP-0031", "group_id": "SYN-GRP-NO-SUCH-GROUP"},
+    "requests_set_status": {"request_id": "SYN-REQ-0001", "status": "finished"},
+}
+
+
+class BadArgs:
+    """Calls each tool it is offered once, in order, with one bad argument, then ends
+    its turn: every error goes through the running system and lands in the trace
+    with is_error set (Part 3, task 5).
+
+        python run.py --tasks tasks/<task>.yaml --sweeps 1 --arm bad-args --backend tests.fakes:BadArgs
+    """
+    free = True
+
+    def __init__(self, settings=None):
+        pass
+
+    def create(self, *, system, messages, tools):
+        from agent.tools.definitions_v1 import ALIASES
+        from harness.client import Usage
+        done = sum(1 for m in messages if m.get("role") == "assistant")
+        offered = [t["name"] for t in tools or []]
+        usage = Usage(input_tokens=10, output_tokens=5)
+        if done >= len(offered):
+            return [{"type": "text", "text": "Done."}], "end_turn", "bad-args", usage
+        name = offered[done]
+        args = BAD_ARGS.get(ALIASES.get(name, name), {})
+        return ([{"type": "tool_use", "id": f"bad_{done:02d}", "name": name, "input": args}], "tool_use",
+                "bad-args", usage)
+
 
 # -- Aman Panigrahi: routing, workflows, loop ----------------------------------------
 
