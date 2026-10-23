@@ -8,6 +8,8 @@
 - The sandbox (`sandbox/`): Synthetic Corp's directory of 250 people, systems, groups and role policy, generated deterministically; a mock identity API that accepts each key once; fake credentials whose secrets no read returns; requests, pending records, template notices that check their key before sending, a fixed clock, and the demo day for `make app`. Tests in `tests/test_sandbox.py`.
 - The product's own pages (`app/product.py`): today's requests, one request with its thread and changes, the directory, one person's groups and credentials with a grant and remove form, and the pending list where the operator applies, sends or dismisses what the system prepared. Tests in `tests/test_product.py`.
 - The first-draft tool definitions (`agent/tools/definitions_v1.py`), the tools (`agent/tools/impl.py`) and the plain registry (`agent/registry.py`): name resolution, caller checks, a key derived for every write, and every call traced in full. Tests in `tests/test_tools.py`.
+- The registry's checks (`agent/registry.py`, `agent/tools/rules.py`): arguments validated at the boundary against each tool's rules and its definition's schema, with a repair fact on rejection; a pre-call hook that denies the call if it raises; transient failures retried in code (3 attempts, backoff 0.05 s then 0.1 s); results checked against their declared shape; what the model reads capped at 4,000 characters, saying so when cut; attempts, rejections and denials in the call record. Tests in `tests/test_registry.py`.
+- `scripts/definition_cost.py`: the same one-message call with and without each set of tool definitions, the difference in the input tokens the API reports.
 
 ### Removed
 

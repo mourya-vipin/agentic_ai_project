@@ -83,11 +83,6 @@ class ToolsTest(ScratchTest):
         self.assertEqual((first.data["status"], again.data["status"]), ("sent", "already_sent"))
         self.assertEqual(len([m for m in channel.messages("SYN-MSG-D01") if m.sender == channel.AGENT]), 1)
 
-    def test_a_transient_failure_says_a_retry_can_work(self):
-        access.set_fault("access_grant", 1)
-        result = self.registry.call("grant_access", {"employee_id": LEO, "group_id": "SYN-GRP-FINREP-READ"}, ctx())
-        self.assertEqual((result.error_class, result.retryable), ("transient", True))
-
     def test_removing_all_access_keeps_a_protected_group(self):
         result = self.registry.call("remove_all_access", {"employee_id": "SYN-EMP-0162", "reason": "contract ended"},
                                     ctx(use_case="bulk_change"))
