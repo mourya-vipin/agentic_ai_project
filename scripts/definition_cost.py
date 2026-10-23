@@ -73,6 +73,12 @@ def main(argv=None) -> int:
             alone, _ = prompt_tokens(client, [tool])
             each[tool["name"]] = alone - base
         entry = {"tools": len(tools), "definition_tokens": total - base, "per_tool": each}
+        if len(tools) > 1:
+            # Each tool alone carries the vendor's fixed overhead for a request with tools; all
+            # together carry it once. So the sum alone minus the total is (n - 1) overheads.
+            overhead = (sum(each.values()) - (total - base)) / (len(tools) - 1)
+            entry["fixed_overhead_tokens"] = round(overhead, 1)
+            entry["per_tool_without_overhead"] = {k: round(v - overhead, 1) for k, v in each.items()}
         if a.calls is not None:
             entry["per_run_tokens"] = round((total - base) * a.calls, 1)
         report["sets"][name] = entry

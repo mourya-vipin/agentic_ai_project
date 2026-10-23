@@ -160,7 +160,9 @@ class Registry:
                                     key=key, end_reason=exc.end_reason)
                 return self._record(name, canon, args, ctx, result, start, attempts=attempts)
             except ToolError as exc:
-                result = ToolResult(_cap(exc.message, REPAIR_CHARS), is_error=True, error_class=exc.error_class,
+                message = exc.message if exc.retryable or "same way" in exc.message else \
+                    f"{exc.message} A retry of the same call will fail the same way."
+                result = ToolResult(_cap(message, REPAIR_CHARS), is_error=True, error_class=exc.error_class,
                                     retryable=exc.retryable, key=key)
                 return self._record(name, canon, args, ctx, result, start, attempts=attempts)
             except (access.NotFound, KeyError, ValueError) as exc:
