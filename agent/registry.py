@@ -6,11 +6,18 @@ Owner: Vipin Mourya.
     tools = registry.definitions(["directory_get_employee", "access_grant"])
     result = registry.call("access_grant", args, CallContext(session_id, step, "model", "nonstandard_request"))
 
-This is the plain dispatch of Part 1, task 4: it resolves a tool's name (the
-first-draft name the model reads, or the canonical name our code uses), refuses a
-tool the caller may not use, derives the key of every write, runs the tool and
-traces the call in full. Part 3 adds, behind the same interface, boundary
-validation, the pre-call hook, retries of transient failures and result checks.
+call() does, in order (Lecture 3, slides 22 to 42):
+
+    1. protocol    an unknown tool, a tool this caller may not use, or arguments that
+                   are not an object: logged, and the model gets a short generic answer
+    2. boundary    the arguments against the tool's rules (agent/tools/rules.py) and its
+                   definition's schema; a rejection is an execution error with its repair fact
+    3. hook        each pre-call hook may deny the call; a hook that raises denies it
+    4. key         derived for every write from the intended action, never from the model
+    5. run         a transient failure is retried in code, with backoff, up to MAX_ATTEMPTS
+    6. result      checked against the tool's declared shape before the model sees it
+    7. cap         what the model reads is at most MAX_CHARS, and says so when cut
+    8. record      the trace's tool_call line, with the key, attempts, latency and cost
 
 Callers never write a tool_call line of their own: call() traces each call.
 """
@@ -24,12 +31,23 @@ import uuid
 from dataclasses import dataclass
 
 from agent.errors import EndRun, ToolError
-from agent.tools import definitions_v1, impl
+from agent.tools import definitions_v1, impl, rules
 from harness import runtime
+from harness.schema import errors as schema_errors
 from sandbox import access, db
 
 CALLERS = ("model", "workflow", "executor")
 GENERIC_PROTOCOL = "No tool by that name ran. Use only the tools in your definitions."
+DENIED = "Denied before running: the pre-call check failed. Nothing was changed; do not retry this call."
+BAD_RESULT = "The tool returned a result in an unexpected form, so nothing more is known. Do not assume it worked."
+MAX_ATTEMPTS = 3          # a transient failure: the first try and two retries
+BACKOFF_S = 0.05          # waits 0.05 s, then 0.1 s
+MAX_CHARS = 4000          # the most one call returns to the model
+REPAIR_CHARS = 400        # the most an error's repair fact takes
+
+
+def allow_all(tool: str, args: dict, ctx) -> None:
+    """Milestone 1's pre-call hook: it allows every call. Milestone 2 gives it a policy."""
 
 
 @dataclass
@@ -77,6 +95,7 @@ class Registry:
         self._definitions = definitions if definitions is not None else definitions_v1.DEFINITIONS
         self._aliases = aliases if aliases is not None else definitions_v1.ALIASES
         self._by_canonical = {self._aliases.get(d["name"], d["name"]): d for d in self._definitions}
+        self.hooks = [allow_all]
 
     def resolve(self, name: str) -> str | None:
         """The canonical name for a first-draft or canonical name, or None."""
@@ -94,40 +113,89 @@ class Registry:
     def call(self, name: str, args: dict, ctx: CallContext) -> ToolResult:
         start = time.monotonic()
         canon = self.resolve(name)
+        # 1. protocol: for us, not the model (slide 34)
         if canon is None or ctx.caller not in impl.TOOLS[canon][1] or not isinstance(args, dict):
             runtime.trace(ctx.session_id).event("protocol_error", tool=name, caller=ctx.caller,
                                                 use_case=ctx.use_case, step=ctx.step)
             result = ToolResult(GENERIC_PROTOCOL, is_error=True, error_class="protocol")
             return self._record(name, canon, args if isinstance(args, dict) else {"_raw": args}, ctx, result, start)
         run, _, writes = impl.TOOLS[canon]
-        key = derive_key(canon, args, ctx) if writes else None
-        try:
-            data = run(args, ctx, key)
-            result = ToolResult(json.dumps(data, default=str), data=data, key=key)
-        except EndRun as exc:
-            result = ToolResult(exc.message, is_error=True, error_class=exc.error_class, key=key,
-                                end_reason=exc.end_reason)
-        except ToolError as exc:
-            result = ToolResult(exc.message, is_error=True, error_class=exc.error_class, retryable=exc.retryable,
-                                key=key)
-        except access.TransientError as exc:
-            result = ToolResult(f"{exc} A retry can work.", is_error=True, error_class="transient", retryable=True,
-                                key=key)
-        except (access.NotFound, KeyError, ValueError) as exc:
-            message = exc.args[0] if exc.args else str(exc)
-            result = ToolResult(f"{message}. A retry with the same arguments will fail the same way.", is_error=True,
-                                error_class="permanent", key=key)
-        return self._record(name, canon, args, ctx, result, start)
+        # 2. boundary
+        fixed, problems = rules.check_args(canon, args)
+        definition = self._by_canonical.get(canon)
+        if ctx.caller == "model" and definition is not None:
+            problems += schema_errors(args, definition["input_schema"])
+        if problems:
+            message = (f"{canon} did not run: " + "; ".join(dict.fromkeys(problems)) + ". Fix the arguments and "
+                       "call again; the same arguments will fail the same way.")
+            result = ToolResult(_cap(message, REPAIR_CHARS), is_error=True, error_class="permanent")
+            return self._record(name, canon, args, ctx, result, start, rejected=True)
+        # 3. the pre-call hook, failing closed
+        for hook in self.hooks:
+            try:
+                hook(canon, fixed, ctx)
+            except Exception as exc:  # any failure of the hook denies the call
+                runtime.trace(ctx.session_id).event("hook_denied", tool=canon, hook=getattr(hook, "__name__", "hook"),
+                                                    error=f"{type(exc).__name__}: {exc}"[:300])
+                return self._record(name, canon, args, ctx, ToolResult(DENIED, is_error=True, error_class="permanent"),
+                                    start, denied=True)
+        # 4. the key, derived here for every write
+        key = derive_key(canon, fixed, ctx) if writes else None
+        # 5. run, retrying transient failures in code (slide 36)
+        attempts = 0
+        while True:
+            attempts += 1
+            try:
+                data = run(fixed, ctx, key)
+                break
+            except access.TransientError as exc:
+                if attempts < MAX_ATTEMPTS:
+                    time.sleep(BACKOFF_S * 2 ** (attempts - 1))
+                    continue
+                result = ToolResult(_cap(f"{exc}. Tried {attempts} times; a retry later can work.", REPAIR_CHARS),
+                                    is_error=True, error_class="transient", retryable=True, key=key)
+                return self._record(name, canon, args, ctx, result, start, attempts=attempts)
+            except EndRun as exc:
+                result = ToolResult(_cap(exc.message, REPAIR_CHARS), is_error=True, error_class=exc.error_class,
+                                    key=key, end_reason=exc.end_reason)
+                return self._record(name, canon, args, ctx, result, start, attempts=attempts)
+            except ToolError as exc:
+                result = ToolResult(_cap(exc.message, REPAIR_CHARS), is_error=True, error_class=exc.error_class,
+                                    retryable=exc.retryable, key=key)
+                return self._record(name, canon, args, ctx, result, start, attempts=attempts)
+            except (access.NotFound, KeyError, ValueError) as exc:
+                message = exc.args[0] if exc.args else str(exc)
+                result = ToolResult(_cap(f"{message}. The same arguments will fail the same way.", REPAIR_CHARS),
+                                    is_error=True, error_class="permanent", key=key)
+                return self._record(name, canon, args, ctx, result, start, attempts=attempts)
+        # 6. the result, against its declared shape
+        bad = rules.check_result(canon, data)
+        if bad:
+            runtime.trace(ctx.session_id).event("result_invalid", tool=canon, problems=bad)
+            result = ToolResult(BAD_RESULT, is_error=True, error_class="permanent", key=key)
+            return self._record(name, canon, args, ctx, result, start, attempts=attempts)
+        # 7. the cap
+        result = ToolResult(_cap(json.dumps(data, default=str), MAX_CHARS), data=data, key=key)
+        return self._record(name, canon, args, ctx, result, start, attempts=attempts)
 
     def _record(self, asked: str, canon: str | None, args: dict, ctx: CallContext, result: ToolResult,
-                start: float) -> ToolResult:
+                start: float, attempts: int = 0, rejected: bool = False, denied: bool = False) -> ToolResult:
         """The call record (Lecture 3, slide 42), as the trace's tool_call line."""
         result.latency_s = time.monotonic() - start
         runtime.trace(ctx.session_id).tool_call(
             ctx.step, {"id": ctx.call_id or f"call_{uuid.uuid4().hex[:12]}", "name": canon or asked, "input": args},
             result, plan_step=ctx.plan_step, asked_as=asked, caller=ctx.caller, use_case=ctx.use_case,
-            key=result.key, error_class=result.error_class, cost_usd=0.0, summary=result.content[:200])
+            key=result.key, error_class=result.error_class, attempts=attempts, rejected=rejected, denied=denied,
+            cost_usd=0.0, summary=result.content[:200])
         return result
+
+
+def _cap(text: str, limit: int) -> str:
+    """At most `limit` characters, saying so when cut."""
+    if len(text) <= limit:
+        return text
+    note = f" … [cut: showed {limit} of {len(text)} characters; narrow the query to see the rest]"
+    return text[: limit - len(note)] + note
 
 
 _registry: Registry | None = None
