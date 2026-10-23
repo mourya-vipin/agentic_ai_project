@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ item.id }}{% endblock %}
+{% block content %}
+{% include "_product_nav.html" %}
+<h1>{{ item.id }} <span class="muted">· {{ item.status }}</span></h1>
+<p>From {% if requester %}<a href="/people/{{ requester.id }}">{{ requester.name }}</a> ({{ requester.title }}){% else %}{{ 'the HR feed' if item.source == 'hr_feed' else 'an unknown sender' }}{% endif %}
+  on thread <a href="/threads?thread={{ item.thread_id | urlencode }}">{{ item.thread_id }}</a>, received {{ item.received_at }}.
+  {% if item.route %}Route: <code>{{ item.route }}</code>.{% endif %}</p>
+<h2>The thread</h2>
+{% for m in messages %}<div class="line {{ 'reply' if m.sender in ('agent', 'operator') else 'outside' }}"><span class="who">{{ m.sender }} · {{ m.at }}</span>
+{{ m.text }}</div>{% endfor %}
+<h2>Access changed under this request</h2>
+{% if changes %}<table><tr><th>Change</th><th>Person</th><th>Group</th><th>By</th><th>Stamp</th></tr>
+{% for c in changes %}<tr><td>{{ c.change }}</td><td><a href="/people/{{ c.employee_id }}">{{ c.employee_id }}</a></td><td>{{ c.group_name }} <span class="muted">{{ c.group_id }}</span></td><td>{{ c.actor }}</td><td class="muted">{{ c.stamp }}</td></tr>{% endfor %}
+</table>{% else %}<p class="muted">Nothing yet.</p>{% endif %}
+<h2>Pending records</h2>
+{% if pending_items %}<table><tr><th>ID</th><th>Kind</th><th>Detail</th><th>Status</th></tr>
+{% for p in pending_items %}<tr><td>{{ p.id }}</td><td>{{ p.kind }}</td><td>{{ p.action or '' }} {{ p.group_id or '' }} {{ (p.body or p.reason or '')[:140] }}</td><td>{{ p.status }}</td></tr>{% endfor %}
+</table>{% else %}<p class="muted">None.</p>{% endif %}
+<h2>Set the status by hand</h2>
+<form method="post" action="/requests/{{ item.id }}/status">
+  <select name="status">{% for s in statuses %}<option {{ 'selected' if s == item.status }}>{{ s }}</option>{% endfor %}</select>
+  <input type="text" name="note" placeholder="note (optional)" style="max-width: 420px">
+  <button>Save</button>
+</form>
+{% endblock %}

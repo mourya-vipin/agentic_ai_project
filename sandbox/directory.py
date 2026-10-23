@@ -9,7 +9,7 @@ COLUMNS = "id, name, email, dept, title, role, manager_id, employment, status, s
 
 def get_employee(employee_id: str) -> dict | None:
     with db.connect() as conn:
-        return conn.execute(f"SELECT {COLUMNS} FROM employees WHERE id = ?", (str(employee_id).upper(),)).fetchone()
+        return conn.execute(f"SELECT {COLUMNS} FROM employees WHERE id = ?", (str(employee_id).strip().upper(),)).fetchone()
 
 
 def by_email(email: str) -> dict | None:
