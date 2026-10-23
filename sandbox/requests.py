@@ -1,28 +1,73 @@
-"""Access requests, one per message the seed puts on the channel.
-Owner: Vipin Mourya. Signatures as agreed; bodies come with the sandbox."""
+"""Access requests: one per message the seed puts on the channel. Owner: Vipin Mourya.
+
+A request's ID (SYN-REQ-0001, …) is given in the order the requests arrive, unless
+the test task names it. Its thread is where it arrived: SYN-HR-… for the HR system's
+feed, any other thread for an employee's own message.
+"""
 
 from __future__ import annotations
 
+from sandbox import clock, db
 
-def create(thread_id, source, text, *, requester_id=None, subject_id=None) -> str:
-    raise NotImplementedError
+STATUSES = ("new", "in_progress", "done", "partly_done", "pending_operator", "refused")
+OPEN = ("new", "in_progress", "pending_operator")
+HR_PREFIX = "SYN-HR-"
+
+
+def source_of(thread_id: str) -> str:
+    return "hr_feed" if str(thread_id).upper().startswith(HR_PREFIX) else "employee"
+
+
+def create(thread_id, source, text, *, requester_id=None, subject_id=None, request_id=None, received_at=None,
+           stamp="seed") -> str:
+    with db.connect() as conn:
+        rid = request_id or db.next_id(conn, "requests", "SYN-REQ-")
+        conn.execute("INSERT INTO requests (id, thread_id, source, requester_id, subject_id, text, received_at, "
+                     "status, stamp) VALUES (?, ?, ?, ?, ?, ?, ?, 'new', ?)",
+                     (rid, str(thread_id), source, requester_id, subject_id, str(text), received_at or clock.now(),
+                      stamp))
+    return rid
 
 
 def get(request_id: str) -> dict | None:
-    raise NotImplementedError
+    with db.connect() as conn:
+        return conn.execute("SELECT * FROM requests WHERE id = ?", (str(request_id).upper(),)).fetchone()
 
 
 def by_thread(thread_id: str) -> dict | None:
-    raise NotImplementedError
+    """The latest request that arrived on this thread."""
+    with db.connect() as conn:
+        return conn.execute("SELECT * FROM requests WHERE thread_id = ? ORDER BY id DESC LIMIT 1",
+                            (str(thread_id),)).fetchone()
+
+
+def all_requests(day: str | None = None) -> list[dict]:
+    with db.connect() as conn:
+        if day:
+            return conn.execute("SELECT * FROM requests WHERE substr(received_at, 1, 10) = ? ORDER BY id",
+                                (day,)).fetchall()
+        return conn.execute("SELECT * FROM requests ORDER BY id").fetchall()
 
 
 def open_requests(day: str | None = None) -> list[dict]:
-    raise NotImplementedError
+    return [r for r in all_requests(day) if r["status"] in OPEN]
 
 
 def set_status(request_id, status, *, stamp, note="") -> dict:
-    raise NotImplementedError
+    if status not in STATUSES:
+        raise ValueError(f"status is one of {', '.join(STATUSES)}, not {status!r}")
+    with db.connect() as conn:
+        cur = conn.execute("UPDATE requests SET status = ?, note = ? WHERE id = ?", (status, note or None,
+                                                                                     str(request_id).upper()))
+        if cur.rowcount == 0:
+            raise KeyError(f"no request {request_id}")
+        db.audit(conn, actor="system", action="set_status", stamp=stamp, request_id=str(request_id).upper(),
+                 detail={"status": status, "note": note})
+        return conn.execute("SELECT * FROM requests WHERE id = ?", (str(request_id).upper(),)).fetchone()
 
 
 def set_route(request_id, route, *, stamp) -> None:
-    raise NotImplementedError
+    with db.connect() as conn:
+        conn.execute("UPDATE requests SET route = ? WHERE id = ?", (route, str(request_id).upper()))
+        db.audit(conn, actor="system", action="set_route", stamp=stamp, request_id=str(request_id).upper(),
+                 detail={"route": route})
