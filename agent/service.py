@@ -71,4 +71,4 @@ def pending_approvals() -> list[dict]:
 def decide_approval(approval_id: str, approved: bool, note: str = "") -> Reply | None:
     """The operator's answer to one approval: record it, and carry on the work that
     waited for it."""
-    raise NotImplementedError("decide_approval: no approval gate is built yet")
+    raise NotImplementedError("decide_approval: no approval gate is built yet (Milestone 2)")

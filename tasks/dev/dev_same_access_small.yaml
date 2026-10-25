@@ -1,0 +1,14 @@
+# For tuning prompts only: never in a measured arm (run.py --tasks tasks/ does not read tasks/dev/).
+id: dev_same_access_small
+title: "A new engineer asks for the same access as a teammate"
+input:
+  kind: request
+  thread: SYN-MSG-DEV1
+  from: dev.rao@syn-corp.example
+  text: >-
+    SYNTHETIC. Hi, I just joined the Platform team. Could I have the same access as Arjun Mehta?
+    Thanks, Dev
+operator:
+  - "Please handle the new access requests."
+outside: []
+check: checks/dev_same_access_small.py
