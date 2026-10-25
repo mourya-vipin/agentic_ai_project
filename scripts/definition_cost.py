@@ -39,7 +39,9 @@ OUT = ROOT / "docs" / "milestones" / "m1_definition_cost.json"
 def definition_sets() -> dict[str, list[dict]]:
     from agent.registry import Registry
     from agent.tools import definitions_v1
-    sets = {"first_draft": Registry(definitions_v1.DEFINITIONS, definitions_v1.ALIASES).definitions()}
+    # the first draft as it was sent in the dev-v1 runs: no strict mode, no examples
+    sets = {"first_draft": Registry(definitions_v1.DEFINITIONS, definitions_v1.ALIASES,
+                                    apply_switches=False).definitions()}
     try:
         rewrite = importlib.import_module("agent.tools.definitions")
     except ModuleNotFoundError:

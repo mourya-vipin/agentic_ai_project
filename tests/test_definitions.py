@@ -79,6 +79,14 @@ class DefinitionsTest(ScratchTest):
         on = self.sent(["examples.policy_check_access=on"])["policy_check_access"]["description"]
         self.assertIn("SYN-GRP-PAYROLL-ADMIN", on)
 
+    def test_the_first_draft_is_sent_as_written_never_with_the_rewrites_switches(self):
+        from agent.tools import definitions_v1
+        runtime.configure(overrides=["strict.directory_get_employee=on", "examples.access_grant=on"])
+        first = Registry(definitions_v1.DEFINITIONS, definitions_v1.ALIASES, apply_switches=False).definitions()
+        self.assertFalse(any("strict" in d for d in first))       # OpenAI refuses strict on an unfitted schema
+        self.assertEqual([d["description"] for d in first],
+                         [d["description"] for d in sorted(definitions_v1.DEFINITIONS, key=lambda d: d["name"])])
+
     def test_the_first_drafts_names_still_reach_their_tools(self):
         self.assertFalse(self.registry.call("get_access", {"employee_id": "SYN-EMP-0012"}, ctx()).is_error)
 

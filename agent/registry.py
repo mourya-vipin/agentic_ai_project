@@ -92,11 +92,15 @@ def derive_key(tool: str, args: dict, ctx: CallContext) -> str:
 
 
 class Registry:
-    def __init__(self, definitions: list[dict] | None = None, aliases: dict[str, str] | None = None):
+    def __init__(self, definitions: list[dict] | None = None, aliases: dict[str, str] | None = None,
+                 apply_switches: bool = True):
         self._definitions = definitions if definitions is not None else _rewrite.DEFINITIONS
         self._aliases = aliases if aliases is not None else _rewrite.ALIASES
         self._by_canonical = {self._aliases.get(d["name"], d["name"]): d for d in self._definitions}
         self.hooks = [allow_all]
+        # False sends the definitions exactly as written: the first draft is measured as it was,
+        # never with the rewrite's strict mode or examples on it.
+        self.apply_switches = apply_switches
 
     def resolve(self, name: str) -> str | None:
         """The canonical name for a first-draft or canonical name, or None."""
@@ -109,6 +113,8 @@ class Registry:
         model may call."""
         wanted = list(self._by_canonical) if names is None else [self.resolve(n) or n for n in names]
         chosen = [self._by_canonical[n] for n in wanted if n in self._by_canonical]
+        if not self.apply_switches:
+            return sorted(({k: v for k, v in d.items() if k != "examples"} for d in chosen), key=lambda d: d["name"])
         return sorted((_as_sent(d, self._aliases.get(d["name"], d["name"])) for d in chosen), key=lambda d: d["name"])
 
     def call(self, name: str, args: dict, ctx: CallContext) -> ToolResult:
