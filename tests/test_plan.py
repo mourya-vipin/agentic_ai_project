@@ -125,6 +125,14 @@ class ThroughTheRouterTest(ScratchTest):
         self.assertEqual(record["end_reasons"], [executor.PLAN_DONE])
         self.assertTrue(record["passed"], record.get("reason"))
 
+    def test_a_note_still_sees_results_its_dependencies_depend_on(self):
+        """dev-t06_bulk_ended_contractors-s01-338ad1: the revision made Grace's note depend on
+        the proposal alone, and the note never saw Victor's removals."""
+        record = self.run_task("tasks/t06_bulk_ended_contractors.yaml", "plan-e2e",
+                               backend="tests.fakes:ReplacingReviser", overrides=["plan.bulk_change=on"])
+        self.assertEqual(record["end_reasons"], [executor.PLAN_DONE])
+        self.assertTrue(record["passed"], record.get("reason"))
+
     def test_a_held_note_fails_t06s_check(self):
         record = self.run_task("tasks/t06_bulk_ended_contractors.yaml", "plan-e2e",
                                backend="tests.fakes:AlwaysWrongFiller", overrides=["plan.bulk_change=on"])

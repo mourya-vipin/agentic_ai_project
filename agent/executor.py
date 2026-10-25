@@ -251,7 +251,7 @@ class PlannedRun:
     def _fill_request(self, step: dict, args: dict, to_fill: list[str], error: str | None) -> str:
         fixed = {k: v for k, v in args.items() if k not in to_fill}
         results = "\n".join(f"step {d} ({self._step(d)['tool']}): {json.dumps(self.data[d], default=str)[:RESULT_CHARS]}"
-                            for d in step["depends_on"] if d in self.data)
+                            for d in self._upstream(step) if d in self.data)
         text = (f"The operator's instruction:\n{self.text}\n\n"
                 f"This step: {step['id']}, {step['action']}. Tool: {step['tool']}.\n"
                 f"Fixed arguments (use them as given): {json.dumps(fixed)}\n"
@@ -260,6 +260,17 @@ class PlannedRun:
         if error:
             text += f"\n\nYour last call failed: {error}"
         return text
+
+    def _upstream(self, step: dict) -> list[int]:
+        """The steps this one depends on, directly or through other steps, in plan order:
+        a note that depends on a proposal still sees the removal the proposal depends on."""
+        seen, todo = set(), list(step["depends_on"])
+        while todo:
+            d = todo.pop()
+            if d not in seen and any(s["id"] == d for s in self.plan["steps"]):
+                seen.add(d)
+                todo += self._step(d)["depends_on"]
+        return [s["id"] for s in self.plan["steps"] if s["id"] in seen]
 
     def _step(self, sid: int) -> dict:
         return next(s for s in self.plan["steps"] if s["id"] == sid)
