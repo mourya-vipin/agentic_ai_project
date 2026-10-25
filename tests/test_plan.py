@@ -115,6 +115,23 @@ class ValidPlanTest(PlannedTest):
         self.assertEqual(self.of("plan_diff")[-1]["skipped"], [9])      # the second note's fill was the third call
 
 
+class ThroughTheRouterTest(ScratchTest):
+    """t06 as run.py runs it: the operator's turn, the router, the planned executor, and
+    t06's own check reading the sandbox."""
+
+    def test_t06_passes_its_check_on_the_planned_path(self):
+        record = self.run_task("tasks/t06_bulk_ended_contractors.yaml", "plan-e2e", backend="tests.fakes:GoodPlanner",
+                               overrides=["plan.bulk_change=on"])
+        self.assertEqual(record["end_reasons"], [executor.PLAN_DONE])
+        self.assertTrue(record["passed"], record.get("reason"))
+
+    def test_a_held_note_fails_t06s_check(self):
+        record = self.run_task("tasks/t06_bulk_ended_contractors.yaml", "plan-e2e",
+                               backend="tests.fakes:AlwaysWrongFiller", overrides=["plan.bulk_change=on"])
+        self.assertEqual(record["end_reasons"], ["critique_held"])
+        self.assertFalse(record["passed"])
+
+
 class CheckpointTest(PlannedTest):
     def test_a_failing_checkpoint_gives_a_revised_plan_validated_and_logged(self):
         self.run_planned("GoodPlanner")

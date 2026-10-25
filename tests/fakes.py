@@ -240,8 +240,8 @@ def true_note(request: str) -> str:
 
 
 class GoodPlanner:
-    """Plans t06 without the legal-hold proposal; revises it in when the checkpoint
-    fails; fills every note truthfully."""
+    """Routes the operator's message as a bulk change; plans t06 without the legal-hold
+    proposal; revises it in when the checkpoint fails; fills every note truthfully."""
     free = True
     name = "good-planner"
     with_hold = False
@@ -253,6 +253,10 @@ class GoodPlanner:
         self.calls += 1
         names = [t["name"] for t in tools or []]
         request = messages[-1]["content"]
+        if not names:                  # the operator router's call: this is a bulk change
+            from harness.client import Usage
+            return ([{"type": "text", "text": json.dumps({"intent": "bulk_change", "request_ids": []})}], "end_turn",
+                    self.name, Usage(input_tokens=40, output_tokens=20))
         if "submit_plan" in names:
             body = self.revise(request) if system.startswith("You are the reviser") else self.plan(request)
             return self.use("submit_plan", body)
