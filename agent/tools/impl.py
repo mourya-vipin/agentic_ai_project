@@ -181,8 +181,8 @@ def reply_draft(args, ctx, key):
         verdict = critique.review_draft(recipient_employee_id=recipient["id"], request_id=slot[2], body=body,
                                         stamp=stamp, round=_rounds[slot])
         runtime.trace(ctx.session_id).event("critique", round=verdict.round, verdict="pass" if verdict.passed
-                                            else "fail", reason=verdict.reason, recipient=recipient["id"],
-                                            request_id=slot[2])
+                                            else "fail", reason=verdict.reason, changed=verdict.changed,
+                                            recipient=recipient["id"], request_id=slot[2])
         if not verdict.passed:
             if verdict.round >= critique.MAX_ROUNDS:
                 raise EndRun(f"The draft was held and not written: {verdict.reason}", critique.CRITIQUE_HELD)
