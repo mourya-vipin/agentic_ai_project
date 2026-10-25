@@ -54,6 +54,7 @@ PLAN_REJECTED = "plan_rejected"
 REVISION_BOUND = "revision_bound"
 PLAN_DONE = "plan_done"
 STEP_HALTED = "step_halted"
+NOTHING_TO_DO = "nothing_to_do"
 
 
 class _End(Exception):
@@ -142,6 +143,9 @@ class PlannedRun:
                          max_replans=MAX_REPLANS, max_revisions=MAX_REVISIONS)
         try:
             self.context = planner.build_context(self.text)
+            if not self.context["active_membership_counts"]:
+                raise _End(NOTHING_TO_DO, f"no contractor whose contract ended before {self.context['today']} "
+                                          "still holds access, and the instruction names no one")
             self.plan = self._valid_plan()
             self.version = 1
             self.trace.plan(1, self.plan, use_case=USE_CASE, step_limit=self.context["step_limit"])
@@ -251,7 +255,7 @@ class PlannedRun:
     def _fill_request(self, step: dict, args: dict, to_fill: list[str], error: str | None) -> str:
         fixed = {k: v for k, v in args.items() if k not in to_fill}
         results = "\n".join(f"step {d} ({self._step(d)['tool']}): {json.dumps(self.data[d], default=str)[:RESULT_CHARS]}"
-                            for d in step["depends_on"] if d in self.data)
+                            for d in self._upstream(step) if d in self.data)
         text = (f"The operator's instruction:\n{self.text}\n\n"
                 f"This step: {step['id']}, {step['action']}. Tool: {step['tool']}.\n"
                 f"Fixed arguments (use them as given): {json.dumps(fixed)}\n"
@@ -260,6 +264,17 @@ class PlannedRun:
         if error:
             text += f"\n\nYour last call failed: {error}"
         return text
+
+    def _upstream(self, step: dict) -> list[int]:
+        """The steps this one depends on, directly or through other steps, in plan order:
+        a note that depends on a proposal still sees the removal the proposal depends on."""
+        seen, todo = set(), list(step["depends_on"])
+        while todo:
+            d = todo.pop()
+            if d not in seen and any(s["id"] == d for s in self.plan["steps"]):
+                seen.add(d)
+                todo += self._step(d)["depends_on"]
+        return [s["id"] for s in self.plan["steps"] if s["id"] in seen]
 
     def _step(self, sid: int) -> dict:
         return next(s for s in self.plan["steps"] if s["id"] == sid)
@@ -328,6 +343,8 @@ class PlannedRun:
                                 "waiting for the operator to send it")
 
     def _reply(self, reason: str, detail: str, report: dict | None) -> str:
+        if reason == NOTHING_TO_DO:
+            return f"There is nothing to do: {detail}, so I wrote no plan and changed nothing."
         if reason == PLAN_REJECTED:
             return ("I could not write a plan that passes our checks, so nothing was run and nothing changed. "
                     f"Why: {detail}")

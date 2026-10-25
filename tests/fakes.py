@@ -208,7 +208,7 @@ def t06_plan(with_hold: bool = False) -> dict:
                                {"employee_id": person, "reason": reason}, [list_id], "non_empty", "removed"))
     hold = plan_step(10, f"propose removing {VICTOR}'s legal hold", "access_propose_change",
                      {"action": "revoke", "employee_id": VICTOR, "group_id": LEGAL_HOLD, "reason": reason},
-                     [4], "record_written")
+                     [5], "record_written")      # after the removal that kept it, as the real reviser wrote
     steps.append(plan_step(8, "note to Hannah Lee", "reply_draft", {"recipient_employee_id": HANNAH, "body": "$fill"},
                            [3, 7], "record_written"))
     steps.append(plan_step(9, "note to Grace Okafor", "reply_draft", {"recipient_employee_id": GRACE, "body": "$fill"},
@@ -240,8 +240,8 @@ def true_note(request: str) -> str:
 
 
 class GoodPlanner:
-    """Plans t06 without the legal-hold proposal; revises it in when the checkpoint
-    fails; fills every note truthfully."""
+    """Routes the operator's message as a bulk change; plans t06 without the legal-hold
+    proposal; revises it in when the checkpoint fails; fills every note truthfully."""
     free = True
     name = "good-planner"
     with_hold = False
@@ -253,6 +253,10 @@ class GoodPlanner:
         self.calls += 1
         names = [t["name"] for t in tools or []]
         request = messages[-1]["content"]
+        if not names:                  # the operator router's call: this is a bulk change
+            from harness.client import Usage
+            return ([{"type": "text", "text": json.dumps({"intent": "bulk_change", "request_ids": []})}], "end_turn",
+                    self.name, Usage(input_tokens=40, output_tokens=20))
         if "submit_plan" in names:
             body = self.revise(request) if system.startswith("You are the reviser") else self.plan(request)
             return self.use("submit_plan", body)
@@ -294,6 +298,15 @@ class BadReviser(GoodPlanner):
     def revise(self, request):
         plan = t06_plan(with_hold=True)
         plan["steps"][-1]["depends_on"] = [5, 99]
+        return plan
+
+
+class ReplacingReviser(GoodPlanner):
+    """Revises as gpt-4.1-mini did in our first dev run: Grace's note now depends on the
+    new proposal alone, dropping Victor's removal from its depends_on."""
+    def revise(self, request):
+        plan = t06_plan(with_hold=True)
+        plan["steps"][-1]["depends_on"] = [10]
         return plan
 
 

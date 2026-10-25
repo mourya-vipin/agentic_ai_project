@@ -98,6 +98,12 @@ class CheckTest(CritiqueTest):
     def test_a_group_that_does_not_exist(self):
         self.assertIn("not a group in the catalog", self.check(TRUE + " Also SYN-GRP-TELEPORT.")[0])
 
+    def test_every_left_out_group_is_named_in_one_fact_so_the_cap_hides_none(self):
+        found = self.check("Hello Leo. IT access desk.")
+        self.assertEqual(found, [f"The draft does not mention {JIRA_W}, which is granted in this case; name it by its ID.",
+                                 f"The draft does not mention {FINREP_W}, which is waiting for approval in this case; "
+                                 "name it by its ID."])
+
     def test_the_reason_is_capped_at_a_few_facts(self):
         verdict = critique.review_draft(recipient_employee_id=LEO, request_id=REQ, body="Hello.", stamp=self.run_id,
                                         round=1)
@@ -177,5 +183,6 @@ class PlannedNotesTest(ScratchTest):
         found = critique.check_draft(recipient_employee_id=HANNAH, request_id=None,
                                      body=f"{fakes.ANA}'s contract ended: I removed {JIRA_W}.", stamp=self.run_id)
         self.assertTrue(any(f"does not name Mira Kaur ({fakes.MIRA})" in f for f in found), found)
-        self.assertTrue(any("does not mention SYN-GRP-GITHUB-ENG" in f for f in found), found)
+        left_out = next(f for f in found if f.startswith("The draft does not mention"))
+        self.assertIn("SYN-GRP-GITHUB-ENG", left_out)
         self.assertFalse(any(fakes.VICTOR in f for f in found), found)     # Grace's report, not Hannah's

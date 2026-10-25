@@ -172,8 +172,10 @@ def check_draft(*, recipient_employee_id: str, request_id: str | None, body: str
             wrong.append(f"The draft says {gid} was kept, but no one in this case still holds it.")
     for kind, ids in (("granted", case["granted"]), ("removed", case["removed"]),
                       ("waiting for approval", set(case["waiting"]))):
-        for gid in sorted(ids - mentioned):
-            wrong.append(f"The draft does not mention {gid}, which is {kind} in this case; name it by its ID.")
+        left_out = sorted(ids - mentioned)
+        if left_out:     # one sentence for them all, so the reason's cap never hides one
+            wrong.append(f"The draft does not mention {', '.join(left_out)}, which {'is' if len(left_out) == 1 else 'are'} "
+                         f"{kind} in this case; name {'it' if len(left_out) == 1 else 'each'} by its ID.")
     lower = body.lower()
     if case["bulk"]:
         for person_id in case["affected"]:

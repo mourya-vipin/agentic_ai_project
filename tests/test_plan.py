@@ -115,6 +115,46 @@ class ValidPlanTest(PlannedTest):
         self.assertEqual(self.of("plan_diff")[-1]["skipped"], [9])      # the second note's fill was the third call
 
 
+class ThroughTheRouterTest(ScratchTest):
+    """t06 as run.py runs it: the operator's turn, the router, the planned executor, and
+    t06's own check reading the sandbox."""
+
+    def test_t06_passes_its_check_on_the_planned_path(self):
+        record = self.run_task("tasks/t06_bulk_ended_contractors.yaml", "plan-e2e", backend="tests.fakes:GoodPlanner",
+                               overrides=["plan.bulk_change=on"])
+        self.assertEqual(record["end_reasons"], [executor.PLAN_DONE])
+        self.assertTrue(record["passed"], record.get("reason"))
+
+    def test_a_note_still_sees_results_its_dependencies_depend_on(self):
+        """dev-t06_bulk_ended_contractors-s01-338ad1: the revision made Grace's note depend on
+        the proposal alone, and the note never saw Victor's removals."""
+        record = self.run_task("tasks/t06_bulk_ended_contractors.yaml", "plan-e2e",
+                               backend="tests.fakes:ReplacingReviser", overrides=["plan.bulk_change=on"])
+        self.assertEqual(record["end_reasons"], [executor.PLAN_DONE])
+        self.assertTrue(record["passed"], record.get("reason"))
+
+    def test_a_held_note_fails_t06s_check(self):
+        record = self.run_task("tasks/t06_bulk_ended_contractors.yaml", "plan-e2e",
+                               backend="tests.fakes:AlwaysWrongFiller", overrides=["plan.bulk_change=on"])
+        self.assertEqual(record["end_reasons"], ["critique_held"])
+        self.assertFalse(record["passed"])
+
+
+class NothingToDoTest(PlannedTest):
+    def test_with_no_ended_contractor_holding_access_no_plan_is_written(self):
+        later = [{"kind": "fact", "table": "employees", "id": person, "set": {"end_date": "2026-12-31"}}
+                 for person in (fakes.ANA, fakes.VICTOR, fakes.MIRA)]
+        run_id = f"plan-{uuid.uuid4().hex[:8]}"
+        task = {**{k: v for k, v in T06.items() if k != "input"}, "inputs": later}
+        with fixed_run(task, run_id, backend="tests.fakes:GoodPlanner") as run:
+            result = executor.run_planned(run_id, fakes.T06_TEXT, bound=Bound())
+        lines = read_trace(run.trace_path)
+        self.assertEqual(result.end_reason, executor.NOTHING_TO_DO)
+        self.assertEqual([x for x in lines if x["type"] in ("model_call", "plan", "tool_call")], [])
+        self.assertEqual(set(stamped_rows(run_id).values()), {0})
+        self.assertIn("nothing to do", result.text)
+
+
 class CheckpointTest(PlannedTest):
     def test_a_failing_checkpoint_gives_a_revised_plan_validated_and_logged(self):
         self.run_planned("GoodPlanner")
@@ -187,7 +227,7 @@ class ValidatorTest(unittest.TestCase):
     def test_the_step_limit(self):
         self.assertEqual(rules(good_plan(), limit=9), {"step_limit"})
         self.assertEqual(rules({"steps": []}), {"step_limit"})
-        self.assertEqual(validator.plan_step_limit(3), 13)
+        self.assertEqual(validator.plan_step_limit(3), 12)
         self.assertEqual(validator.plan_step_limit(40), validator.plan_step_limit(validator.MAX_PEOPLE))
 
     def test_an_employee_the_planner_was_not_given(self):
