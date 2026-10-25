@@ -111,3 +111,80 @@ class Decide(TaskRunTest):
         self.assertEqual(router.resolve_group("Salesforce read-only"), ["SYN-GRP-SALESFORCE-READ"])
         self.assertEqual(len(router.resolve_group("Confluence write")), 2, "two Confluence write groups: "
                          "ambiguous, so decide() sends it to the agent")
+
+
+def task_file(folder, task_id: str, thread: str, sender: str, text: str, check: str) -> str:
+    """A one-request test task of a test's own, in its scratch folder (never in tasks/)."""
+    import yaml
+    path = folder / f"{task_id}.yaml"
+    path.write_text(yaml.safe_dump({"id": task_id, "operator": ["Please handle the new access requests."],
+                                    "outside": [], "check": check,
+                                    "input": {"kind": "request", "thread": thread, "from": sender, "text": text}}))
+    return str(path)
+
+
+class Refusals(TaskRunTest):
+    """A workflow that finds a case it must not handle refuses it and leaves it for the
+    operator; an HR message our code cannot parse goes to the agent, and the operator is told."""
+
+    def run_file(self, path: str, backend: str = "RoutesToAgent") -> dict:
+        self.record = self.run_task(path, "aman", backend=f"tests.fakes:{backend}")
+        from harness.trace import read_trace
+        self.lines = read_trace(next((self.tmp / "results").rglob(f"{self.record['run_id']}.trace.jsonl")))
+        return self.record
+
+    def test_a_standard_grant_the_policy_refuses_is_left_for_the_operator(self):
+        """The policy can change between routing and the grant: here the workflow is handed
+        a group that needs the manager. Nothing is granted, the requester is told it waits
+        for review, and the request is pending_operator."""
+        import channel
+        from agent import workflows
+        from checks.common import granted
+        from tests.support import fixed_run
+        with fixed_run("tasks/t01_standard_jira.yaml", "refuse-u1", backend="tests.fakes:RoutesToAgent") as run:
+            result = workflows.standard_grant(run.run_id, REQ, "SYN-GRP-AWSPROD-ADMIN")
+            self.assertEqual(result.end_reason, "workflow_refused")
+            self.assertEqual(requests.get(REQ)["status"], "pending_operator")
+            self.assertEqual(granted(run), [])
+            sent = [m.text for m in channel.messages("SYN-MSG-T01", run_id=run.run_id) if not m.seeded]
+            self.assertEqual(len(sent), 1)
+            self.assertIn("needs a review", sent[0], "the pending_review notice")
+            self.assertIn("left for you", result.text)
+
+    def test_onboarding_refuses_someone_who_is_not_a_new_starter(self):
+        path = task_file(self.tmp, "refuse_u2", "SYN-HR-X02", "hr-system@syn-corp.example",
+                         "SYNTHETIC. EVENT: new_starter; EMPLOYEE: SYN-EMP-0031; ROLE: data_analyst; START: 2026-10-26",
+                         "checks/t02_new_starter.py")
+        record = self.run_file(path)
+        self.assertEqual(record["end_reasons"], ["workflow_refused"])
+        self.assertEqual(requests.get(REQ)["status"], "pending_operator")
+        self.assertEqual(record["measures"]["grants"], 0)
+        self.assertEqual(record["measures"]["notices"], 0)
+        self.assertIn("not a new starter", record["replies"][0]["text"])
+
+    def test_an_hr_message_that_does_not_parse_goes_to_the_agent_and_the_operator_is_told(self):
+        path = task_file(self.tmp, "hr_garbled", "SYN-HR-X03", "hr-system@syn-corp.example",
+                         "SYNTHETIC. Someone new is starting next week, details to follow.",
+                         "checks/t02_new_starter.py")
+        record = self.run_file(path)
+        self.assertEqual(requests.get(REQ)["route"], "agent:nonstandard_request")
+        self.assertEqual([m["purpose"] for m in self.of("model_call")][:1], ["route_operator"],
+                         "no request-routing call reads the HR feed's text")
+        self.assertIn("HR feed message did not parse", record["replies"][0]["text"])
+
+
+class UnfinishedAgentCases(TaskRunTest):
+    def test_a_request_the_agent_stopped_on_is_left_for_the_operator_and_not_run_again(self):
+        """t04 has two operator turns, and this fake routes both as "process the requests"."""
+        record = self.run_on("t04_same_access_as", "RoutesToAgentThenNeverStops")
+        self.assertEqual(record["end_reasons"][0], "step_limit")
+        self.assertEqual(requests.get(REQ)["status"], "pending_operator")
+        self.assertIn("left for you", record["replies"][0]["text"])
+        self.assertEqual(len(self.of("bound")), 1, "the second turn did not run the loop again")
+        self.assertEqual(record["replies"][1]["text"], "There are no new requests.")
+
+    def test_a_request_the_agent_finished_keeps_its_status(self):
+        """A fake that sets the request's status itself, then stops."""
+        record = self.run_on("t05_on_behalf", "RoutesToAgentThenSetsDone")
+        self.assertEqual(requests.get(REQ)["status"], "refused")
+        self.assertNotIn("left for you", record["replies"][0]["text"])

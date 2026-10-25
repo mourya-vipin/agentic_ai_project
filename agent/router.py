@@ -28,6 +28,10 @@ so "self" alone is never trusted); exactly one group is mentioned and it resolve
 exactly one group of the catalog; the role policy says birthright or allowed; and the
 group needs no manager. Anything else goes to U4. The route is recorded on the request
 (requests.route) and in the trace.
+
+After an agent case, a request still new or in progress (the loop stopped at its
+bound, or the model never set a status) is set to pending_operator by our code, and
+the reply says so, so a later "process the requests" turn does not run it again.
 """
 
 from __future__ import annotations
@@ -40,6 +44,7 @@ from pathlib import Path
 from agent import executor, loop, session, workflows
 from agent.bounds import Bound
 from agent.loop import LoopResult
+from agent.registry import CallContext, get_registry
 from harness import runtime
 from harness.turns import Reply
 from sandbox import catalog, db, directory, requests
@@ -78,6 +83,7 @@ class Route:
     why: list[str] = field(default_factory=list)
     group_id: str | None = None                   # U1's group
     fields: dict = field(default_factory=dict)    # U2's and U3's HR fields
+    note: str = ""                                # what the operator must be told about the routing
 
 
 # -- the operator's message ---------------------------------------------------------------
@@ -165,7 +171,23 @@ def handle_request(session_id: str, request: dict) -> LoopResult:
     result = loop.run_loop(session_id, use_case=NONSTANDARD, system=_prompt(NONSTANDARD),
                            user_content=_case(request, route), tools=TOOLS[NONSTANDARD], bound=BOUND,
                            request_id=request["id"])
-    return LoopResult(f"{request['id']} (agent): {result.text}", result.actions, result.end_reason, result.steps)
+    left = _leave_for_operator(session_id, request["id"], result)
+    text = " ".join(t for t in (f"{request['id']} (agent):", route.note, result.text, left) if t)
+    return LoopResult(text, result.actions, result.end_reason, result.steps)
+
+
+def _leave_for_operator(session_id: str, request_id: str, result: LoopResult) -> str:
+    """Our code, not the model, sets a request the agent did not finish to pending_operator."""
+    status = requests.get(request_id)["status"]
+    if status not in ("new", "in_progress"):
+        return ""
+    note = f"The agent ended ({result.end_reason}) with the request still {status}."
+    ctx = CallContext(session_id, result.steps + 1, "workflow", NONSTANDARD, request_id=request_id)
+    done = get_registry().call("requests_set_status", {"request_id": request_id, "status": "pending_operator",
+                                                       "note": note}, ctx)
+    if done.is_error:
+        return f"{note} Its status could not be set, so check it on /requests/{request_id}."
+    return f"{note} It is now pending_operator, left for you."
 
 
 def route_request(session_id: str, request: dict) -> Route:
@@ -174,7 +196,8 @@ def route_request(session_id: str, request: dict) -> Route:
         use_case = HR_EVENTS.get(fields.get("event", "").lower())
         if use_case and EMPLOYEE_ID.fullmatch(fields.get("employee", "")):
             return Route(use_case, [f"HR feed event {fields['event']}"], fields=fields)
-        return Route(NONSTANDARD, ["the HR feed message did not parse: the operator is told"])
+        return Route(NONSTANDARD, ["the HR feed message did not parse: the operator is told"],
+                     note="The HR feed message did not parse, so the agent handled it: check it before trusting it.")
     requester = directory.get_employee(request["requester_id"]) if request["requester_id"] else None
     if requester is None:
         return Route(NONSTANDARD, ["the sender is not in the directory"])

@@ -164,6 +164,18 @@ class RoutesBulk(RouterFake):
 class RoutesBulkThenNeverStops(RoutesBulk):
     AFTER = "never_stops"
 
+class RoutesToAgentThenSetsDone(RouterFake):
+    """Routes the case to the agent path; the agent sets the request refused, then stops."""
+
+    def create(self, *, system, messages, tools):
+        from harness.client import Usage
+        if tools and not any(m["role"] == "assistant" for m in messages):
+            self.calls += 1
+            return ([{"type": "tool_use", "id": "toolu_fake_status", "name": "update_request",
+                      "input": {"request_id": "SYN-REQ-0001", "status": "refused", "note": "test"}}],
+                    "tool_use", self.name, Usage(40, 10))
+        return super().create(system=system, messages=messages, tools=tools)
+
 
 # -- Shruti Tewaney: plan, critique, detectors ---------------------------------------
 
@@ -310,3 +322,4 @@ class AlwaysWrongFiller(GoodPlanner):
     """Every draft claims a removal that never happened, however often it is told."""
     def note(self, request):
         return true_note(request) + " I also removed SYN-GRP-PAYROLL-ADMIN."
+
