@@ -21,6 +21,7 @@ import hashlib
 
 from agent import critique
 from agent.errors import EndRun, PermanentError
+from agent.tools.rules import hint
 from harness import runtime
 from sandbox import access, catalog, clock, credentials, db, directory, notices, pending, requests
 
@@ -31,16 +32,16 @@ CODE = {"workflow"}
 def _employee(employee_id: str) -> dict:
     person = directory.get_employee(employee_id) if employee_id else None
     if person is None:
-        raise PermanentError(f"No employee {employee_id!r}. Employee IDs look like SYN-EMP-0031; find one with "
-                             "directory_search_employees. A retry with the same ID will fail the same way.")
+        raise PermanentError(f"No employee {employee_id!r}.{hint('employee', employee_id or '')} "
+                             "A retry with the same ID will fail the same way.")
     return person
 
 
 def _group(group_id: str) -> dict:
     group = catalog.get_group(group_id) if group_id else None
     if group is None:
-        raise PermanentError(f"No group {group_id!r}. Group IDs look like SYN-GRP-JIRA-WRITE; find one with "
-                             "catalog_search_groups. A retry with the same ID will fail the same way.")
+        raise PermanentError(f"No group {group_id!r}.{hint('group', group_id or '')} "
+                             "A retry with the same ID will fail the same way.")
     return group
 
 
@@ -75,6 +76,13 @@ def _person_view(p: dict) -> dict:
 # -- reads -------------------------------------------------------------------------------
 
 def directory_get_employee(args, ctx, key):
+    if args.get("name") and not args.get("employee_id") and not args.get("email"):
+        found = directory.search_employees(args["name"], limit=5)
+        if len(found) != 1:
+            names = ", ".join(f"{p['name']} ({p['id']})" for p in found) or "no one"
+            raise PermanentError(f"{len(found)} people match the name {args['name']!r}: {names}. Call again with the "
+                                 "employee_id you mean.")
+        return _person_view(found[0])
     if args.get("email"):
         person = directory.by_email(args["email"])
         if person is None:
@@ -84,32 +92,56 @@ def directory_get_employee(args, ctx, key):
 
 
 def directory_search_employees(args, ctx, key):
-    query, dept = str(args.get("query", "")), args.get("dept")
+    query, dept = str(args.get("query") or ""), args.get("dept")
     found = directory.search_employees(query, dept, limit=10)
-    return {"matches": found, "shown": len(found), "total": directory.count_matching(query, dept)}
+    out = {"matches": found, "shown": len(found), "total": directory.count_matching(query, dept), "query_valid": True}
+    if not found:
+        out["note"] = (f"No one matches {query!r}" + (f" in {dept}" if dept else "") + ". The query was valid: try "
+                       "part of the name, the email, or the SYN-EMP ID.")
+    elif out["total"] > out["shown"]:
+        out["note"] = f"Showing {out['shown']} of {out['total']}; narrow the query to see the rest."
+    return out
 
 
 def directory_list_contractors_ended(args, ctx, key):
     before = args.get("before") or clock.today()
-    return {"before": before, "contractors": directory.contractors_ended(before)}
+    found = directory.contractors_ended(before)
+    out = {"before": before, "contractors": found}
+    if not found:
+        out["note"] = f"No contractor whose contract ended before {before} still holds any access."
+    return out
 
 
 def access_list_memberships(args, ctx, key):
     person = _employee(args.get("employee_id"))
     active_only = not args.get("include_removed", False)
-    return {"employee_id": person["id"], "active_only": active_only,
-            "memberships": access.memberships(person["id"], active_only=active_only)}
+    held = access.memberships(person["id"], active_only=active_only)
+    out = {"employee_id": person["id"], "active_only": active_only, "memberships": held}
+    if not held:
+        out["note"] = f"{person['id']} holds no {'active ' if active_only else ''}groups."
+    return out
 
 
 def catalog_search_groups(args, ctx, key):
-    found = catalog.search_groups(str(args.get("query", "")), args.get("system_id"), limit=10)
-    return {"groups": found, "shown": len(found)}
+    query = str(args.get("query") or "")
+    found = catalog.search_groups(query, args.get("system_id"), limit=10)
+    out = {"groups": found, "shown": len(found), "query_valid": True}
+    if not found:
+        out["note"] = (f"No group matches {query!r}. The query was valid: search by a system's name, such as "
+                       "'Jira' or 'Finance Reports'.")
+    return out
 
 
 def policy_check_access(args, ctx, key):
     person = _employee(args.get("employee_id"))
     ids = args.get("group_ids") or args.get("group_id") or []
     ids = [ids] if isinstance(ids, str) else list(ids)
+    if len(ids) > 20:
+        raise PermanentError(f"group_ids has {len(ids)} groups; give at most 20 per call.")
+    unknown = [str(g).upper() for g in ids if catalog.get_group(g) is None]
+    if unknown:
+        raise PermanentError("No such group: " + "; ".join(f"{g}.{hint('group', g)}" for g in unknown)
+                             + " Nothing was checked; call again with real group IDs.")
     return {"employee_id": person["id"], "role": person["role"],
             "decisions": [{"group_id": str(g).upper(), **catalog.policy_for(person["id"], g)} for g in ids]}
 
@@ -120,7 +152,16 @@ def requests_get(args, ctx, key):
 
 
 def requests_list_today(args, ctx, key):
-    return {"day": clock.today(), "requests": requests.all_requests(clock.today())}
+    rows = []
+    for r in requests.all_requests(clock.today()):
+        person = directory.get_employee(r["requester_id"]) if r["requester_id"] else None
+        rows.append({**r, "requester_name": person["name"] if person else None,
+                     "requester_role": person["role"] if person else None,
+                     "requester_status": person["status"] if person else None})
+    out = {"day": clock.today(), "requests": rows}
+    if not rows:
+        out["note"] = f"No requests arrived on {clock.today()}."
+    return out
 
 
 # -- writes ------------------------------------------------------------------------------
@@ -155,7 +196,7 @@ def access_revoke(args, ctx, key):
                              f"{person['id']} is not the requester of {request['id']}. Use access_propose_change with "
                              "action \"revoke\" instead. A retry will fail the same way.")
     result = access.revoke(person["id"], group["id"], request_id=request["id"] if request else None, key=key,
-                           stamp=db.current_stamp(), actor=_actor(ctx), reason=str(args.get("reason", "")))
+                           stamp=db.current_stamp(), actor=_actor(ctx), reason=str(args.get("reason") or ""))
     return {**result, "employee_id": person["id"], "group_id": group["id"]}
 
 
@@ -167,20 +208,22 @@ def access_revoke_all(args, ctx, key):
         sub_key = hashlib.sha256(f"{key}|{m['group_id']}".encode()).hexdigest()[:32] if key else None
         result = access.revoke(person["id"], m["group_id"], request_id=request["id"] if request else None,
                                key=sub_key, stamp=db.current_stamp(), actor=_actor(ctx),
-                               reason=str(args.get("reason", "")))
+                               reason=str(args.get("reason") or ""))
         (kept if result["status"] == "protected" else removed).append(m["group_id"])
-    return {"employee_id": person["id"], "removed": removed, "kept_protected": kept}
+    summary = (f"Removed {len(removed)} group(s) from {person['id']}: {', '.join(removed) or 'none'}."
+               + (f" Kept {', '.join(kept)}: protected, not removed." if kept else ""))
+    return {"employee_id": person["id"], "removed": removed, "kept_protected": kept, "summary": summary}
 
 
 def access_propose_change(args, ctx, key):
-    action = str(args.get("action", "")).lower()
+    action = str(args.get("action") or "").lower()
     if action not in ("grant", "revoke"):
         raise PermanentError(f"action is \"grant\" or \"revoke\", not {args.get('action')!r}.")
     person, group = _employee(args.get("employee_id")), _group(args.get("group_id"))
     request = _request(args.get("request_id"))
     pid = pending.create("proposed_change", request_id=request["id"] if request else None, employee_id=person["id"],
                          key=key, stamp=db.current_stamp(), action=action, group_id=group["id"],
-                         reason=str(args.get("reason", "")))
+                         reason=str(args.get("reason") or ""))
     return {"pending_id": pid, "status": "waiting_for_operator", "action": action, "employee_id": person["id"],
             "group_id": group["id"]}
 
@@ -191,7 +234,7 @@ _rounds: dict[tuple, int] = {}      # (stamp, recipient, request) -> critique ro
 def reply_draft(args, ctx, key):
     recipient = _employee(args.get("recipient_employee_id"))
     request = _request(args.get("request_id"))
-    body = str(args.get("body", "")).strip()
+    body = str(args.get("body") or "").strip()
     if not body:
         raise PermanentError("The draft's body is empty: write the reply to the recipient.")
     stamp = db.current_stamp()
@@ -223,17 +266,17 @@ def manager_confirmation_draft(args, ctx, key):
         raise PermanentError(f"{person['id']} has no manager on record; write access_propose_change instead.")
     pid = pending.create("manager_confirmation", request_id=request["id"] if request else None,
                          employee_id=person["id"], key=key, stamp=db.current_stamp(), group_id=group["id"],
-                         thread_id=f"SYN-MAIL-{manager['id']}", body=str(args.get("body", "")).strip() or None)
+                         thread_id=f"SYN-MAIL-{manager['id']}", body=str(args.get("body") or "").strip() or None)
     return {"pending_id": pid, "status": "waiting_for_operator", "manager_id": manager["id"],
             "manager_name": manager["name"]}
 
 
 def requests_set_status(args, ctx, key):
     _request(args.get("request_id"))
-    status = str(args.get("status", "")).lower()
+    status = str(args.get("status") or "").lower()
     if status not in requests.STATUSES:
         raise PermanentError(f"status is one of {', '.join(requests.STATUSES)}, not {args.get('status')!r}.")
-    row = requests.set_status(args["request_id"], status, stamp=db.current_stamp(), note=str(args.get("note", "")))
+    row = requests.set_status(args["request_id"], status, stamp=db.current_stamp(), note=str(args.get("note") or ""))
     return {"request_id": row["id"], "status": row["status"]}
 
 
@@ -244,14 +287,14 @@ def notices_send_template(args, ctx, key):
 
 def credentials_issue(args, ctx, key):
     person = _employee(args.get("employee_id"))
-    cid = credentials.issue(person["id"], str(args.get("system_id", "SYN-SYS-SSO")), key=key, stamp=db.current_stamp())
+    cid = credentials.issue(person["id"], str(args.get("system_id") or "SYN-SYS-SSO"), key=key, stamp=db.current_stamp())
     return {"credential_id": cid, "employee_id": person["id"]}
 
 
 def credentials_record_handover(args, ctx, key):
     """A credential is handed over in person, never in a message: a pending record for the operator."""
     person = _employee(args.get("employee_id"))
-    credential_id = str(args.get("credential_id", "")).strip().upper()
+    credential_id = str(args.get("credential_id") or "").strip().upper()
     if credential_id not in {c["id"] for c in credentials.for_employee(person["id"])}:
         raise PermanentError(f"{person['id']} has no credential {credential_id!r}; issue one with credentials_issue "
                              "first.")

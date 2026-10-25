@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from sandbox import requests
+from sandbox import catalog, clock, directory, requests
 
 EMPLOYEE = ("id", re.compile(r"^SYN-EMP-\d{4}$"), "an employee ID such as SYN-EMP-0031")
 GROUP = ("id", re.compile(r"^SYN-GRP-[A-Z0-9-]+$"), "a group ID such as SYN-GRP-JIRA-WRITE")
@@ -24,6 +24,44 @@ FLAG = ("bool", None, "true or false")
 IDS = ("ids", GROUP[1], "a list of group IDs such as [\"SYN-GRP-JIRA-WRITE\"]")
 
 
+def closest_employees(text: str, limit: int = 3) -> list[str]:
+    """Up to `limit` people whose name, email or ID is near `text`, as "Name (SYN-EMP-…)".
+    Words under four letters are skipped: "all" would match inside "Callum"."""
+    words = [w for w in re.split(r"[^A-Za-z0-9]+", str(text)) if len(w) >= 4]
+    found: dict[str, str] = {}
+    for query in [str(text).strip()] + words:
+        for p in directory.search_employees(query, limit=limit):
+            found.setdefault(p["id"], f"{p['name']} ({p['id']})")
+        if len(found) >= limit:
+            break
+    return list(found.values())[:limit]
+
+
+def closest_groups(text: str, limit: int = 3) -> list[str]:
+    """Up to `limit` group IDs near `text`, by the words in it ("jira_edit" -> Jira groups)."""
+    words = [w for w in re.split(r"[^A-Za-z0-9]+", str(text).replace("SYN-GRP-", "")) if len(w) >= 3]
+    found: dict[str, None] = {}
+    for query in [str(text).strip()] + words:
+        for g in catalog.search_groups(query, limit=limit):
+            found.setdefault(g["id"], None)
+        if len(found) >= limit:
+            break
+    return list(found)[:limit]
+
+
+def hint(kind: str, value) -> str:
+    """The context the model lacks for a bad value: the closest valid IDs, or today's date."""
+    if kind == "employee":
+        near = closest_employees(value)
+        return f" Closest: {', '.join(near)}." if near else " Find the ID with directory_search_employees."
+    if kind == "group":
+        near = closest_groups(value)
+        return f" Closest: {', '.join(near)}." if near else " Find the ID with catalog_search_groups."
+    if kind == "date":
+        return f" Today is {clock.today()}."
+    return ""
+
+
 def enum(*values):
     return ("enum", tuple(values), " or ".join(f'"{v}"' for v in values))
 
@@ -34,7 +72,7 @@ def text(limit: int):
 
 # tool -> (required arguments, {argument: rule})
 ARGS = {
-    "directory_get_employee": ((), {"employee_id": EMPLOYEE, "email": text(120)}),
+    "directory_get_employee": ((), {"employee_id": EMPLOYEE, "email": text(120), "name": text(80)}),
     "directory_search_employees": (("query",), {"query": text(80), "dept": text(40)}),
     "directory_list_contractors_ended": ((), {"before": DATE}),
     "access_list_memberships": (("employee_id",), {"employee_id": EMPLOYEE, "include_removed": FLAG}),
@@ -104,6 +142,7 @@ def check_args(tool: str, args: dict) -> tuple[dict, list[str]]:
                 fixed[name] = value
             continue
         if value is None:
+            fixed[name] = None          # an explicit null: the strict schema's "left out"
             continue
         kind, test, says = rules[name]
         if kind == "bool":
@@ -118,7 +157,9 @@ def check_args(tool: str, args: dict) -> tuple[dict, list[str]]:
             norm = [str(v).strip().upper() for v in values]
             bad = [v for v in norm if not test.match(v)]
             if bad:
-                problems.append(f"{name} has {', '.join(bad)}; give {says}")
+                near = sorted({g for v in bad for g in closest_groups(v, 2)})
+                problems.append(f"{name} has {', '.join(bad)}; give {says}"
+                                + (f". Closest: {', '.join(near)}" if near else ""))
             fixed[name] = norm
         elif kind == "enum":
             norm = str(value).strip().lower()
@@ -128,7 +169,9 @@ def check_args(tool: str, args: dict) -> tuple[dict, list[str]]:
         elif kind in ("id", "date"):
             norm = str(value).strip().upper() if kind == "id" else str(value).strip()
             if not test.match(norm):
-                problems.append(f"{name} is {value!r}; give {says}")
+                which = "date" if kind == "date" else ("employee" if rules[name] is EMPLOYEE else
+                                                       "group" if rules[name] is GROUP else "")
+                problems.append(f"{name} is {value!r}; give {says}.{hint(which, value)}".replace("..", "."))
             fixed[name] = norm
         else:
             text_value = str(value)

@@ -44,7 +44,7 @@ BAD_ARGS = {
     "directory_list_contractors_ended": {"before": "last Friday"},
     "access_list_memberships": {"employee_id": "priya"},
     "catalog_search_groups": {"query": "finance", "system_id": "Finance Reports"},
-    "policy_check_access": {"employee_id": "SYN-EMP-0031", "group_id": "payroll admin"},
+    "policy_check_access": {"employee_id": "SYN-EMP-0031", "group_ids": ["payroll admin"]},
     "requests_get": {"request_id": "REQ-5"},
     "requests_list_today": {"day": "today"},
     "access_grant": {"employee_id": "SYN-EMP-0031", "group_id": "SYN-GRP-PAYROLL-ADMIN", "request_id": "SYN-REQ-0001"},
@@ -62,7 +62,12 @@ class BadArgs:
     its turn: every error goes through the running system and lands in the trace
     with is_error set (Part 3, task 5).
 
-        python run.py --tasks tasks/<task>.yaml --sweeps 1 --arm bad-args --backend tests.fakes:BadArgs
+        python run.py --tasks tasks/t04_same_access_as.yaml tasks/t06_bulk_ended_contractors.yaml --sweeps 1 \
+            --arm bad-args --backend tests.fakes:BadArgs --set plan.bulk_change=off
+
+    It answers a routing call (no tools offered) by sending the case to the agent path,
+    so t04 reaches every tool of a non-standard request, and t06 on the loop the two
+    bulk-change tools besides.
     """
     free = True
 
@@ -75,6 +80,11 @@ class BadArgs:
         done = sum(1 for m in messages if m.get("role") == "assistant")
         offered = [t["name"] for t in tools or []]
         usage = Usage(input_tokens=10, output_tokens=5)
+        if not offered:             # a routing call: send the case down the agent path, to reach the write tools
+            asked = json.dumps(messages).lower()
+            intent = "bulk_change" if "contract" in asked and "remove all" in asked else "process_requests"
+            return [{"type": "text", "text": json.dumps({"intent": intent, "request_ids": []})}], "end_turn", \
+                "bad-args", usage
         if done >= len(offered):
             return [{"type": "text", "text": "Done."}], "end_turn", "bad-args", usage
         name = offered[done]
