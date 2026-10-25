@@ -1,0 +1,236 @@
+{
+  "run_id": "dev-v1-t01_standard_jira-s01-4e149d",
+  "arm": "dev-v1",
+  "task": "t01_standard_jira",
+  "task_file": "tasks/t01_standard_jira.yaml",
+  "sweep": 1,
+  "started": "2026-10-25T22:55:52.296+00:00",
+  "switches": {
+    "control.standard_grant": "workflow",
+    "control.onboarding": "workflow",
+    "control.offboarding": "workflow",
+    "control.nonstandard_request": "agent",
+    "control.operator_review": "agent",
+    "control.bulk_change": "agent",
+    "plan.bulk_change": "on",
+    "critique.requester_reply": "external",
+    "examples.access_grant": "on",
+    "strict.access_propose_change": "on",
+    "notes": "off"
+  },
+  "overrides": [],
+  "backend": "openai-compatible",
+  "model": "gpt-4.1-mini",
+  "free": false,
+  "settings": "a5a0772c87d1",
+  "price_sheet": "2026-06-24",
+  "commit": "50307152956b5414019c395202d47482365aa1a2",
+  "dirty": false,
+  "finished": "2026-10-25T22:55:56.354+00:00",
+  "tokens": {
+    "input": 576,
+    "output": 37,
+    "cache_read": 0,
+    "cache_write": 0,
+    "total": 613
+  },
+  "cost_usd": 0.00029,
+  "unpriced_calls": 0,
+  "model_calls": 2,
+  "latency_s": 3.998,
+  "wait_s": 0.0,
+  "throttled_s": 0.0,
+  "latency_without_wait_s": 3.998,
+  "turn_latency_s": [
+    3.988
+  ],
+  "outcome": "completed",
+  "end_reasons": [
+    "workflow_done"
+  ],
+  "end_reason": "workflow_done",
+  "error": null,
+  "outside": [],
+  "approvals": {
+    "asked": 0,
+    "answered": 0,
+    "unanswered": 0
+  },
+  "notes": [],
+  "check": {
+    "function": "checks/t01_standard_jira.py",
+    "passed": true,
+    "reason": "granted once, one notice, request done"
+  },
+  "passed": true,
+  "measures": {
+    "grants": 1,
+    "removals": 0,
+    "proposals": 0,
+    "drafts": 0,
+    "notices": 1,
+    "duplicate_effects": 0,
+    "wrong_grants": 0,
+    "misrouted": 0,
+    "secrets_in_messages": 0,
+    "writes": 8
+  },
+  "trace": "results/dev-v1/dev-v1-t01_standard_jira-s01-4e149d.trace.jsonl",
+  "tool_calls": [
+    {
+      "step": 1,
+      "plan_step": null,
+      "id": "call_eb7d4c7eae6d",
+      "name": "requests_get",
+      "input": {
+        "request_id": "SYN-REQ-0001"
+      },
+      "output": "{\"id\": \"SYN-REQ-0001\", \"thread_id\": \"SYN-MSG-T01\", \"source\": \"employee\", \"requester_id\": \"SYN-EMP-0007\", \"subject_id\": null, \"text\": \"SYNTHETIC. Hi IT, could I get write access to Jira? I need to move tickets on the Platform board. Arjun\", \"received_at\": \"2026-10-21T09:00:00Z\", \"status\": \"new\", \"route\": \"workflow:standard_grant\", \"note\": null, \"stamp\": \"seed\", \"synthetic\": 1, \"changes\": [], \"pending\": []}",
+      "is_error": false,
+      "latency_s": 0.001,
+      "asked_as": "requests_get",
+      "caller": "workflow",
+      "use_case": "standard_grant",
+      "key": null,
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"id\": \"SYN-REQ-0001\", \"thread_id\": \"SYN-MSG-T01\", \"source\": \"employee\", \"requester_id\": \"SYN-EMP-0007\", \"subject_id\": null, \"text\": \"SYNTHETIC. Hi IT, could I get write access to Jira? I need to move"
+    },
+    {
+      "step": 2,
+      "plan_step": null,
+      "id": "call_783f580712a2",
+      "name": "directory_get_employee",
+      "input": {
+        "employee_id": "SYN-EMP-0007"
+      },
+      "output": "{\"id\": \"SYN-EMP-0007\", \"name\": \"Arjun Mehta\", \"email\": \"arjun.mehta@syn-corp.example\", \"dept\": \"Engineering\", \"title\": \"Software Engineer\", \"role\": \"software_engineer\", \"manager_id\": \"SYN-EMP-0060\", \"employment\": \"employee\", \"status\": \"active\", \"start_date\": \"2022-06-13\", \"end_date\": null, \"manager_name\": \"Hannah Lee\"}",
+      "is_error": false,
+      "latency_s": 0.001,
+      "asked_as": "directory_get_employee",
+      "caller": "workflow",
+      "use_case": "standard_grant",
+      "key": null,
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"id\": \"SYN-EMP-0007\", \"name\": \"Arjun Mehta\", \"email\": \"arjun.mehta@syn-corp.example\", \"dept\": \"Engineering\", \"title\": \"Software Engineer\", \"role\": \"software_engineer\", \"manager_id\": \"SYN-EMP-0060\", \""
+    },
+    {
+      "step": 3,
+      "plan_step": null,
+      "id": "call_acf141622c7e",
+      "name": "requests_set_status",
+      "input": {
+        "request_id": "SYN-REQ-0001",
+        "status": "in_progress"
+      },
+      "output": "{\"request_id\": \"SYN-REQ-0001\", \"status\": \"in_progress\"}",
+      "is_error": false,
+      "latency_s": 0.001,
+      "asked_as": "requests_set_status",
+      "caller": "workflow",
+      "use_case": "standard_grant",
+      "key": "d3b866fe3de2ca0d8572caf5dda4de7e",
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"request_id\": \"SYN-REQ-0001\", \"status\": \"in_progress\"}"
+    },
+    {
+      "step": 4,
+      "plan_step": null,
+      "id": "call_9c0e5d6248c7",
+      "name": "access_grant",
+      "input": {
+        "request_id": "SYN-REQ-0001",
+        "employee_id": "SYN-EMP-0007",
+        "group_id": "SYN-GRP-JIRA-WRITE"
+      },
+      "output": "{\"status\": \"granted\", \"membership_id\": 1406, \"employee_id\": \"SYN-EMP-0007\", \"group_id\": \"SYN-GRP-JIRA-WRITE\", \"group_name\": \"Jira editors\"}",
+      "is_error": false,
+      "latency_s": 0.004,
+      "asked_as": "access_grant",
+      "caller": "workflow",
+      "use_case": "standard_grant",
+      "key": "765cda2f9275888053bc7e7bb7f08f5f",
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"status\": \"granted\", \"membership_id\": 1406, \"employee_id\": \"SYN-EMP-0007\", \"group_id\": \"SYN-GRP-JIRA-WRITE\", \"group_name\": \"Jira editors\"}"
+    },
+    {
+      "step": 5,
+      "plan_step": null,
+      "id": "call_b8cd49543a8a",
+      "name": "notices_send_template",
+      "input": {
+        "thread_id": "SYN-MSG-T01",
+        "request_id": "SYN-REQ-0001",
+        "template_id": "granted",
+        "facts": {
+          "name": "Arjun",
+          "request_id": "SYN-REQ-0001",
+          "group_name": "Jira editors",
+          "group_id": "SYN-GRP-JIRA-WRITE"
+        }
+      },
+      "output": "{\"status\": \"sent\", \"message_id\": 2}",
+      "is_error": false,
+      "latency_s": 0.003,
+      "asked_as": "notices_send_template",
+      "caller": "workflow",
+      "use_case": "standard_grant",
+      "key": "3aa1be42f32621be82ee21305ad44827",
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"status\": \"sent\", \"message_id\": 2}"
+    },
+    {
+      "step": 6,
+      "plan_step": null,
+      "id": "call_d30ee4593a00",
+      "name": "requests_set_status",
+      "input": {
+        "request_id": "SYN-REQ-0001",
+        "status": "done"
+      },
+      "output": "{\"request_id\": \"SYN-REQ-0001\", \"status\": \"done\"}",
+      "is_error": false,
+      "latency_s": 0.002,
+      "asked_as": "requests_set_status",
+      "caller": "workflow",
+      "use_case": "standard_grant",
+      "key": "f1926f36e8d02187fc687bb5f54b45fd",
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"request_id\": \"SYN-REQ-0001\", \"status\": \"done\"}"
+    }
+  ],
+  "replies": [
+    {
+      "function": "operator_turn",
+      "text": "SYN-REQ-0001 (standard grant): granted SYN-GRP-JIRA-WRITE to SYN-EMP-0007; notice sent.",
+      "actions": [
+        "granted SYN-GRP-JIRA-WRITE to SYN-EMP-0007",
+        "notices_send_template: sent"
+      ],
+      "waiting_for": null
+    }
+  ]
+}
