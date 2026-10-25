@@ -17,6 +17,7 @@ EMPLOYEE = ("id", re.compile(r"^SYN-EMP-\d{4}$"), "an employee ID such as SYN-EM
 GROUP = ("id", re.compile(r"^SYN-GRP-[A-Z0-9-]+$"), "a group ID such as SYN-GRP-JIRA-WRITE")
 REQUEST = ("id", re.compile(r"^SYN-REQ-\d{4}$"), "a request ID such as SYN-REQ-0005")
 SYSTEM = ("id", re.compile(r"^SYN-SYS-[A-Z0-9-]+$"), "a system ID such as SYN-SYS-SSO")
+CREDENTIAL = ("id", re.compile(r"^SYN-CRED-\d{4}$"), "a credential ID such as SYN-CRED-0251")
 DATE = ("date", re.compile(r"^\d{4}-\d{2}-\d{2}$"), "a date as YYYY-MM-DD")
 TEXT = ("text", None, "text")
 FLAG = ("bool", None, "true or false")
@@ -58,6 +59,9 @@ ARGS = {
     "notices_send_template": (("thread_id", "template_id"), {"thread_id": text(80), "request_id": REQUEST,
                                                              "template_id": text(40)}),
     "credentials_issue": (("employee_id",), {"employee_id": EMPLOYEE, "system_id": SYSTEM}),
+    "credentials_record_handover": (("employee_id", "credential_id"), {"employee_id": EMPLOYEE,
+                                                                       "credential_id": CREDENTIAL,
+                                                                       "request_id": REQUEST}),
 }
 
 # tool -> the keys its result must hold before the model sees it
@@ -79,6 +83,7 @@ RESULT_KEYS = {
     "requests_set_status": ("request_id", "status"),
     "notices_send_template": ("status", "message_id"),
     "credentials_issue": ("credential_id", "employee_id"),
+    "credentials_record_handover": ("pending_id", "status", "credential_id"),
 }
 
 

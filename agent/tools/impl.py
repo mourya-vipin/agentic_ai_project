@@ -5,8 +5,11 @@ What each tool may reach is decided here, not in a prompt:
 - no function returns a credential's secret;
 - access_grant refuses every group the role policy does not allow for that person
   (the rest go to access_propose_change, a record the operator acts on);
+- on a non-standard request, access_grant grants only to the requester, or to someone
+  who reports to the requester; anyone else needs their manager's confirmation;
 - access_revoke on a non-standard request removes only the requester's own groups;
-- notices_send_template and credentials_issue are for our workflows only (CALLERS).
+- notices_send_template, credentials_issue and credentials_record_handover are for our
+  workflows only (CALLERS).
 
 A failure raises one of agent.errors' classes with a message that says what was
 wrong, what would be right, and whether a retry can work.
@@ -49,6 +52,15 @@ def _request(request_id: str | None) -> dict | None:
         raise PermanentError(f"No request {request_id!r}. Request IDs look like SYN-REQ-0005; "
                              "requests_list_today lists today's. A retry with the same ID will fail the same way.")
     return item
+
+
+def _case(args, ctx) -> dict | None:
+    """The request a write is made under. On a non-standard request it is the case the
+    router gave this loop (ctx.request_id), whatever request the model names, so the
+    rules below cannot be stepped around by naming another request."""
+    if ctx.use_case == "nonstandard_request" and ctx.request_id:
+        return requests.get(ctx.request_id)
+    return _request(args.get("request_id"))
 
 
 def _actor(ctx) -> str:
@@ -115,7 +127,15 @@ def requests_list_today(args, ctx, key):
 
 def access_grant(args, ctx, key):
     person, group = _employee(args.get("employee_id")), _group(args.get("group_id"))
-    request = _request(args.get("request_id"))
+    request = _case(args, ctx)
+    if ctx.use_case == "nonstandard_request" and request and request["requester_id"] \
+            and person["id"] != request["requester_id"] and person["manager_id"] != request["requester_id"]:
+        manager = directory.manager_of(person["id"])
+        raise PermanentError(
+            f"Cannot grant to {person['id']} on {request['id']}: the requester {request['requester_id']} is neither "
+            f"{person['id']} nor their manager. Write manager_confirmation_draft for {person['id']} and "
+            f"{group['id']}" + (f", for {manager['name']} ({manager['id']}) to confirm" if manager else "")
+            + ". A retry of this call will fail the same way.")
     decision = catalog.policy_for(person["id"], group["id"])
     if decision["decision"] not in ("birthright", "allowed"):
         raise PermanentError(f"Cannot grant {group['id']} to {person['id']}: {decision['reason']}. "
@@ -129,7 +149,7 @@ def access_grant(args, ctx, key):
 
 def access_revoke(args, ctx, key):
     person, group = _employee(args.get("employee_id")), _group(args.get("group_id"))
-    request = _request(args.get("request_id"))
+    request = _case(args, ctx)
     if ctx.use_case == "nonstandard_request" and request and request["requester_id"] != person["id"]:
         raise PermanentError(f"On an employee's request you may remove only the requester's own groups, and "
                              f"{person['id']} is not the requester of {request['id']}. Use access_propose_change with "
@@ -228,6 +248,20 @@ def credentials_issue(args, ctx, key):
     return {"credential_id": cid, "employee_id": person["id"]}
 
 
+def credentials_record_handover(args, ctx, key):
+    """A credential is handed over in person, never in a message: a pending record for the operator."""
+    person = _employee(args.get("employee_id"))
+    credential_id = str(args.get("credential_id", "")).strip().upper()
+    if credential_id not in {c["id"] for c in credentials.for_employee(person["id"])}:
+        raise PermanentError(f"{person['id']} has no credential {credential_id!r}; issue one with credentials_issue "
+                             "first.")
+    request = _request(args.get("request_id"))
+    pid = pending.create("credential_handover", request_id=request["id"] if request else None, employee_id=person["id"],
+                         key=key, stamp=db.current_stamp(), reason=f"Hand over {credential_id} in person.")
+    return {"pending_id": pid, "status": "waiting_for_operator", "employee_id": person["id"],
+            "credential_id": credential_id}
+
+
 # name -> (function, who may call it, whether it writes)
 TOOLS = {
     "directory_get_employee": (directory_get_employee, MODEL, False),
@@ -247,6 +281,7 @@ TOOLS = {
     "requests_set_status": (requests_set_status, MODEL, True),
     "notices_send_template": (notices_send_template, CODE, True),
     "credentials_issue": (credentials_issue, CODE, True),
+    "credentials_record_handover": (credentials_record_handover, CODE, True),
 }
 
 # The arguments that name a write's effect: the key is derived from these only, never
@@ -261,4 +296,5 @@ EFFECT_ARGS = {
     "requests_set_status": ("request_id", "status"),
     "notices_send_template": ("thread_id", "request_id", "template_id"),
     "credentials_issue": ("employee_id", "system_id"),
+    "credentials_record_handover": ("employee_id", "credential_id"),
 }
