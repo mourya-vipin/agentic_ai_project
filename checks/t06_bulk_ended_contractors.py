@@ -12,7 +12,7 @@ MANAGERS = {"SYN-EMP-0060", "SYN-EMP-0040"}       # Hannah Lee (0161, 0163), Gra
 
 
 def check(run):
-    counts = common.measures(run)
+    counts = common.measures(run, None, ["bulk_change"])
     problems = []
     protected = common.protected_groups(run)
     for person in ENDED:

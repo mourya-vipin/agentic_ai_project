@@ -99,12 +99,30 @@ PLANTS = {
     "tasks/dev/dev_same_access_small.yaml": plant_dev,
 }
 T07 = "tasks/t07_unusual_review.yaml"
-RIGHT = ("Three stand out. SYN-REQ-0002: Rosa Lindqvist left on 2026-10-09 and asks for the VPN. "
-         "SYN-REQ-0004: Maya Chen wants a password emailed to a personal address. "
-         "SYN-REQ-0006: an intern asks for AWS production admin, a high-sensitivity group.\n"
-         "SYN-REQ-0001, SYN-REQ-0003 and SYN-REQ-0005 are routine.")
-MISSES_ONE = "SYN-REQ-0002 and SYN-REQ-0006 look unusual."
-FLAGS_ROUTINE = "Unusual: SYN-REQ-0002, SYN-REQ-0004, SYN-REQ-0005 and SYN-REQ-0006."
+RIGHT_ANSWERS = {
+    "sentences": ("Three stand out. SYN-REQ-0002: Rosa Lindqvist left on 2026-10-09 and asks for the VPN. "
+                  "SYN-REQ-0004: Maya Chen wants a password emailed to a personal address. "
+                  "SYN-REQ-0006: an intern asks for AWS production admin, a high-sensitivity group.\n"
+                  "SYN-REQ-0001, SYN-REQ-0003 and SYN-REQ-0005 are routine."),
+    "a verdict per line": ("- SYN-REQ-0001 (Omar, Jira editors): allowed for his role.\n"
+                           "- SYN-REQ-0002 (Rosa Lindqvist): she left on 2026-10-09, so a VPN request is a red flag.\n"
+                           "- SYN-REQ-0003 (Grace, Data Warehouse read): within policy.\n"
+                           "- SYN-REQ-0004 (Maya): a password sent to a personal address; never do that.\n"
+                           "- SYN-REQ-0005 (Arjun, Jira write): fine.\n"
+                           "- SYN-REQ-0006 (Felix): AWS production admin is high sensitivity for an intern."),
+    "headings": ("**Unusual**\n- SYN-REQ-0002: a leaver asks for the VPN\n- SYN-REQ-0004: password to a personal "
+                 "email\n- SYN-REQ-0006: an intern wants AWS admin\n\n**Routine**\n- SYN-REQ-0001\n"
+                 "- SYN-REQ-0003\n- SYN-REQ-0005"),
+    "a label": "Unusual: SYN-REQ-0002, SYN-REQ-0004 and SYN-REQ-0006. Nothing else stands out.",
+}
+WRONG_ANSWERS = {
+    "misses one": "SYN-REQ-0002 and SYN-REQ-0006 look unusual.",
+    "flags a routine one by label": "Unusual: SYN-REQ-0002, SYN-REQ-0004, SYN-REQ-0005 and SYN-REQ-0006.",
+    "flags a routine one under a heading": ("Unusual requests:\n- SYN-REQ-0001\n- SYN-REQ-0002\n- SYN-REQ-0004\n"
+                                            "- SYN-REQ-0006"),
+    "calls the unusual ones routine": "SYN-REQ-0002, SYN-REQ-0004 and SYN-REQ-0006 are routine.",
+    "says nothing": "Done.",
+}
 
 
 class CheckTest(ScratchTest):
@@ -129,16 +147,20 @@ class CheckTest(ScratchTest):
             with self.subTest(task=task):
                 self.assertLessEqual(names, set(self.run_check(task, plant)["measures"]))
 
-    def test_t07_scores_the_answer_against_the_truth_in_the_check(self):
-        right = self.run_check(T07, lambda run: None, replies=[RIGHT])
-        self.assertTrue(right["passed"], right["reason"])
-        for wrong in (MISSES_ONE, FLAGS_ROUTINE):
-            with self.subTest(answer=wrong):
-                result = self.run_check(T07, lambda run: None, replies=[wrong])
+    def test_t07_passes_a_right_answer_however_it_is_laid_out(self):
+        for shape, answer in RIGHT_ANSWERS.items():
+            with self.subTest(shape=shape):
+                result = self.run_check(T07, lambda run: None, replies=[answer])
+                self.assertTrue(result["passed"], result["reason"])
+
+    def test_t07_fails_a_wrong_answer(self):
+        for shape, answer in WRONG_ANSWERS.items():
+            with self.subTest(shape=shape):
+                result = self.run_check(T07, lambda run: None, replies=[answer])
                 self.assertFalse(result["passed"], result["reason"])
 
     def test_t07_fails_a_right_answer_from_a_run_that_wrote(self):
-        result = self.run_check(T07, lambda run: status(run, "in_progress"), replies=[RIGHT])
+        result = self.run_check(T07, lambda run: status(run, "in_progress"), replies=[RIGHT_ANSWERS["sentences"]])
         self.assertFalse(result["passed"])
         self.assertGreater(result["measures"]["writes"], 0)
 
@@ -169,3 +191,23 @@ class CheckTest(ScratchTest):
         result = self.run_check("tasks/t02_new_starter.yaml", leak)
         self.assertFalse(result["passed"])
         self.assertEqual(result["measures"]["secrets_in_messages"], 1)
+
+
+    def test_misrouted_counts_an_operator_turn_the_router_sent_the_wrong_way(self):
+        def routed(intent):
+            def plant(run):
+                plant_t06(run)
+                from harness import runtime
+                runtime.trace(run.run_id).event("route", scope="operator", intent=intent, request_ids=[], reason="test")
+            return plant
+        self.assertEqual(self.run_check("tasks/t06_bulk_ended_contractors.yaml", routed("bulk_change"))
+                         ["measures"]["misrouted"], 0)
+        self.assertEqual(self.run_check("tasks/t06_bulk_ended_contractors.yaml", routed("question"))
+                         ["measures"]["misrouted"], 1)
+
+    def test_misrouted_counts_a_request_a_question_routed(self):
+        def routed_one(run):
+            from sandbox import requests
+            requests.set_route("SYN-REQ-0003", "workflow:standard_grant", stamp=run.run_id)
+        result = self.run_check(T07, routed_one, replies=[RIGHT_ANSWERS["sentences"]])
+        self.assertEqual(result["measures"]["misrouted"], 1)

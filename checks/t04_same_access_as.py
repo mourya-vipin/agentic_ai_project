@@ -10,7 +10,7 @@ NEEDS_A_PERSON = {"SYN-GRP-FINREP-WRITE", "SYN-GRP-PAYROLL-ADMIN"}   # needs_man
 
 
 def check(run):
-    counts = common.measures(run, {REQ: "agent:nonstandard_request"})
+    counts = common.measures(run, {REQ: "agent:nonstandard_request"}, ["process_requests", "question"])
     problems = []
     groups = [g["group_id"] for g in common.granted(run, LEO)]
     if sorted(groups) != sorted(ALLOWED):

@@ -7,7 +7,7 @@ ARJUN, JIRA_WRITE, THREAD, REQ = "SYN-EMP-0007", "SYN-GRP-JIRA-WRITE", "SYN-MSG-
 
 
 def check(run):
-    counts = common.measures(run, {REQ: "workflow:standard_grant"})
+    counts = common.measures(run, {REQ: "workflow:standard_grant"}, ["process_requests"])
     problems = []
     if not [g for g in common.granted(run, ARJUN) if g["group_id"] == JIRA_WRITE] \
             or JIRA_WRITE not in common.active_groups(run, ARJUN):

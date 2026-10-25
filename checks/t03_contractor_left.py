@@ -7,7 +7,7 @@ JONAS, THREAD, REQ = "SYN-EMP-0150", "SYN-HR-T03", "SYN-REQ-0001"
 
 
 def check(run):
-    counts = common.measures(run, {REQ: "workflow:offboarding"})
+    counts = common.measures(run, {REQ: "workflow:offboarding"}, ["process_requests"])
     problems = []
     left = common.active_groups(run, JONAS) - common.protected_groups(run)
     if left:

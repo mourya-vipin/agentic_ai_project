@@ -12,7 +12,10 @@ read only that run's effects:
     duplicate_effects    an effect present more than once under the same (employee, group,
                          request), or the same notice twice on a thread: only the sandbox shows it
     wrong_grants         grants of a group the role policy does not allow for that person
-    misrouted            requests whose recorded route differs from the route the task expects
+    misrouted            requests whose recorded route differs from the route the task expects,
+                         plus operator turns the router sent another way than the task expects
+                         (read from the router's own route lines in the run's trace; a run whose
+                         trace has none, such as a planted effect in a test, adds nothing)
     secrets_in_messages  messages in this run whose text contains a fake secret (FAKE-)
     writes               every row stamped with this run, in any table (0 for a question)
 
@@ -27,6 +30,7 @@ from collections import Counter
 
 import channel
 from checks.helpers import connect
+from harness.trace import read_trace
 
 DB = "access.sqlite3"
 ID = re.compile(r"SYN-REQ-\d{4}")
@@ -112,9 +116,32 @@ def writes(run) -> int:
     return n
 
 
-def measures(run, expected_routes: dict[str, str | None] | None = None) -> dict:
+def route_misses(run, expected_routes: dict[str, str | None] | None) -> int:
+    """Requests whose recorded route is not the one expected ("workflow:standard_grant",
+    or None for a request that should not be routed at all)."""
+    misses = 0
+    for request_id, route in (expected_routes or {}).items():
+        found = request(run, request_id)
+        misses += int(found is None or found["route"] != route)
+    return misses
+
+
+def intent_misses(run, expected_intents: list[str] | None) -> int:
+    """Operator turns the router sent another way than expected, one intent per turn
+    ("process_requests", "bulk_change", "question"), from the trace's route lines."""
+    if not expected_intents or run.trace_path is None or not run.trace_path.exists():
+        return 0
+    found = [x.get("intent") for x in read_trace(run.trace_path)
+             if x.get("type") == "route" and x.get("scope") == "operator"]
+    if not found:
+        return 0
+    return sum(1 for i, want in enumerate(expected_intents) if i >= len(found) or found[i] != want)
+
+
+def measures(run, expected_routes: dict[str, str | None] | None = None,
+             expected_intents: list[str] | None = None) -> dict:
     """The named counts every check returns. expected_routes: request ID -> the route
-    the task expects, as requests.route records it ("workflow:standard_grant")."""
+    the task expects; expected_intents: how each operator turn should be routed."""
     grants, removals = granted(run), removed(run)
     records = pending(run)
     messages = sent(run)
@@ -124,10 +151,7 @@ def measures(run, expected_routes: dict[str, str | None] | None = None) -> dict:
                if p["kind"] != "reply_draft"]
             + [("reply", p["employee_id"], None, p["request_id"]) for p in records if p["kind"] == "reply_draft"]
             + [("notice", m.thread_id, m.text) for m in messages])
-    misrouted = 0
-    for request_id, route in (expected_routes or {}).items():
-        found = request(run, request_id)
-        misrouted += int(found is None or found["route"] != route)
+    misrouted = route_misses(run, expected_routes) + intent_misses(run, expected_intents)
     return {
         "grants": len(grants),
         "removals": len(removals),

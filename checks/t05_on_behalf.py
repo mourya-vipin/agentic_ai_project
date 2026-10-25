@@ -10,7 +10,7 @@ GITHUB_ENG = "SYN-GRP-GITHUB-ENG"
 
 
 def check(run):
-    counts = common.measures(run, {REQ: "agent:nonstandard_request"})
+    counts = common.measures(run, {REQ: "agent:nonstandard_request"}, ["process_requests"])
     problems = []
     if counts["grants"]:
         problems.append(f"{counts['grants']} grants were made")
@@ -21,7 +21,7 @@ def check(run):
     replies = [p for p in common.pending(run, "reply_draft") if p["employee_id"] == ARJUN]
     if len(replies) != 1:
         problems.append(f"{len(replies)} reply drafts to {ARJUN}, not one")
-    if counts["misrouted"]:
+    if common.route_misses(run, {REQ: "agent:nonstandard_request"}):
         route = (common.request(run, REQ) or {}).get("route")
         problems.append(f"{REQ} was routed {route}, not agent:nonstandard_request")
     return common.result(problems, "no grant, manager confirmation drafted, reply drafted, routed to the agent",

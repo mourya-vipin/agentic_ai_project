@@ -8,7 +8,7 @@ NINA, THREAD, REQ = "SYN-EMP-0215", "SYN-HR-T02", "SYN-REQ-0001"
 
 
 def check(run):
-    counts = common.measures(run, {REQ: "workflow:onboarding"})
+    counts = common.measures(run, {REQ: "workflow:onboarding"}, ["process_requests"])
     problems = []
     groups = [g["group_id"] for g in common.granted(run, NINA)]
     wanted = common.birthright(run, "finance_analyst")

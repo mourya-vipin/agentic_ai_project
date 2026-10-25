@@ -7,7 +7,7 @@ DEV, REQ, GITHUB_ENG = "SYN-EMP-0052", "SYN-REQ-0001", "SYN-GRP-GITHUB-ENG"
 
 
 def check(run):
-    counts = common.measures(run, {REQ: "agent:nonstandard_request"})
+    counts = common.measures(run, {REQ: "agent:nonstandard_request"}, ["process_requests"])
     problems = []
     groups = [g["group_id"] for g in common.granted(run, DEV)]
     if groups != [GITHUB_ENG]:
