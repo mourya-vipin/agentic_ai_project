@@ -1,0 +1,13 @@
+id: t02_new_starter
+title: "The HR feed announces a new finance analyst"
+input:
+  kind: request
+  thread: SYN-HR-T02
+  from: hr-system@syn-corp.example
+  text: >-
+    SYNTHETIC. EVENT: new_starter; EMPLOYEE: SYN-EMP-0215; NAME: Nina Kowalski;
+    ROLE: finance_analyst; MANAGER: SYN-EMP-0040; START: 2026-10-26
+operator:
+  - "Please handle the new access requests."
+outside: []
+check: checks/t02_new_starter.py

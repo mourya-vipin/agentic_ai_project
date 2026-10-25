@@ -14,8 +14,11 @@
 - The planned agent for U6, bulk changes (`agent/planner.py`, `agent/plan_schema.json`, `agent/validator.py`, `agent/executor.py`, `agent/reviser.py`, prompts in `agent/prompts/`): a plan written before any tool runs from the operator's instruction and IDs and counts our code reads; validated (schema, tools, order, observable outcomes, the plan's step limit of 1 + 4 per person, capped at five people, and only the employees the planner was given), re-planned at most twice, then `plan_rejected` with nothing run; run in order by an executor that refuses and traces any off-plan call; one checkpoint after each membership listing (`protected_memberships_have_a_step`), the only place the plan may be revised, at most twice a run. Tests in `tests/test_plan.py`.
 - The detectors (`agent/detectors.py`): the repeat check on every agent-path call, the orphan check on every plan version, and the diff of each planned run against its plan (`plan_diff`). Tests in `tests/test_detectors.py`.
 - The critique on `reply_draft` (`agent/critique.py`): each draft checked against what the run did in the identity store and the pending records (groups said granted, removed, waiting or kept; groups or people left out; other requests or people named), at most two rounds, a held draft never written. `sandbox/access.py: changes_by_stamp()` reads what one run granted and removed; the `critique` trace event now records `changed`. Tests in `tests/test_critique.py`.
+- The test tasks (`tasks/t01_standard_jira.yaml` to `tasks/t07_unusual_review.yaml`, and `tasks/dev/dev_same_access_small.yaml` for tuning prompts) and one check each (`checks/<task>.py`), which read the sandbox and the channel for the run's ID and return the same named counts (`checks/common.py`: grants, removals, proposals, drafts, notices, duplicate effects, wrong grants, misrouted, secrets in messages, writes). Tests in `tests/test_checks.py`.
 
 ### Removed
+
+- The starter's `tasks/example.yaml` and `checks/example.py`.
 
 ### Limited
 
