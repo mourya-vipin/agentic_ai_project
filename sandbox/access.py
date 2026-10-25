@@ -60,6 +60,20 @@ def by_request(request_id: str) -> list[dict]:
     return granted + removed
 
 
+def changes_by_stamp(stamp: str) -> list[dict]:
+    """Every membership granted or removed under this stamp (a run, or a console
+    session), with "change": granted | removed and "under_request", the request it was
+    made under (None for an operator's bulk change). For the critique's check."""
+    with db.connect() as conn:
+        granted = conn.execute(f"SELECT {MEMBERSHIP_COLUMNS}, 'granted' AS change, m.request_id AS under_request "
+                               "FROM memberships m JOIN groups g ON g.id = m.group_id WHERE m.stamp = ?",
+                               (stamp,)).fetchall()
+        removed = conn.execute(f"SELECT {MEMBERSHIP_COLUMNS}, 'removed' AS change, m.removed_request_id AS "
+                               "under_request FROM memberships m JOIN groups g ON g.id = m.group_id "
+                               "WHERE m.removed_stamp = ?", (stamp,)).fetchall()
+    return granted + removed
+
+
 def grant(employee_id, group_id, *, request_id, key, stamp, actor, expires_at=None) -> dict:
     """{"status": "granted" | "already_member", "membership_id": int}; a repeated key
     returns the first result."""

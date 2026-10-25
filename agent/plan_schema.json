@@ -1,0 +1,61 @@
+{
+  "type": "object",
+  "description": "A plan for one bulk change: the steps our executor runs, in order.",
+  "properties": {
+    "steps": {
+      "type": "array",
+      "description": "The steps, in the order they run.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Unique within the plan: 1, 2, 3, ..."
+          },
+          "action": {
+            "type": "string",
+            "description": "What the step does, in a few words."
+          },
+          "tool": {
+            "type": "string",
+            "description": "The one tool this step calls, by the name in the tool list."
+          },
+          "args_json": {
+            "type": "string",
+            "description": "The tool's arguments as a JSON object encoded as a string. Write \"$fill\" for a value that depends on an earlier step's result."
+          },
+          "depends_on": {
+            "type": "array",
+            "description": "The ids of earlier steps whose results this step uses.",
+            "items": {"type": "integer"}
+          },
+          "expect": {
+            "type": "object",
+            "description": "What a program can observe in the step's result when it worked.",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["count_equals", "non_empty", "field_equals", "record_written"],
+                "description": "count_equals: the list in `field` has `value` items. non_empty: the list in `field` has at least one item. field_equals: `field` equals `value`. record_written: a pending record was written."
+              },
+              "field": {
+                "type": "string",
+                "description": "The result's field the check reads; \"\" for record_written."
+              },
+              "value": {
+                "type": "string",
+                "description": "The value to compare with, as text; \"\" for non_empty and record_written."
+              }
+            },
+            "required": ["kind", "field", "value"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["id", "action", "tool", "args_json", "depends_on", "expect"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["steps"],
+  "additionalProperties": false
+}
