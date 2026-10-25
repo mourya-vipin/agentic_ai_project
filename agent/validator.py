@@ -20,16 +20,16 @@ SCHEMA_PATH = Path(__file__).resolve().parent / "plan_schema.json"
 KINDS = ("count_equals", "non_empty", "field_equals", "record_written")
 EMPLOYEE_ID = re.compile(r"SYN-EMP-\d{4}", re.IGNORECASE)
 
-# The plan's own step limit for a bulk change over n people: one listing step, then up
-# to four per person (list their groups, remove them, a proposal for a protected group,
-# their manager's note). Capped at five people's worth: a larger instruction should be
-# split by the operator, so each plan stays small enough to read and to check.
+# The plan's own step limit for a bulk change over n people: up to four steps per
+# person (list their groups, remove them, a proposal for a protected group, their
+# manager's note). Capped at five people's worth: a larger instruction should be split
+# by the operator, so each plan stays small enough to read and to check.
 PER_PERSON = 4
 MAX_PEOPLE = 5
 
 
 def plan_step_limit(people: int) -> int:
-    return 1 + PER_PERSON * min(max(people, 1), MAX_PEOPLE)
+    return PER_PERSON * min(max(people, 1), MAX_PEOPLE)
 
 
 def load_schema() -> dict:

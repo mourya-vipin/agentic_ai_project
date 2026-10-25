@@ -9,10 +9,9 @@ Each step:
 - `expect`: what a program can see in the result when the step worked: `count_equals` (the list in `field` has `value` items), `non_empty` (the list in `field` has at least one item), `field_equals` (`field` equals `value`), or `record_written` (a pending record was written; `field` and `value` are "").
 
 For removing the access of contractors whose contract ended, the plan is:
-1. one `directory_list_contractors_ended` step, `before` today's date, expecting `count_equals` on `contractors` with the number you were given;
-2. for each contractor, an `access_list_memberships` step (expect `non_empty` on `memberships`), then an `access_revoke_all` step with a short `reason` (expect `non_empty` on `removed`), depending on that listing;
-3. one `reply_draft` per manager, with `recipient_employee_id` the manager's ID you were given, `body` "$fill", depending on the `access_revoke_all` steps of that manager's contractors, expecting `record_written`.
+1. for each contractor, an `access_list_memberships` step (expect `non_empty` on `memberships`), then an `access_revoke_all` step with a short `reason` (expect `non_empty` on `removed`), depending on that listing;
+2. one `reply_draft` per manager, with `recipient_employee_id` the manager's ID you were given, `body` "$fill", depending on the `access_revoke_all` steps of that manager's contractors, expecting `record_written`.
 
-Do not plan a lookup for an ID you were already given: the manager's ID is in the facts, so no step looks it up. You are not told which groups are protected (such as a legal hold, which `access_revoke_all` keeps); our code checks after each membership listing and revises the plan if a protected group needs a proposal.
+Do not plan a step that looks up or lists what you were already given: the contractors and their managers' IDs are in the facts, which our code read just before this call, so no step lists the contractors again or looks up a manager. You are not told which groups are protected (such as a legal hold, which `access_revoke_all` keeps); our code checks after each membership listing and revises the plan if a protected group needs a proposal.
 
-Keep the plan within the step limit you are given. If the facts show nothing to do, plan only the listing step.
+Keep the plan within the step limit you are given.
