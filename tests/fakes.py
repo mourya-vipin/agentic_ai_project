@@ -44,7 +44,7 @@ BAD_ARGS = {
     "directory_list_contractors_ended": {"before": "last Friday"},
     "access_list_memberships": {"employee_id": "priya"},
     "catalog_search_groups": {"query": "finance", "system_id": "Finance Reports"},
-    "policy_check_access": {"employee_id": "SYN-EMP-0031", "group_id": "payroll admin"},
+    "policy_check_access": {"employee_id": "SYN-EMP-0031", "group_ids": ["payroll admin"]},
     "requests_get": {"request_id": "REQ-5"},
     "requests_list_today": {"day": "today"},
     "access_grant": {"employee_id": "SYN-EMP-0031", "group_id": "SYN-GRP-PAYROLL-ADMIN", "request_id": "SYN-REQ-0001"},
@@ -62,7 +62,12 @@ class BadArgs:
     its turn: every error goes through the running system and lands in the trace
     with is_error set (Part 3, task 5).
 
-        python run.py --tasks tasks/<task>.yaml --sweeps 1 --arm bad-args --backend tests.fakes:BadArgs
+        python run.py --tasks tasks/t04_same_access_as.yaml tasks/t06_bulk_ended_contractors.yaml --sweeps 1 \
+            --arm bad-args --backend tests.fakes:BadArgs --set plan.bulk_change=off
+
+    It answers a routing call (no tools offered) by sending the case to the agent path,
+    so t04 reaches every tool of a non-standard request, and t06 on the loop the two
+    bulk-change tools besides.
     """
     free = True
 
@@ -75,6 +80,11 @@ class BadArgs:
         done = sum(1 for m in messages if m.get("role") == "assistant")
         offered = [t["name"] for t in tools or []]
         usage = Usage(input_tokens=10, output_tokens=5)
+        if not offered:             # a routing call: send the case down the agent path, to reach the write tools
+            asked = json.dumps(messages).lower()
+            intent = "bulk_change" if "contract" in asked and "remove all" in asked else "process_requests"
+            return [{"type": "text", "text": json.dumps({"intent": intent, "request_ids": []})}], "end_turn", \
+                "bad-args", usage
         if done >= len(offered):
             return [{"type": "text", "text": "Done."}], "end_turn", "bad-args", usage
         name = offered[done]
@@ -84,6 +94,97 @@ class BadArgs:
 
 
 # -- Aman Panigrahi: routing, workflows, loop ----------------------------------------
+
+class RouterFake:
+    """Answers the two routing calls (no tools offered) with fixed JSON: the operator
+    router's with OPERATOR, the request router's (its prompt asks for groups_mentioned)
+    with REQUEST. Every call that offers tools then gets AFTER:
+
+        "done"          says "Done." and ends its turn
+        "never_stops"   calls the first tool it is offered, as never-stops does
+        "unknown_tool"  calls a tool that does not exist
+    """
+    free = True
+    name = "router-fake"
+    OPERATOR = {"intent": "process_requests", "request_ids": []}
+    REQUEST = {"intent": "other", "subject": "self", "groups_mentioned": []}
+    AFTER = "done"
+    DELAY_S = 0.0
+
+    def __init__(self, settings=None):
+        self.calls = 0
+
+    def create(self, *, system, messages, tools):
+        import time
+        from harness.client import Usage
+        from harness.scripted import NeverStops
+        self.calls += 1
+        if self.DELAY_S:
+            time.sleep(self.DELAY_S)
+        if not tools:
+            answer = self.REQUEST if "groups_mentioned" in (system or "") else self.OPERATOR
+            return [{"type": "text", "text": json.dumps(answer)}], "end_turn", self.name, Usage(40, 20)
+        if self.AFTER == "never_stops":
+            return NeverStops().create(system=system, messages=messages, tools=tools)
+        if self.AFTER == "unknown_tool":
+            return ([{"type": "tool_use", "id": f"toolu_fake_{self.calls:04d}", "name": "teleport_user",
+                      "input": {}}], "tool_use", self.name, Usage(40, 10))
+        return [{"type": "text", "text": "Done."}], "end_turn", self.name, Usage(40, 2)
+
+
+class RoutesStandardGrant(RouterFake):
+    """t01: the request router reads one group, for the sender."""
+    REQUEST = {"intent": "grant", "subject": "self", "groups_mentioned": ["write access to Jira"]}
+
+
+class RoutesSelfForTeammate(RouterFake):
+    """t05, described wrongly: the request router says the access is for the sender."""
+    REQUEST = {"intent": "grant", "subject": "self", "groups_mentioned": ["GitHub engineers group"]}
+
+
+class RoutesToAgent(RouterFake):
+    """Processes the requests; the request router says "other", so U4."""
+
+
+class RoutesToAgentThenNeverStops(RouterFake):
+    """Routes the case to the agent path, then never stops."""
+    AFTER = "never_stops"
+
+
+class RoutesToAgentThenSlow(RoutesToAgentThenNeverStops):
+    """The same, 0.05 s a call, so a short wall clock comes before the step limit."""
+    DELAY_S = 0.05
+
+
+class RoutesToAgentThenUnknownTool(RouterFake):
+    """Routes the case to the agent path, which then calls a tool that does not exist."""
+    AFTER = "unknown_tool"
+
+
+class RoutesQuestion(RouterFake):
+    """The operator router says the message is a question."""
+    OPERATOR = {"intent": "question", "request_ids": []}
+
+
+class RoutesBulk(RouterFake):
+    """The operator router says the message is a bulk change."""
+    OPERATOR = {"intent": "bulk_change", "request_ids": []}
+
+
+class RoutesBulkThenNeverStops(RoutesBulk):
+    AFTER = "never_stops"
+
+class RoutesToAgentThenSetsDone(RouterFake):
+    """Routes the case to the agent path; the agent sets the request refused, then stops."""
+
+    def create(self, *, system, messages, tools):
+        from harness.client import Usage
+        if tools and not any(m["role"] == "assistant" for m in messages):
+            self.calls += 1
+            return ([{"type": "tool_use", "id": "toolu_fake_status", "name": "update_request",
+                      "input": {"request_id": "SYN-REQ-0001", "status": "refused", "note": "test"}}],
+                    "tool_use", self.name, Usage(40, 10))
+        return super().create(system=system, messages=messages, tools=tools)
 
 
 # -- Shruti Tewaney: plan, critique, detectors ---------------------------------------
@@ -117,7 +218,7 @@ def t06_plan(with_hold: bool = False) -> dict:
                                {"employee_id": person, "reason": reason}, [list_id], "non_empty", "removed"))
     hold = plan_step(10, f"propose removing {VICTOR}'s legal hold", "access_propose_change",
                      {"action": "revoke", "employee_id": VICTOR, "group_id": LEGAL_HOLD, "reason": reason},
-                     [4], "record_written")
+                     [5], "record_written")      # after the removal that kept it, as the real reviser wrote
     steps.append(plan_step(8, "note to Hannah Lee", "reply_draft", {"recipient_employee_id": HANNAH, "body": "$fill"},
                            [3, 7], "record_written"))
     steps.append(plan_step(9, "note to Grace Okafor", "reply_draft", {"recipient_employee_id": GRACE, "body": "$fill"},
@@ -149,8 +250,8 @@ def true_note(request: str) -> str:
 
 
 class GoodPlanner:
-    """Plans t06 without the legal-hold proposal; revises it in when the checkpoint
-    fails; fills every note truthfully."""
+    """Routes the operator's message as a bulk change; plans t06 without the legal-hold
+    proposal; revises it in when the checkpoint fails; fills every note truthfully."""
     free = True
     name = "good-planner"
     with_hold = False
@@ -162,6 +263,10 @@ class GoodPlanner:
         self.calls += 1
         names = [t["name"] for t in tools or []]
         request = messages[-1]["content"]
+        if not names:                  # the operator router's call: this is a bulk change
+            from harness.client import Usage
+            return ([{"type": "text", "text": json.dumps({"intent": "bulk_change", "request_ids": []})}], "end_turn",
+                    self.name, Usage(input_tokens=40, output_tokens=20))
         if "submit_plan" in names:
             body = self.revise(request) if system.startswith("You are the reviser") else self.plan(request)
             return self.use("submit_plan", body)
@@ -206,6 +311,15 @@ class BadReviser(GoodPlanner):
         return plan
 
 
+class ReplacingReviser(GoodPlanner):
+    """Revises as gpt-4.1-mini did in our first dev run: Grace's note now depends on the
+    new proposal alone, dropping Victor's removal from its depends_on."""
+    def revise(self, request):
+        plan = t06_plan(with_hold=True)
+        plan["steps"][-1]["depends_on"] = [10]
+        return plan
+
+
 class OffPlanFiller(GoodPlanner):
     """Asked to fill a note, calls grant_access instead."""
     def fill(self, tool, request):
@@ -231,3 +345,4 @@ class AlwaysWrongFiller(GoodPlanner):
     """Every draft claims a removal that never happened, however often it is told."""
     def note(self, request):
         return true_note(request) + " I also removed SYN-GRP-PAYROLL-ADMIN."
+

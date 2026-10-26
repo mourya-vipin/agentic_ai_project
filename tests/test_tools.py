@@ -101,3 +101,61 @@ class ToolsTest(ScratchTest):
         self.assertTrue(issued.data["credential_id"].startswith("SYN-CRED-"))
         for line in self.trace_lines("tool_call"):
             self.assertNotIn("FAKE-", str(line["output"]))
+
+
+class OnBehalfAndHandoverTest(ScratchTest):
+    """The two changes made from the dev-v1 traces: a grant on someone else's behalf is
+    refused unless the requester is their manager, and the credential hand-over is a
+    workflow-only tool."""
+
+    def setUp(self):
+        super().setUp()
+        channel.reset()
+        with channel.seeding():
+            seed.reset()
+            seed.seed(None)
+        runtime.configure()
+        self.registry = Registry()
+
+    def grant(self, request_id, employee_id, named_request=None):
+        return self.registry.call("access_grant", {"employee_id": employee_id, "group_id": "SYN-GRP-GITHUB-ENG",
+                                                   "request_id": named_request or request_id},
+                                  CallContext("s-ob", 1, "model", "nonstandard_request", request_id=request_id))
+
+    def test_a_grant_for_someone_else_is_refused_and_points_to_the_manager(self):
+        result = self.grant("SYN-REQ-0006", "SYN-EMP-0052")          # Arjun asks for Dev Rao
+        self.assertTrue(result.is_error)
+        self.assertIn("manager_confirmation_draft", result.content)
+        self.assertIn("Hannah Lee (SYN-EMP-0060)", result.content)
+        self.assertNotIn("SYN-GRP-GITHUB-ENG", {m["group_id"] for m in access.memberships("SYN-EMP-0052")})
+
+    def test_naming_another_request_does_not_step_around_the_rule(self):
+        result = self.grant("SYN-REQ-0006", "SYN-EMP-0052", named_request="SYN-REQ-0001")
+        self.assertTrue(result.is_error)
+
+    def test_the_subjects_own_manager_may_ask_for_them(self):
+        from sandbox import requests
+        rid = requests.create("SYN-MSG-X1", "employee", "SYNTHETIC. Please add Dev to GitHub engineers.",
+                              requester_id="SYN-EMP-0060")
+        result = self.grant(rid, "SYN-EMP-0052")
+        self.assertFalse(result.is_error, result.content)
+        self.assertEqual(result.data["status"], "granted")
+
+    def test_the_handover_is_written_once_by_a_workflow_and_never_by_the_model(self):
+        args = {"employee_id": "SYN-EMP-0215", "credential_id": None, "request_id": "SYN-REQ-0003"}
+        wf = CallContext("s-ob", 1, "workflow", "onboarding", request_id="SYN-REQ-0003")
+        issued = self.registry.call("credentials_issue", {"employee_id": "SYN-EMP-0215", "system_id": "SYN-SYS-SSO"}, wf)
+        args["credential_id"] = issued.data["credential_id"]
+        first = self.registry.call("credentials_record_handover", args, wf)
+        again = self.registry.call("credentials_record_handover", args, wf)
+        self.assertEqual(first.data["pending_id"], again.data["pending_id"])
+        self.assertEqual(len([p for p in pending.by_request("SYN-REQ-0003") if p["kind"] == "credential_handover"]), 1)
+        model = CallContext("s-ob", 2, "model", "nonstandard_request")
+        self.assertEqual(self.registry.call("credentials_record_handover", args, model).error_class, "protocol")
+
+    def test_a_handover_for_a_credential_the_person_does_not_have_is_refused(self):
+        result = self.registry.call("credentials_record_handover",
+                                    {"employee_id": "SYN-EMP-0215", "credential_id": "SYN-CRED-0007"},
+                                    CallContext("s-ob", 1, "workflow", "onboarding"))
+        self.assertTrue(result.is_error)
+        self.assertIn("issue one with credentials_issue", result.content)

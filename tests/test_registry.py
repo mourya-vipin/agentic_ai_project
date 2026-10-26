@@ -59,7 +59,8 @@ class RegistryTest(ScratchTest):
 
     def test_enum_values_are_compared_case_insensitively(self):
         result = self.registry.call("propose_access", {"action": "GRANT", "employee_id": LEO,
-                                                       "group_id": "syn-grp-payroll-admin"}, ctx())
+                                                       "group_id": "syn-grp-payroll-admin", "request_id": None,
+                                                       "reason": "high sensitivity"}, ctx())
         self.assertFalse(result.is_error, result.content)
         self.assertEqual((result.data["action"], result.data["group_id"]), ("grant", "SYN-GRP-PAYROLL-ADMIN"))
 

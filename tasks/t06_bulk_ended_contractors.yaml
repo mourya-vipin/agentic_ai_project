@@ -1,0 +1,10 @@
+id: t06_bulk_ended_contractors
+title: "The operator removes the access of contractors whose contract has ended"
+# Nothing arrives on the channel: the three ended contractors (SYN-EMP-0161 to 0163, one on
+# legal hold) and the one ending next week (SYN-EMP-0164) are in the base data. The fact
+# restates SYN-EMP-0164's end date, which the check relies on.
+input: {kind: fact, table: employees, id: SYN-EMP-0164, set: {end_date: "2026-10-28"}}
+operator:
+  - "Remove all access for contractors whose contract ended before today, and draft a note to each one's manager."
+outside: []
+check: checks/t06_bulk_ended_contractors.py

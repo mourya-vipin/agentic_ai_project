@@ -1,0 +1,13 @@
+id: t01_standard_jira
+title: "An engineer asks for Jira write access"
+input:
+  kind: request
+  thread: SYN-MSG-T01
+  from: arjun.mehta@syn-corp.example
+  text: >-
+    SYNTHETIC. Hi IT, could I get write access to Jira? I need to move tickets on the
+    Platform board. Arjun
+operator:
+  - "Please handle the new access requests."
+outside: []
+check: checks/t01_standard_jira.py

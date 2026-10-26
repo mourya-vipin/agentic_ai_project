@@ -47,7 +47,12 @@ CLAIMS = (
                            r"needs? (?:the |your )?(?:manager|operator)|confirm(?:ation)?)\b", re.I)),
     ("kept", re.compile(r"\b(kept|keeps?|remains?|retained|still ha(?:ve|s)|stays?|left in place)\b", re.I)),
 )
-NEGATED = re.compile(r"(\bnot|n't|\bnever|\bno)\s+(been\s+|yet\s+|be\s+)?$", re.I)
+# A claim word right after one of these says the thing was not done, or not yet: a
+# negation ("not", "cannot", "can't", "never", "no") or a modal or future ("can be",
+# "will be", "would", "to be"). "cannot" is one word, so \bnot alone missed it
+# (baseline-t05_on_behalf-s02-3d3af4, trace lines 19 and 22).
+NEGATED = re.compile(r"(\b(?:can)?not|n't|\bnever|\bno|\bcan|\bcould|\bwill|\bwould|\bmay|\bmight|\bto)"
+                     r"\s+(?:(?:yet|then|only|be|been|have|once)\s+)*$", re.I)
 WAITING_KINDS = ("proposed_change", "manager_confirmation")
 
 
@@ -172,8 +177,10 @@ def check_draft(*, recipient_employee_id: str, request_id: str | None, body: str
             wrong.append(f"The draft says {gid} was kept, but no one in this case still holds it.")
     for kind, ids in (("granted", case["granted"]), ("removed", case["removed"]),
                       ("waiting for approval", set(case["waiting"]))):
-        for gid in sorted(ids - mentioned):
-            wrong.append(f"The draft does not mention {gid}, which is {kind} in this case; name it by its ID.")
+        left_out = sorted(ids - mentioned)
+        if left_out:     # one sentence for them all, so the reason's cap never hides one
+            wrong.append(f"The draft does not mention {', '.join(left_out)}, which {'is' if len(left_out) == 1 else 'are'} "
+                         f"{kind} in this case; name {'it' if len(left_out) == 1 else 'each'} by its ID.")
     lower = body.lower()
     if case["bulk"]:
         for person_id in case["affected"]:

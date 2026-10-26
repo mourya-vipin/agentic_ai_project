@@ -1,0 +1,12 @@
+id: t03_contractor_left
+title: "A contractor's contract has ended"
+inputs:
+  - {kind: fact, table: employees, id: SYN-EMP-0150, set: {end_date: "2026-10-20"}}
+  - kind: request
+    thread: SYN-HR-T03
+    from: hr-system@syn-corp.example
+    text: "SYNTHETIC. EVENT: contract_ended; EMPLOYEE: SYN-EMP-0150; END: 2026-10-20"
+operator:
+  - "Please handle the new access requests."
+outside: []
+check: checks/t03_contractor_left.py

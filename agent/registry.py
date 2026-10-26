@@ -31,7 +31,8 @@ import uuid
 from dataclasses import dataclass
 
 from agent.errors import EndRun, ToolError
-from agent.tools import definitions_v1, impl, rules
+from agent.tools import definitions as _rewrite
+from agent.tools import impl, rules
 from harness import runtime
 from harness.schema import errors as schema_errors
 from sandbox import access, db
@@ -91,11 +92,15 @@ def derive_key(tool: str, args: dict, ctx: CallContext) -> str:
 
 
 class Registry:
-    def __init__(self, definitions: list[dict] | None = None, aliases: dict[str, str] | None = None):
-        self._definitions = definitions if definitions is not None else definitions_v1.DEFINITIONS
-        self._aliases = aliases if aliases is not None else definitions_v1.ALIASES
+    def __init__(self, definitions: list[dict] | None = None, aliases: dict[str, str] | None = None,
+                 apply_switches: bool = True):
+        self._definitions = definitions if definitions is not None else _rewrite.DEFINITIONS
+        self._aliases = aliases if aliases is not None else _rewrite.ALIASES
         self._by_canonical = {self._aliases.get(d["name"], d["name"]): d for d in self._definitions}
         self.hooks = [allow_all]
+        # False sends the definitions exactly as written: the first draft is measured as it was,
+        # never with the rewrite's strict mode or examples on it.
+        self.apply_switches = apply_switches
 
     def resolve(self, name: str) -> str | None:
         """The canonical name for a first-draft or canonical name, or None."""
@@ -108,7 +113,9 @@ class Registry:
         model may call."""
         wanted = list(self._by_canonical) if names is None else [self.resolve(n) or n for n in names]
         chosen = [self._by_canonical[n] for n in wanted if n in self._by_canonical]
-        return sorted((dict(d) for d in chosen), key=lambda d: d["name"])
+        if not self.apply_switches:
+            return sorted(({k: v for k, v in d.items() if k != "examples"} for d in chosen), key=lambda d: d["name"])
+        return sorted((_as_sent(d, self._aliases.get(d["name"], d["name"])) for d in chosen), key=lambda d: d["name"])
 
     def call(self, name: str, args: dict, ctx: CallContext) -> ToolResult:
         start = time.monotonic()
@@ -124,9 +131,12 @@ class Registry:
         fixed, problems = rules.check_args(canon, args)
         definition = self._by_canonical.get(canon)
         if ctx.caller == "model" and definition is not None:
-            problems += schema_errors(args, definition["input_schema"])
+            named = {p.split(" ", 1)[0] for p in problems}       # a field the rules already named is said once
+            problems += [e for e in schema_errors(fixed, definition["input_schema"])     # after the case is normalized
+                         if e.split(":", 1)[0].split("[", 1)[0] not in named]
         if problems:
-            message = (f"{canon} did not run: " + "; ".join(dict.fromkeys(problems)) + ". Fix the arguments and "
+            message = (f"{canon} did not run: " + "; ".join(dict.fromkeys(p.rstrip(". ") for p in problems))
+                       + ". Fix the arguments and "
                        "call again; the same arguments will fail the same way.")
             result = ToolResult(_cap(message, REPAIR_CHARS), is_error=True, error_class="permanent")
             return self._record(name, canon, args, ctx, result, start, rejected=True)
@@ -190,6 +200,22 @@ class Registry:
             key=result.key, error_class=result.error_class, attempts=attempts, rejected=rejected, denied=denied,
             cost_usd=0.0, summary=result.content[:200])
         return result
+
+
+def _as_sent(definition: dict, canonical_name: str) -> dict:
+    """A definition as the model receives it: its examples rendered into the description
+    when examples.<tool> is on (Lecture 3, slide 18), and strict: true when strict.<tool>
+    is on (slides 20 to 22). Every other field is sent as it is written."""
+    sent = {k: v for k, v in definition.items() if k != "examples"}
+    examples = definition.get("examples")
+    if examples and runtime.switch(f"examples.{canonical_name}", "off") == "on":
+        first, *rest = examples
+        text = f" Example, a typical call: {json.dumps(first)}."
+        text += "".join(f" The less usual case: {json.dumps(e)}." for e in rest)
+        sent["description"] = definition["description"] + text
+    if runtime.switch(f"strict.{canonical_name}", "off") == "on":
+        sent["strict"] = True
+    return sent
 
 
 def _cap(text: str, limit: int) -> str:

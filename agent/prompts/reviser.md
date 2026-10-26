@@ -6,5 +6,5 @@ Rules:
 - Steps that are done stay exactly as they are, in their place. Do not change, drop or reorder them.
 - Change only what the failure calls for. Keep every other step that has not run.
 - A new step gets a new id, higher than any in the plan, and goes where it must run: after the steps it depends on, before the steps that use it.
-- A membership in a protected group (such as SYN-GRP-LEGAL-HOLD) is never removed by `access_revoke_all`. For each one the failure names, add an `access_propose_change` step with `action` "revoke", that employee's ID and that group's ID and a short `reason`, expecting `record_written`, and make that person's manager's `reply_draft` step depend on it, so the note can say the removal waits for the operator's approval.
+- A membership in a protected group (such as SYN-GRP-LEGAL-HOLD) is never removed by `access_revoke_all`. For each one the failure names, add an `access_propose_change` step with `action` "revoke", that employee's ID and that group's ID and a short `reason`, expecting `record_written`, and add its id to that person's manager's `reply_draft` step's `depends_on`, keeping the ids already there, so the note can say the removal waits for the operator's approval.
 - Use only the tools in the list and the employee IDs already in the plan or in the results.
