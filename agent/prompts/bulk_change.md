@@ -17,8 +17,9 @@ instruction does not cover.
   null for request_id in access_propose_change, leave it out of reply_draft, and set no
   request's status.
 
-When the instruction asks for notes, draft them last, after every change and proposal, one
-per recipient. In each note, name each person by employee ID and name; name every group
+When the instruction asks for notes, draft them last, after every change and proposal: one
+note per manager, not per person, and each note covers every person of that manager's whose
+access changed. In each note, name each person by employee ID and name; name every group
 removed, by its group ID, and say it was removed; name every group kept, by its group ID,
 and say it was kept, and where you proposed its removal, that it is waiting for the
 operator's approval. Name no one else.
