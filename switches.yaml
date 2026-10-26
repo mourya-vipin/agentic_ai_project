@@ -28,10 +28,11 @@ critique:
 # Usage examples in a tool's definition (Lecture 3, slide 18). Owner: Vipin Mourya.
 examples:
   access_grant: {setting: "on", values: ["off", "on"], about: "A typical call, then a contractor's time-boxed grant."}
+  policy_check_access: {setting: "on", values: ["off", "on"], added: 2026-10-25, about: "Real group IDs, then several in one call; dev-v1's t07 invented six IDs."}
 
 # Strict mode on a tool's definition (Lecture 3, slides 20 to 22). Owner: Vipin Mourya.
 strict:
-  access_propose_change: {setting: "on", values: ["off", "on"], about: "Every argument written by the model; a malformed call costs a turn."}
+  directory_get_employee: {setting: "on", values: ["off", "on"], added: 2026-10-25, about: "A call with an argument it does not take (dev-aman-check) costs a turn; a closed schema prevents it."}
 
 notes:
   setting: "off"

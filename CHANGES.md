@@ -19,9 +19,17 @@
 - The workflows (`agent/workflows.py`): U1 standard grant, U2 onboarding (birthright groups, the SSO credential and its hand-over record), U3 offboarding (all access, a proposed removal for each protected group); a failed step leaves the request `pending_operator` and ends `workflow_refused`.
 - The bounded loop (`agent/loop.py`, prompts `nonstandard_request.md`, `operator_review.md`, `bulk_change.md`): the step limit, token budget and wall clock checked before every model call and written into the trace; the repeat check on every call; the second protocol error ends the loop (`protocol_error`); a progress line every three steps. Tests in `tests/test_bound.py`.
 
+- `tests/test_no_secrets.py`: `make test` fails if any tracked file holds a key-shaped string (OpenAI, AWS, GitHub, Slack, Google keys, private keys, a password in a URL) or if a `.env` file is tracked.
+- `credentials_record_handover`, a workflow-only tool for the new starter's credential hand-over, so the onboarding workflow's last write goes through the registry, keyed and traced, like every other write (it used `sandbox/pending.py` directly).
+
+- The rewritten tool definitions (`agent/tools/definitions.py`), which the registry now serves; the first draft stays in `agent/tools/definitions_v1.py`, and its names still resolve. Namespaced names; descriptions that say what each tool does, when to use another, its result and what an empty one means; `policy_check_access` takes up to 20 groups in one call; `directory_get_employee` also finds one person by name; today's requests carry each requester's name, role and status; `access_revoke_all` returns a summary sentence. Repair facts name the closest real IDs, or today's date. Examples are rendered into a description while `examples.<tool>` is on, and `strict` is set while `strict.<tool>` is on. Tests in `tests/test_definitions.py`.
+- The switches `examples.policy_check_access` and `strict.directory_get_employee` (both `added: 2026-10-25`), chosen from the dev-v1 failure labels.
+
 ### Removed
 
 - The starter's `tasks/example.yaml` and `checks/example.py`.
+
+- `strict.access_propose_change`: planned before the runs, dropped after them, since no run made a malformed call to that tool (M1.md, Part 3).
 
 ### Limited
 
@@ -29,6 +37,8 @@
 - No tool returns a credential's secret; only the operator's reveal on the person page shows one.
 - `notices_send_template` and `credentials_issue` are for our workflows only; the model never sees them.
 - On an employee's request, `access_revoke` removes only the requester's own groups.
+
+- On a non-standard request, `access_grant` grants only to the requester or to someone who reports to the requester; anyone else's grant is refused with a pointer to `manager_confirmation_draft`. The case's request is the one the router assigned, whatever request the model names. (Found in the console session `traces/s-20261025-175741-0501.jsonl:88`, where the agent granted Dev Rao a group on a teammate's request.)
 
 ### Fixes after the baseline
 

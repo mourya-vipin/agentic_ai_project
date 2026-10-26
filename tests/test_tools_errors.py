@@ -15,6 +15,7 @@ CODE_ONLY_BAD = {
     "notices_send_template": {"thread_id": "SYN-MSG-D01", "request_id": "SYN-REQ-0001", "template_id": "granted",
                               "facts": {"name": "Arjun Mehta"}},
     "credentials_issue": {"employee_id": "SYN-EMP-0215", "system_id": "single sign-on"},
+    "credentials_record_handover": {"employee_id": "SYN-EMP-0215", "credential_id": "cred-1"},
 }
 
 

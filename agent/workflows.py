@@ -22,13 +22,11 @@ The person and their role come from the directory, never from the message.
 
 from __future__ import annotations
 
-import hashlib
-
 from agent import bounds
 from agent.loop import LoopResult, action_line
 from agent.registry import CallContext, get_registry
 from harness import runtime
-from sandbox import catalog, db, pending
+from sandbox import catalog
 
 LOGIN_SYSTEMS = ("SYN-SYS-SSO",)      # the systems a new starter gets a sign-in for; the rest sign in through SSO
 
@@ -150,16 +148,12 @@ def onboarding(session_id: str, request_id: str, fields: dict) -> LoopResult:
 
 def _handover(steps: _Steps, employee_id: str, credential_id: str) -> None:
     """A credential is handed over in person, never in a message: a pending record for
-    the operator. No tool writes this kind, so the step writes it through sandbox/, keyed
-    as the registry keys a write, and traces it."""
-    steps.step += 1
-    stamp = db.current_stamp()
-    key = hashlib.sha256(f"{stamp}|credential_handover|{credential_id}".encode()).hexdigest()[:32]
-    pid = pending.create("credential_handover", request_id=steps.request_id, employee_id=employee_id, key=key,
-                         stamp=stamp, reason=f"Hand over {credential_id} in person.")
-    runtime.trace(steps.session_id).event("workflow_write", step=steps.step, use_case=steps.use_case,
-                                          record="credential_handover", pending_id=pid, key=key)
-    steps.actions.append(f"wrote the hand-over of {credential_id} for {employee_id}: {pid}, waiting for the operator")
+    the operator, written through the registry (credentials_record_handover), which
+    keys and traces it like every other write."""
+    data = steps.call("credentials_record_handover", employee_id=employee_id, credential_id=credential_id,
+                      request_id=steps.request_id)
+    steps.actions[-1] = (f"wrote the hand-over of {credential_id} for {employee_id}: {data['pending_id']}, "
+                         "waiting for the operator")
 
 
 # -- U3 ------------------------------------------------------------------------------------
