@@ -145,6 +145,35 @@ class DefinitionsTest(ScratchTest):
         self.assertIn("Kept SYN-GRP-LEGAL-HOLD", data["summary"])
         self.assertIn("SYN-GRP-JIRA-WRITE", data["summary"])
 
+    def test_removing_all_access_says_how_a_kept_group_is_removed(self):
+        data = self.registry.call("access_revoke_all", {"employee_id": "SYN-EMP-0162", "reason": "contract ended"},
+                                  CallContext("s-def", 1, "model", "bulk_change")).data
+        self.assertIn("access_propose_change", data["next_step"])
+        self.assertNotIn("access_propose_change", data["summary"])     # the summary stays fit to quote
+
+    def test_removing_a_protected_group_is_an_error_that_names_the_proposal(self):
+        # results/dev-bulk-loop/dev-bulk-loop-t06_bulk_ended_contractors-s01-906ff5.trace.jsonl:25 read
+        # {"status": "protected"} as a success, then ended with no proposal written
+        bulk = CallContext("s-def", 1, "model", "bulk_change")
+        self.registry.call("access_revoke_all", {"employee_id": "SYN-EMP-0162", "reason": "contract ended"}, bulk)
+        result = self.registry.call("access_revoke", {"employee_id": "SYN-EMP-0162", "group_id": "SYN-GRP-LEGAL-HOLD",
+                                                      "reason": "contract ended"}, bulk)
+        self.assertTrue(result.is_error)
+        self.assertIn('access_propose_change with action "revoke", employee_id SYN-EMP-0162, group_id '
+                      "SYN-GRP-LEGAL-HOLD, request_id null", result.content)
+        proposed = self.registry.call("access_propose_change", {"action": "revoke", "employee_id": "SYN-EMP-0162",
+                                                                "group_id": "SYN-GRP-LEGAL-HOLD", "request_id": None,
+                                                                "reason": "contract ended; legal hold"}, bulk)
+        self.assertEqual(proposed.data["status"], "waiting_for_operator")
+
+    def test_a_bulk_change_has_no_request_status_to_set(self):
+        # the same trace, :26: requests_set_status on SYN-REQ-0001, which no bulk change has
+        bulk = CallContext("s-def", 1, "model", "bulk_change")
+        result = self.registry.call("requests_set_status", {"request_id": "SYN-REQ-0099", "status": "done"}, bulk)
+        self.assertTrue(result.is_error)
+        self.assertIn("bulk change is not a request", result.content)
+        self.assertNotIn("requests_list_today", result.content)
+
     def test_a_bad_date_says_what_today_is(self):
         result = self.registry.call("access_grant", {"employee_id": "SYN-EMP-0031", "group_id": "SYN-GRP-FINREP-READ",
                                                      "request_id": "SYN-REQ-0005", "expires_at": "next month"},
