@@ -42,6 +42,8 @@
 
 ### Fixes after the baseline
 
+- The critique read "cannot be granted" as a claim that a group was granted, so it held a true reply (`baseline-t05_on_behalf-s02-3d3af4`, trace lines 19 and 22) and failed a first draft in `baseline-t05_on_behalf-s03-8e0479` (line 19). `agent/critique.py` now treats "cannot" as a negation, and a modal or future ("can be", "will be", "to be") as no claim. Tests in `tests/test_critique.py`. Found by Aman Panigrahi.
+
 ### Reused from our assignments and the course code
 
 - Shruti Tewaney's Assignment 2 (`shruti072003/agentic-ai-assignment2`): `agent/validator.py` (the four checks, now with schema, unique-ID and known-employee rules and a per-plan step limit), `agent/plan.py` (`make_plan`, `revise_plan`, `read_plan`, the strict `submit_plan` tool, repair-before-replace), `agent/plan_schema.json` (the same closed, all-required shape, with `expect` in place of `expected_result`), `agent/detectors.py` and `agent/diff.py` (the repeat and orphan checks; the diff, with `out_of_order` for `reordered` and matching by `plan_step`), and `ways/planned.py` (the executor, `MAX_REPLANS = 2`, `MAX_REVISIONS = 2`, the off-plan refusal, the checkpoint check in code), moved onto our registry, bound and end reasons.

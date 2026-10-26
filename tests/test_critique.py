@@ -95,6 +95,20 @@ class CheckTest(CritiqueTest):
                 "manager's approval.")
         self.assertEqual(self.check(body), [])
 
+    def test_cannot_and_future_or_possible_claims_are_not_claims(self):
+        """baseline-t05_on_behalf-s02-3d3af4: a true reply was held because "cannot be
+        granted" read as "granted"."""
+        for said in ("cannot be granted directly by me", "can't be granted yet", "can not be granted",
+                     "will be granted once your manager approves", "can only be granted after approval",
+                     "is still to be granted"):
+            body = (f"Hi Leo, I granted you {JIRA_W}. {FINREP_W} {said}; it is waiting for your manager's "
+                    "approval.")
+            self.assertEqual(self.check(body), [], said)
+
+    def test_a_plain_past_claim_is_still_a_claim(self):
+        found = self.check(f"Hi Leo, I granted you {JIRA_W}. {FINREP_W} was granted too.")
+        self.assertTrue(any(f"says {FINREP_W} was granted" in f for f in found), found)
+
     def test_a_group_that_does_not_exist(self):
         self.assertIn("not a group in the catalog", self.check(TRUE + " Also SYN-GRP-TELEPORT.")[0])
 
