@@ -1,0 +1,215 @@
+{
+  "run_id": "baseline-t03_contractor_left-s01-6f5852",
+  "arm": "baseline",
+  "task": "t03_contractor_left",
+  "task_file": "tasks/t03_contractor_left.yaml",
+  "sweep": 1,
+  "started": "2026-10-26T19:36:10.250+00:00",
+  "switches": {
+    "control.standard_grant": "workflow",
+    "control.onboarding": "workflow",
+    "control.offboarding": "workflow",
+    "control.nonstandard_request": "agent",
+    "control.operator_review": "agent",
+    "control.bulk_change": "agent",
+    "plan.bulk_change": "on",
+    "critique.requester_reply": "external",
+    "examples.access_grant": "on",
+    "examples.policy_check_access": "on",
+    "strict.directory_get_employee": "on",
+    "notes": "off"
+  },
+  "overrides": [],
+  "backend": "openai-compatible",
+  "model": "gpt-4.1-mini",
+  "free": false,
+  "settings": "a5a0772c87d1",
+  "price_sheet": "2026-06-24",
+  "commit": "188a31a70f167c842f950e53ccbcf98bfb39d7d1",
+  "dirty": false,
+  "finished": "2026-10-26T19:36:12.993+00:00",
+  "tokens": {
+    "input": 256,
+    "output": 13,
+    "cache_read": 0,
+    "cache_write": 0,
+    "total": 269
+  },
+  "cost_usd": 0.000123,
+  "unpriced_calls": 0,
+  "model_calls": 1,
+  "latency_s": 4.072,
+  "wait_s": 0.0,
+  "throttled_s": 0.0,
+  "latency_without_wait_s": 4.072,
+  "turn_latency_s": [
+    4.071
+  ],
+  "outcome": "completed",
+  "end_reasons": [
+    "workflow_done"
+  ],
+  "end_reason": "workflow_done",
+  "error": null,
+  "outside": [],
+  "approvals": {
+    "asked": 0,
+    "answered": 0,
+    "unanswered": 0
+  },
+  "notes": [],
+  "check": {
+    "function": "checks/t03_contractor_left.py",
+    "passed": true,
+    "reason": "all unprotected access removed, one notice, request done"
+  },
+  "passed": true,
+  "measures": {
+    "grants": 0,
+    "removals": 7,
+    "proposals": 0,
+    "drafts": 0,
+    "notices": 1,
+    "duplicate_effects": 0,
+    "wrong_grants": 0,
+    "misrouted": 0,
+    "secrets_in_messages": 0,
+    "writes": 25
+  },
+  "trace": "results/baseline/baseline-t03_contractor_left-s01-6f5852.trace.jsonl",
+  "tool_calls": [
+    {
+      "step": 1,
+      "plan_step": null,
+      "id": "call_ca0c9232cb2f",
+      "name": "requests_get",
+      "input": {
+        "request_id": "SYN-REQ-0001"
+      },
+      "output": "{\"id\": \"SYN-REQ-0001\", \"thread_id\": \"SYN-HR-T03\", \"source\": \"hr_feed\", \"requester_id\": null, \"subject_id\": null, \"text\": \"SYNTHETIC. EVENT: contract_ended; EMPLOYEE: SYN-EMP-0150; END: 2026-10-20\", \"received_at\": \"2026-10-21T09:00:00Z\", \"status\": \"new\", \"route\": \"workflow:offboarding\", \"note\": null, \"stamp\": \"seed\", \"synthetic\": 1, \"changes\": [], \"pending\": []}",
+      "is_error": false,
+      "latency_s": 0.002,
+      "asked_as": "requests_get",
+      "caller": "workflow",
+      "use_case": "offboarding",
+      "key": null,
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"id\": \"SYN-REQ-0001\", \"thread_id\": \"SYN-HR-T03\", \"source\": \"hr_feed\", \"requester_id\": null, \"subject_id\": null, \"text\": \"SYNTHETIC. EVENT: contract_ended; EMPLOYEE: SYN-EMP-0150; END: 2026-10-20\", \"r"
+    },
+    {
+      "step": 2,
+      "plan_step": null,
+      "id": "call_ff50a017131c",
+      "name": "directory_get_employee",
+      "input": {
+        "employee_id": "SYN-EMP-0150"
+      },
+      "output": "{\"id\": \"SYN-EMP-0150\", \"name\": \"Jonas Berg\", \"email\": \"jonas.berg@syn-corp.example\", \"dept\": \"Engineering\", \"title\": \"Contract Engineer\", \"role\": \"contractor_engineer\", \"manager_id\": \"SYN-EMP-0060\", \"employment\": \"contractor\", \"status\": \"active\", \"start_date\": \"2026-04-01\", \"end_date\": \"2026-10-20\", \"manager_name\": \"Hannah Lee\"}",
+      "is_error": false,
+      "latency_s": 0.001,
+      "asked_as": "directory_get_employee",
+      "caller": "workflow",
+      "use_case": "offboarding",
+      "key": null,
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"id\": \"SYN-EMP-0150\", \"name\": \"Jonas Berg\", \"email\": \"jonas.berg@syn-corp.example\", \"dept\": \"Engineering\", \"title\": \"Contract Engineer\", \"role\": \"contractor_engineer\", \"manager_id\": \"SYN-EMP-0060\", \""
+    },
+    {
+      "step": 3,
+      "plan_step": null,
+      "id": "call_8d9b9b6340b9",
+      "name": "access_revoke_all",
+      "input": {
+        "request_id": "SYN-REQ-0001",
+        "employee_id": "SYN-EMP-0150",
+        "reason": "HR feed: contract_ended 2026-10-20"
+      },
+      "output": "{\"employee_id\": \"SYN-EMP-0150\", \"removed\": [\"SYN-GRP-CONFLUENCE-READ\", \"SYN-GRP-CONTRACTOR-PORTAL\", \"SYN-GRP-GITHUB-ENG\", \"SYN-GRP-GITHUB-READ\", \"SYN-GRP-JIRA-READ\", \"SYN-GRP-JIRA-WRITE\", \"SYN-GRP-SLACK-MEMBER\"], \"kept_protected\": [], \"summary\": \"Removed 7 group(s) from SYN-EMP-0150: SYN-GRP-CONFLUENCE-READ, SYN-GRP-CONTRACTOR-PORTAL, SYN-GRP-GITHUB-ENG, SYN-GRP-GITHUB-READ, SYN-GRP-JIRA-READ, SYN-GRP-JIRA-WRITE, SYN-GRP-SLACK-MEMBER.\"}",
+      "is_error": false,
+      "latency_s": 0.102,
+      "asked_as": "access_revoke_all",
+      "caller": "workflow",
+      "use_case": "offboarding",
+      "key": "719ad9060a1398b18c002ab1b5254753",
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"employee_id\": \"SYN-EMP-0150\", \"removed\": [\"SYN-GRP-CONFLUENCE-READ\", \"SYN-GRP-CONTRACTOR-PORTAL\", \"SYN-GRP-GITHUB-ENG\", \"SYN-GRP-GITHUB-READ\", \"SYN-GRP-JIRA-READ\", \"SYN-GRP-JIRA-WRITE\", \"SYN-GRP-SLA"
+    },
+    {
+      "step": 4,
+      "plan_step": null,
+      "id": "call_635b55c6053f",
+      "name": "notices_send_template",
+      "input": {
+        "thread_id": "SYN-HR-T03",
+        "request_id": "SYN-REQ-0001",
+        "template_id": "removed",
+        "facts": {
+          "request_id": "SYN-REQ-0001",
+          "name": "Jonas Berg",
+          "employee_id": "SYN-EMP-0150",
+          "count": 7,
+          "date": "2026-10-20"
+        }
+      },
+      "output": "{\"status\": \"sent\", \"message_id\": 2}",
+      "is_error": false,
+      "latency_s": 0.019,
+      "asked_as": "notices_send_template",
+      "caller": "workflow",
+      "use_case": "offboarding",
+      "key": "f45201f725da93490253a0d6c969ec4f",
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"status\": \"sent\", \"message_id\": 2}"
+    },
+    {
+      "step": 5,
+      "plan_step": null,
+      "id": "call_9641bc4c0318",
+      "name": "requests_set_status",
+      "input": {
+        "request_id": "SYN-REQ-0001",
+        "status": "done"
+      },
+      "output": "{\"request_id\": \"SYN-REQ-0001\", \"status\": \"done\"}",
+      "is_error": false,
+      "latency_s": 0.01,
+      "asked_as": "requests_set_status",
+      "caller": "workflow",
+      "use_case": "offboarding",
+      "key": "fe84a845c545a9327f91e3957cb0ac18",
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"request_id\": \"SYN-REQ-0001\", \"status\": \"done\"}"
+    }
+  ],
+  "replies": [
+    {
+      "function": "operator_turn",
+      "text": "SYN-REQ-0001 (offboarding): removed 7 groups from Jonas Berg (SYN-EMP-0150); notice sent.",
+      "actions": [
+        "removed SYN-GRP-CONFLUENCE-READ, SYN-GRP-CONTRACTOR-PORTAL, SYN-GRP-GITHUB-ENG, SYN-GRP-GITHUB-READ, SYN-GRP-JIRA-READ, SYN-GRP-JIRA-WRITE, SYN-GRP-SLACK-MEMBER from SYN-EMP-0150",
+        "notices_send_template: sent"
+      ],
+      "waiting_for": null
+    }
+  ]
+}
