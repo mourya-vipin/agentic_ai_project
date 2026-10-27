@@ -8,6 +8,8 @@ What each tool may reach is decided here, not in a prompt:
 - on a non-standard request, access_grant grants only to the requester, or to someone
   who reports to the requester; anyone else needs their manager's confirmation;
 - access_revoke on a non-standard request removes only the requester's own groups;
+- a protected group is never removed: access_revoke fails on it, and access_revoke_all
+  keeps it, each naming access_propose_change as the way to have it removed;
 - notices_send_template, credentials_issue and credentials_record_handover are for our
   workflows only (CALLERS).
 
@@ -197,6 +199,14 @@ def access_revoke(args, ctx, key):
                              "action \"revoke\" instead. A retry will fail the same way.")
     result = access.revoke(person["id"], group["id"], request_id=request["id"] if request else None, key=key,
                            stamp=db.current_stamp(), actor=_actor(ctx), reason=str(args.get("reason") or ""))
+    if result["status"] == "protected":
+        # an error, not a result: a "protected" status read as a success let a run end with
+        # the group still held and no proposal written (dev-bulk-loop t06, :25)
+        raise PermanentError(f"{group['id']} is protected, so it was not removed from {person['id']}; nothing "
+                             "changed. Write its removal for the operator instead: access_propose_change with action "
+                             f"\"revoke\", employee_id {person['id']}, group_id {group['id']}, request_id "
+                             f"{request['id'] if request else 'null'} and a reason. A retry of this call will fail "
+                             "the same way.")
     return {**result, "employee_id": person["id"], "group_id": group["id"]}
 
 
@@ -212,7 +222,13 @@ def access_revoke_all(args, ctx, key):
         (kept if result["status"] == "protected" else removed).append(m["group_id"])
     summary = (f"Removed {len(removed)} group(s) from {person['id']}: {', '.join(removed) or 'none'}."
                + (f" Kept {', '.join(kept)}: protected, not removed." if kept else ""))
-    return {"employee_id": person["id"], "removed": removed, "kept_protected": kept, "summary": summary}
+    out = {"employee_id": person["id"], "removed": removed, "kept_protected": kept, "summary": summary}
+    if kept:
+        # kept apart from the summary, which a note to a manager may quote
+        out["next_step"] = (f"Each kept group is removed only by the operator: write access_propose_change with action "
+                            f"\"revoke\", employee_id {person['id']} and that group_id, one call per group. "
+                            "access_revoke will refuse it.")
+    return out
 
 
 def access_propose_change(args, ctx, key):
@@ -272,6 +288,9 @@ def manager_confirmation_draft(args, ctx, key):
 
 
 def requests_set_status(args, ctx, key):
+    if ctx.use_case == "bulk_change" and not (args.get("request_id") and requests.get(args["request_id"])):
+        raise PermanentError("The operator's bulk change is not a request: it has no request ID and no status to "
+                             "set. Do not call requests_set_status; finish with your list for the operator.")
     _request(args.get("request_id"))
     status = str(args.get("status") or "").lower()
     if status not in requests.STATUSES:

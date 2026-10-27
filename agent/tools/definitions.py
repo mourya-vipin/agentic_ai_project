@@ -126,15 +126,16 @@ DEFINITIONS: list[dict] = [
           ]),
     _tool("access_revoke",
           "Remove one group from one person. On a request from an employee, only the requester's own groups. A "
-          "protected group (such as SYN-GRP-LEGAL-HOLD) is never removed: propose its removal instead. Returns "
-          "removed, not_a_member or protected.",
+          "protected group (such as SYN-GRP-LEGAL-HOLD) is never removed: write its removal with "
+          "access_propose_change (action \"revoke\") instead; this tool fails on it. Returns removed or "
+          "not_a_member.",
           {"employee_id": _s(EMP), "group_id": _s(GRP), "request_id": _s(REQ),
            "reason": _s("Why, in a sentence, for the audit log.")},
           ["employee_id", "group_id"]),
     _tool("access_revoke_all",
           "Remove every group one person holds except protected ones, in one call: for a contract that ended or "
           "someone who left. Returns the groups removed, the protected groups kept, and a summary sentence you "
-          "can quote in a note about it.",
+          "can quote in a note about it. Each kept group still needs access_propose_change (action \"revoke\").",
           {"employee_id": _s(EMP), "request_id": _s(REQ + " Leave it out for the operator's own bulk change."),
            "reason": _s("Why, in a sentence, for the audit log.")},
           ["employee_id"]),
@@ -166,7 +167,8 @@ DEFINITIONS: list[dict] = [
           ["employee_id", "group_id"]),
     _tool("requests_set_status",
           "Set a request's status when you finish with it: done when every effect is in place, partly_done or "
-          "pending_operator when something waits for a person, refused when it cannot be granted at all.",
+          "pending_operator when something waits for a person, refused when it cannot be granted at all. The "
+          "operator's own bulk change is not a request and has no status to set.",
           {"request_id": _s(REQ), "status": {"type": "string", "enum": STATUSES, "description": "The new status."},
            "note": _s("A line for the operator, at most 300 characters.")},
           ["request_id", "status"]),

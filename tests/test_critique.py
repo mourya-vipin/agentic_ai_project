@@ -95,15 +95,26 @@ class CheckTest(CritiqueTest):
                 "manager's approval.")
         self.assertEqual(self.check(body), [])
 
-    def test_cannot_and_future_or_possible_claims_are_not_claims(self):
+    def test_a_negated_claim_is_no_claim(self):
         """baseline-t05_on_behalf-s02-3d3af4: a true reply was held because "cannot be
         granted" read as "granted"."""
         for said in ("cannot be granted directly by me", "can't be granted yet", "can not be granted",
-                     "will be granted once your manager approves", "can only be granted after approval",
-                     "is still to be granted"):
+                     "could not be granted"):
             body = (f"Hi Leo, I granted you {JIRA_W}. {FINREP_W} {said}; it is waiting for your manager's "
                     "approval.")
             self.assertEqual(self.check(body), [], said)
+
+    def test_a_promise_passes_when_an_open_record_backs_it(self):
+        for said in ("will be granted once your manager approves", "can only be granted after approval",
+                     "is still to be granted"):
+            body = f"Hi Leo, I granted you {JIRA_W}. {FINREP_W} {said}."
+            self.assertEqual(self.check(body), [], said)
+
+    def test_a_promise_nothing_backs_fails(self):
+        """Aman's case: "will be granted" with no proposal or confirmation written."""
+        body = f"{TRUE} SYN-GRP-DWH-WRITE will be granted once your manager approves."
+        self.assertEqual(self.check(body), ["The draft says SYN-GRP-DWH-WRITE is waiting for approval, but no "
+                                            "proposal or confirmation for it was written in this run."])
 
     def test_a_plain_past_claim_is_still_a_claim(self):
         found = self.check(f"Hi Leo, I granted you {JIRA_W}. {FINREP_W} was granted too.")
