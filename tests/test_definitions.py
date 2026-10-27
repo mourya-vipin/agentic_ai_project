@@ -174,6 +174,15 @@ class DefinitionsTest(ScratchTest):
         self.assertIn("bulk change is not a request", result.content)
         self.assertNotIn("requests_list_today", result.content)
 
+    def test_an_empty_list_for_another_date_says_what_today_gives(self):
+        # results/pass1-after/pass1-after-t06_bulk_ended_contractors-s01-22e631.trace.jsonl:8: before "2024-06-01"
+        bulk = CallContext("s-def", 1, "model", "bulk_change")
+        note = self.registry.call("directory_list_contractors_ended", {"before": "2024-06-01"}, bulk).data["note"]
+        left = len(self.registry.call("directory_list_contractors_ended", {}, bulk).data["contractors"])
+        self.assertGreater(left, 0)
+        self.assertIn(f"Today is 2026-10-21; leave before out for today: {left} contractor(s)", note)
+        self.assertNotIn("note", self.registry.call("directory_list_contractors_ended", {}, bulk).data)
+
     def test_a_bad_date_says_what_today_is(self):
         result = self.registry.call("access_grant", {"employee_id": "SYN-EMP-0031", "group_id": "SYN-GRP-FINREP-READ",
                                                      "request_id": "SYN-REQ-0005", "expires_at": "next month"},
