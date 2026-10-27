@@ -30,7 +30,8 @@ sweep) and prints, per arm:
   routing call for that request's use case, an operator turn's routing call for the
   turn's use case when it is a question or a bulk change);
 - m: the mean cost of a run whose cases all took the agent path over the mean cost of
-  a run whose cases all took a workflow.
+  a run whose cases all took a workflow; and each path's turns: median, slowest, and
+  how many took over 10 s (Lecture 1, slide 34).
 
 Across arms, f, when two arms set one use case's control switch differently: the share
 of that use case's tasks the agent passed in at least two of three sweeps and the
@@ -57,6 +58,7 @@ from harness import records  # noqa: E402  (the repository root is on the path o
 FINISHED = ("done", "answered", "plan_done", "workflow_done")
 OUR_BOUND = ("step_limit", "loop_token_budget", "wall_clock")
 PLAN_ENDS = ("plan_rejected", "revision_bound", "step_halted")
+SLOW_TURN_S = 10.0          # a turn over this is slow (Lecture 1, slide 34)
 CRITIQUE_HELD = "critique_held"
 QUESTION, BULK = "operator_review", "bulk_change"
 INTENT_USE_CASE = {"question": QUESTION, "bulk_change": BULK}     # an operator turn's own use case
@@ -247,8 +249,11 @@ def arm(folder: Path) -> dict:
     for path in ("agent", "workflow", "mixed"):
         rows = [r for r in runs if r["path"] == path]
         if rows:
+            turns_here = [t for r in rows for t in r["turns"]]
             by_path[path] = {"runs": len(rows), "tasks": sorted({r["task"] for r in rows}),
-                             "tokens": _stats([r["tokens"] for r in rows]), "cost": _stats([r["cost"] for r in rows])}
+                             "tokens": _stats([r["tokens"] for r in rows]), "cost": _stats([r["cost"] for r in rows]),
+                             "turns": {**_stats(turns_here), "slowest": max(turns_here, default=None),
+                                       "over_slow": sum(t > SLOW_TURN_S for t in turns_here)}}
     m = None
     if "agent" in by_path and "workflow" in by_path and by_path["workflow"]["cost"]["mean"]:
         m = by_path["agent"]["cost"]["mean"] / by_path["workflow"]["cost"]["mean"]
@@ -402,11 +407,14 @@ def report(a: dict) -> str:
         lines.append(f"| {name} | {row['path']} | {row['cases']} | {row['calls']} | {_num(row['tokens'])} | "
                      f"{_money(row['cost'], 5)} | {_money(row['cost_per_case'], 5)} |")
 
-    lines += ["", "| Runs whose cases all took | Runs | Tasks | Tokens per run (mean) | Cost per run (mean) |",
-              "|---|---|---|---|---|"]
+    lines += ["", "| Runs whose cases all took | Runs | Tasks | Tokens per run (mean) | Cost per run (mean) "
+                  f"| Turns | Median turn | Slowest turn | Turns over {SLOW_TURN_S:.0f} s |",
+              "|---|---|---|---|---|---|---|---|---|"]
     for path, row in a["by_path"].items():
+        t = row["turns"]
         lines.append(f"| {path} | {row['runs']} | {', '.join(row['tasks'])} | {_num(row['tokens']['mean'])} | "
-                     f"{_money(row['cost']['mean'], 5)} |")
+                     f"{_money(row['cost']['mean'], 5)} | {t['n']} | {_num(t['median'], 2)} s | "
+                     f"{_num(t['slowest'], 2)} s | {t['over_slow']} of {t['n']} |")
     if a["m"] is not None:
         agent, workflow = a["by_path"]["agent"], a["by_path"]["workflow"]
         lines.append(f"\nm = {_money(agent['cost']['mean'], 5)} / {_money(workflow['cost']['mean'], 5)} = "
