@@ -1,0 +1,1658 @@
+{
+  "arms": [
+    {
+      "arm": "pass1-before",
+      "folder": "results/pass1-before",
+      "free": false,
+      "runs": 21,
+      "passes": 20,
+      "tasks": [
+        "t01_standard_jira",
+        "t02_new_starter",
+        "t03_contractor_left",
+        "t04_same_access_as",
+        "t05_on_behalf",
+        "t06_bulk_ended_contractors",
+        "t07_unusual_review"
+      ],
+      "sweeps": [
+        1,
+        2,
+        3
+      ],
+      "models": [
+        "gpt-4.1-mini"
+      ],
+      "switches": {
+        "control.bulk_change": "agent",
+        "control.nonstandard_request": "agent",
+        "control.offboarding": "workflow",
+        "control.onboarding": "workflow",
+        "control.operator_review": "agent",
+        "control.standard_grant": "workflow",
+        "critique.requester_reply": "external",
+        "examples.access_grant": "on",
+        "examples.policy_check_access": "on",
+        "notes": "off",
+        "plan.bulk_change": "on",
+        "strict.directory_get_employee": "on"
+      },
+      "per_task": {
+        "t01_standard_jira": [
+          3,
+          3
+        ],
+        "t02_new_starter": [
+          3,
+          3
+        ],
+        "t03_contractor_left": [
+          3,
+          3
+        ],
+        "t04_same_access_as": [
+          3,
+          3
+        ],
+        "t05_on_behalf": [
+          3,
+          3
+        ],
+        "t06_bulk_ended_contractors": [
+          3,
+          3
+        ],
+        "t07_unusual_review": [
+          2,
+          3
+        ]
+      },
+      "per_sweep": {
+        "1": [
+          7,
+          7
+        ],
+        "2": [
+          7,
+          7
+        ],
+        "3": [
+          6,
+          7
+        ]
+      },
+      "task_use_cases": {
+        "t01_standard_jira": [
+          "standard_grant"
+        ],
+        "t02_new_starter": [
+          "onboarding"
+        ],
+        "t03_contractor_left": [
+          "offboarding"
+        ],
+        "t04_same_access_as": [
+          "nonstandard_request",
+          "operator_review"
+        ],
+        "t05_on_behalf": [
+          "nonstandard_request"
+        ],
+        "t06_bulk_ended_contractors": [
+          "bulk_change"
+        ],
+        "t07_unusual_review": [
+          "operator_review"
+        ]
+      },
+      "tokens_per_run": {
+        "n": 21,
+        "mean": 14227.57142857143,
+        "median": 10750
+      },
+      "cost_per_run": {
+        "n": 21,
+        "mean": 0.0034648095238095237,
+        "median": 0.004096
+      },
+      "turns": {
+        "n": 24,
+        "mean": 6.313583333333333,
+        "median": 6.102,
+        "slowest": 14.442,
+        "slowest_run": "pass1-before-t07_unusual_review-s01-606369"
+      },
+      "longest_run": {
+        "run_id": "pass1-before-t07_unusual_review-s01-606369",
+        "model_calls": 13
+      },
+      "model_calls": {
+        "n": 21,
+        "mean": 5.428571428571429,
+        "median": 5
+      },
+      "end_reasons": {
+        "workflow_done": 9,
+        "done": 6,
+        "answered": 6,
+        "plan_done": 3
+      },
+      "last_end_reasons": {
+        "workflow_done": 9,
+        "answered": 6,
+        "done": 3,
+        "plan_done": 3
+      },
+      "ended_at_our_bound": [],
+      "false_finishes": [
+        "pass1-before-t07_unusual_review-s03-2cfcaa"
+      ],
+      "repeat_calls": {
+        "events": 0,
+        "runs": []
+      },
+      "boundary": {
+        "rejected": {
+          "calls": 0,
+          "runs": []
+        },
+        "denied": {
+          "calls": 0,
+          "runs": []
+        },
+        "protocol_errors": {
+          "calls": 0,
+          "runs": []
+        }
+      },
+      "distinct_sequences": {
+        "per_task": {
+          "t01_standard_jira": 1,
+          "t02_new_starter": 1,
+          "t03_contractor_left": 1,
+          "t04_same_access_as": 2,
+          "t05_on_behalf": 2,
+          "t06_bulk_ended_contractors": 2,
+          "t07_unusual_review": 3
+        },
+        "total": 12
+      },
+      "plan": {
+        "plans": 6,
+        "invalid_plans": 0,
+        "revisions": 3,
+        "failed_checkpoints": 3,
+        "off_plan": 0,
+        "orphan_flags": 0,
+        "runs_planned": 3,
+        "ended": {
+          "plan_rejected": [],
+          "revision_bound": [],
+          "step_halted": []
+        }
+      },
+      "critique": {
+        "rounds": 12,
+        "failed_rounds": 0,
+        "passed_drafts": 12,
+        "runs_with_critique": 9,
+        "rounds_per_critiqued_run": {
+          "n": 9,
+          "mean": 1.3333333333333333,
+          "median": 1
+        },
+        "held": [],
+        "misses": {
+          "drafts": 0,
+          "runs": []
+        }
+      },
+      "misroutes": {
+        "count": 0,
+        "runs": []
+      },
+      "components": {
+        "routing (operator turn)": {
+          "calls": 24,
+          "tokens": 7093,
+          "cost": 0.0032043999999999996
+        },
+        "routing (request)": {
+          "calls": 9,
+          "tokens": 3111,
+          "cost": 0.0014892
+        },
+        "loop: nonstandard_request": {
+          "calls": 41,
+          "tokens": 162195,
+          "cost": 0.030027600000000005
+        },
+        "loop: operator_review": {
+          "calls": 28,
+          "tokens": 95153,
+          "cost": 0.020271200000000003
+        },
+        "planner": {
+          "calls": 3,
+          "tokens": 6901,
+          "cost": 0.004354
+        },
+        "reviser": {
+          "calls": 3,
+          "tokens": 10096,
+          "cost": 0.006508
+        },
+        "executor fill": {
+          "calls": 6,
+          "tokens": 14230,
+          "cost": 0.0069052
+        },
+        "critique check (code, no model call)": {
+          "calls": 0,
+          "tokens": 0,
+          "cost": 0.0
+        }
+      },
+      "after_failed_round": {
+        "calls": 0,
+        "tokens": 0,
+        "cost": 0.0
+      },
+      "use_cases": {
+        "standard_grant": {
+          "calls": 3,
+          "tokens": 1032,
+          "cost": 0.0004992,
+          "path": "workflow",
+          "cases": 3,
+          "cost_per_case": 0.0001664
+        },
+        "onboarding": {
+          "calls": 0,
+          "tokens": 0,
+          "cost": 0.0,
+          "path": "workflow",
+          "cases": 3,
+          "cost_per_case": 0.0
+        },
+        "offboarding": {
+          "calls": 0,
+          "tokens": 0,
+          "cost": 0.0,
+          "path": "workflow",
+          "cases": 3,
+          "cost_per_case": 0.0
+        },
+        "nonstandard_request": {
+          "calls": 47,
+          "tokens": 164274,
+          "cost": 0.0310176,
+          "path": "agent",
+          "cases": 6,
+          "cost_per_case": 0.0051696
+        },
+        "operator_review": {
+          "calls": 34,
+          "tokens": 97365,
+          "cost": 0.0212424,
+          "path": "agent",
+          "cases": 6,
+          "cost_per_case": 0.0035404000000000004
+        },
+        "bulk_change": {
+          "calls": 15,
+          "tokens": 32073,
+          "cost": 0.0181524,
+          "path": "agent",
+          "cases": 3,
+          "cost_per_case": 0.006050799999999999
+        },
+        "routing of request turns (shared)": {
+          "calls": 15,
+          "tokens": 4035,
+          "cost": 0.0018479999999999996,
+          "path": "-",
+          "cases": 0,
+          "cost_per_case": null
+        }
+      },
+      "by_path": {
+        "agent": {
+          "runs": 12,
+          "tasks": [
+            "t04_same_access_as",
+            "t05_on_behalf",
+            "t06_bulk_ended_contractors",
+            "t07_unusual_review"
+          ],
+          "tokens": {
+            "n": 12,
+            "mean": 24610.5,
+            "median": 24843.5
+          },
+          "cost": {
+            "n": 12,
+            "mean": 0.005929416666666666,
+            "median": 0.00595
+          }
+        },
+        "workflow": {
+          "runs": 9,
+          "tasks": [
+            "t01_standard_jira",
+            "t02_new_starter",
+            "t03_contractor_left"
+          ],
+          "tokens": {
+            "n": 9,
+            "mean": 383.6666666666667,
+            "median": 269
+          },
+          "cost": {
+            "n": 9,
+            "mean": 0.00017866666666666668,
+            "median": 0.000123
+          }
+        }
+      },
+      "m": 33.18703358208955,
+      "per_run": [
+        {
+          "run_id": "pass1-before-t01_standard_jira-s01-baa6b1",
+          "task": "t01_standard_jira",
+          "sweep": 1,
+          "passed": true,
+          "tokens": 613,
+          "cost": 0.00029,
+          "model_calls": 2,
+          "turns": [
+            4.215
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "standard_grant": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t01_standard_jira-s02-00572c",
+          "task": "t01_standard_jira",
+          "sweep": 2,
+          "passed": true,
+          "tokens": 613,
+          "cost": 0.00029,
+          "model_calls": 2,
+          "turns": [
+            1.344
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "standard_grant": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t01_standard_jira-s03-f0c58b",
+          "task": "t01_standard_jira",
+          "sweep": 3,
+          "passed": true,
+          "tokens": 613,
+          "cost": 0.00029,
+          "model_calls": 2,
+          "turns": [
+            1.42
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "standard_grant": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t02_new_starter-s01-0df8e0",
+          "task": "t02_new_starter",
+          "sweep": 1,
+          "passed": true,
+          "tokens": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "turns": [
+            1.109
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "onboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t02_new_starter-s02-a4b0a9",
+          "task": "t02_new_starter",
+          "sweep": 2,
+          "passed": true,
+          "tokens": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "turns": [
+            0.729
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "onboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t02_new_starter-s03-c9f83f",
+          "task": "t02_new_starter",
+          "sweep": 3,
+          "passed": true,
+          "tokens": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "turns": [
+            0.581
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "onboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t03_contractor_left-s01-59ee7e",
+          "task": "t03_contractor_left",
+          "sweep": 1,
+          "passed": true,
+          "tokens": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "turns": [
+            0.639
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "offboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t03_contractor_left-s02-c5dc2c",
+          "task": "t03_contractor_left",
+          "sweep": 2,
+          "passed": true,
+          "tokens": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "turns": [
+            0.577
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "offboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t03_contractor_left-s03-76b57c",
+          "task": "t03_contractor_left",
+          "sweep": 3,
+          "passed": true,
+          "tokens": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "turns": [
+            0.589
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "offboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t04_same_access_as-s01-1c34d4",
+          "task": "t04_same_access_as",
+          "sweep": 1,
+          "passed": true,
+          "tokens": 34650,
+          "cost": 0.007756,
+          "model_calls": 11,
+          "turns": [
+            10.837,
+            3.806
+          ],
+          "end_reasons": [
+            "done",
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "cases": {
+            "nonstandard_request": 1,
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t04_same_access_as-s02-44590f",
+          "task": "t04_same_access_as",
+          "sweep": 2,
+          "passed": true,
+          "tokens": 35156,
+          "cost": 0.00828,
+          "model_calls": 11,
+          "turns": [
+            10.149,
+            2.688
+          ],
+          "end_reasons": [
+            "done",
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "cases": {
+            "nonstandard_request": 1,
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t04_same_access_as-s03-6476b4",
+          "task": "t04_same_access_as",
+          "sweep": 3,
+          "passed": true,
+          "tokens": 35091,
+          "cost": 0.008087,
+          "model_calls": 11,
+          "turns": [
+            10.85,
+            2.962
+          ],
+          "end_reasons": [
+            "done",
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "cases": {
+            "nonstandard_request": 1,
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t05_on_behalf-s01-6c6bce",
+          "task": "t05_on_behalf",
+          "sweep": 1,
+          "passed": true,
+          "tokens": 23013,
+          "cost": 0.003743,
+          "model_calls": 9,
+          "turns": [
+            7.989
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "cases": {
+            "nonstandard_request": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t05_on_behalf-s02-9793c0",
+          "task": "t05_on_behalf",
+          "sweep": 2,
+          "passed": true,
+          "tokens": 26700,
+          "cost": 0.004374,
+          "model_calls": 10,
+          "turns": [
+            8.715
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "cases": {
+            "nonstandard_request": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t05_on_behalf-s03-1167e0",
+          "task": "t05_on_behalf",
+          "sweep": 3,
+          "passed": true,
+          "tokens": 26674,
+          "cost": 0.004593,
+          "model_calls": 10,
+          "turns": [
+            8.699
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "cases": {
+            "nonstandard_request": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t06_bulk_ended_contractors-s01-54b6d8",
+          "task": "t06_bulk_ended_contractors",
+          "sweep": 1,
+          "passed": true,
+          "tokens": 10750,
+          "cost": 0.006252,
+          "model_calls": 5,
+          "turns": [
+            14.385
+          ],
+          "end_reasons": [
+            "plan_done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 2,
+          "cases": {
+            "bulk_change": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t06_bulk_ended_contractors-s02-55d492",
+          "task": "t06_bulk_ended_contractors",
+          "sweep": 2,
+          "passed": true,
+          "tokens": 10569,
+          "cost": 0.006143,
+          "model_calls": 5,
+          "turns": [
+            13.383
+          ],
+          "end_reasons": [
+            "plan_done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 2,
+          "cases": {
+            "bulk_change": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t06_bulk_ended_contractors-s03-e31b79",
+          "task": "t06_bulk_ended_contractors",
+          "sweep": 3,
+          "passed": true,
+          "tokens": 10754,
+          "cost": 0.005757,
+          "model_calls": 5,
+          "turns": [
+            13.386
+          ],
+          "end_reasons": [
+            "plan_done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 2,
+          "cases": {
+            "bulk_change": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t07_unusual_review-s01-606369",
+          "task": "t07_unusual_review",
+          "sweep": 1,
+          "passed": true,
+          "tokens": 47169,
+          "cost": 0.007835,
+          "model_calls": 13,
+          "turns": [
+            14.442
+          ],
+          "end_reasons": [
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t07_unusual_review-s02-b4b6a4",
+          "task": "t07_unusual_review",
+          "sweep": 2,
+          "passed": true,
+          "tokens": 17185,
+          "cost": 0.004096,
+          "model_calls": 6,
+          "turns": [
+            8.694
+          ],
+          "end_reasons": [
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t07_unusual_review-s03-2cfcaa",
+          "task": "t07_unusual_review",
+          "sweep": 3,
+          "passed": false,
+          "tokens": 17615,
+          "cost": 0.004237,
+          "model_calls": 6,
+          "turns": [
+            9.338
+          ],
+          "end_reasons": [
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": true,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "operator_review": 1
+          }
+        }
+      ]
+    },
+    {
+      "arm": "pass1-after",
+      "folder": "results/pass1-after",
+      "free": false,
+      "runs": 21,
+      "passes": 18,
+      "tasks": [
+        "t01_standard_jira",
+        "t02_new_starter",
+        "t03_contractor_left",
+        "t04_same_access_as",
+        "t05_on_behalf",
+        "t06_bulk_ended_contractors",
+        "t07_unusual_review"
+      ],
+      "sweeps": [
+        1,
+        2,
+        3
+      ],
+      "models": [
+        "gpt-4.1-mini"
+      ],
+      "switches": {
+        "control.bulk_change": "agent",
+        "control.nonstandard_request": "agent",
+        "control.offboarding": "workflow",
+        "control.onboarding": "workflow",
+        "control.operator_review": "agent",
+        "control.standard_grant": "workflow",
+        "critique.requester_reply": "external",
+        "examples.access_grant": "on",
+        "examples.policy_check_access": "on",
+        "notes": "off",
+        "plan.bulk_change": "off",
+        "strict.directory_get_employee": "on"
+      },
+      "per_task": {
+        "t01_standard_jira": [
+          3,
+          3
+        ],
+        "t02_new_starter": [
+          3,
+          3
+        ],
+        "t03_contractor_left": [
+          3,
+          3
+        ],
+        "t04_same_access_as": [
+          3,
+          3
+        ],
+        "t05_on_behalf": [
+          3,
+          3
+        ],
+        "t06_bulk_ended_contractors": [
+          1,
+          3
+        ],
+        "t07_unusual_review": [
+          2,
+          3
+        ]
+      },
+      "per_sweep": {
+        "1": [
+          5,
+          7
+        ],
+        "2": [
+          6,
+          7
+        ],
+        "3": [
+          7,
+          7
+        ]
+      },
+      "task_use_cases": {
+        "t01_standard_jira": [
+          "standard_grant"
+        ],
+        "t02_new_starter": [
+          "onboarding"
+        ],
+        "t03_contractor_left": [
+          "offboarding"
+        ],
+        "t04_same_access_as": [
+          "nonstandard_request",
+          "operator_review"
+        ],
+        "t05_on_behalf": [
+          "nonstandard_request"
+        ],
+        "t06_bulk_ended_contractors": [
+          "bulk_change"
+        ],
+        "t07_unusual_review": [
+          "operator_review"
+        ]
+      },
+      "tokens_per_run": {
+        "n": 21,
+        "mean": 14319.809523809523,
+        "median": 12082
+      },
+      "cost_per_run": {
+        "n": 21,
+        "mean": 0.0026666190476190474,
+        "median": 0.003118
+      },
+      "turns": {
+        "n": 24,
+        "mean": 5.2709166666666665,
+        "median": 3.0145,
+        "slowest": 12.845,
+        "slowest_run": "pass1-after-t04_same_access_as-s02-0076ef"
+      },
+      "longest_run": {
+        "run_id": "pass1-after-t04_same_access_as-s02-0076ef",
+        "model_calls": 12
+      },
+      "model_calls": {
+        "n": 21,
+        "mean": 5.285714285714286,
+        "median": 5
+      },
+      "end_reasons": {
+        "workflow_done": 9,
+        "done": 8,
+        "answered": 6,
+        "critique_held": 1
+      },
+      "last_end_reasons": {
+        "workflow_done": 9,
+        "answered": 6,
+        "done": 5,
+        "critique_held": 1
+      },
+      "ended_at_our_bound": [],
+      "false_finishes": [
+        "pass1-after-t06_bulk_ended_contractors-s01-22e631",
+        "pass1-after-t07_unusual_review-s01-812ffb"
+      ],
+      "repeat_calls": {
+        "events": 0,
+        "runs": []
+      },
+      "boundary": {
+        "rejected": {
+          "calls": 0,
+          "runs": []
+        },
+        "denied": {
+          "calls": 0,
+          "runs": []
+        },
+        "protocol_errors": {
+          "calls": 0,
+          "runs": []
+        }
+      },
+      "distinct_sequences": {
+        "per_task": {
+          "t01_standard_jira": 1,
+          "t02_new_starter": 1,
+          "t03_contractor_left": 1,
+          "t04_same_access_as": 2,
+          "t05_on_behalf": 2,
+          "t06_bulk_ended_contractors": 3,
+          "t07_unusual_review": 3
+        },
+        "total": 13
+      },
+      "plan": {
+        "plans": 0,
+        "invalid_plans": 0,
+        "revisions": 0,
+        "failed_checkpoints": 0,
+        "off_plan": 0,
+        "orphan_flags": 0,
+        "runs_planned": 0,
+        "ended": {
+          "plan_rejected": [],
+          "revision_bound": [],
+          "step_halted": []
+        }
+      },
+      "critique": {
+        "rounds": 10,
+        "failed_rounds": 2,
+        "passed_drafts": 8,
+        "runs_with_critique": 8,
+        "rounds_per_critiqued_run": {
+          "n": 8,
+          "mean": 1.25,
+          "median": 1.0
+        },
+        "held": [
+          "pass1-after-t06_bulk_ended_contractors-s02-9c1d9f"
+        ],
+        "misses": {
+          "drafts": 0,
+          "runs": []
+        }
+      },
+      "misroutes": {
+        "count": 0,
+        "runs": []
+      },
+      "components": {
+        "routing (operator turn)": {
+          "calls": 24,
+          "tokens": 7103,
+          "cost": 0.0032083999999999997
+        },
+        "routing (request)": {
+          "calls": 9,
+          "tokens": 3111,
+          "cost": 0.0014892
+        },
+        "loop: nonstandard_request": {
+          "calls": 43,
+          "tokens": 170565,
+          "cost": 0.026952000000000004
+        },
+        "loop: operator_review": {
+          "calls": 20,
+          "tokens": 60823,
+          "cost": 0.015107200000000001
+        },
+        "loop: bulk_change": {
+          "calls": 15,
+          "tokens": 59114,
+          "cost": 0.009242
+        },
+        "critique check (code, no model call)": {
+          "calls": 0,
+          "tokens": 0,
+          "cost": 0.0
+        }
+      },
+      "after_failed_round": {
+        "calls": 1,
+        "tokens": 4515,
+        "cost": 0.0005664000000000001
+      },
+      "use_cases": {
+        "standard_grant": {
+          "calls": 3,
+          "tokens": 1032,
+          "cost": 0.0004992,
+          "path": "workflow",
+          "cases": 3,
+          "cost_per_case": 0.0001664
+        },
+        "onboarding": {
+          "calls": 0,
+          "tokens": 0,
+          "cost": 0.0,
+          "path": "workflow",
+          "cases": 3,
+          "cost_per_case": 0.0
+        },
+        "offboarding": {
+          "calls": 0,
+          "tokens": 0,
+          "cost": 0.0,
+          "path": "workflow",
+          "cases": 3,
+          "cost_per_case": 0.0
+        },
+        "nonstandard_request": {
+          "calls": 49,
+          "tokens": 172644,
+          "cost": 0.027942,
+          "path": "agent",
+          "cases": 6,
+          "cost_per_case": 0.0046570000000000005
+        },
+        "operator_review": {
+          "calls": 26,
+          "tokens": 63045,
+          "cost": 0.016082399999999997,
+          "path": "agent",
+          "cases": 6,
+          "cost_per_case": 0.0026803999999999994
+        },
+        "bulk_change": {
+          "calls": 18,
+          "tokens": 59960,
+          "cost": 0.0096272,
+          "path": "agent",
+          "cases": 3,
+          "cost_per_case": 0.0032090666666666668
+        },
+        "routing of request turns (shared)": {
+          "calls": 15,
+          "tokens": 4035,
+          "cost": 0.0018479999999999996,
+          "path": "-",
+          "cases": 0,
+          "cost_per_case": null
+        }
+      },
+      "by_path": {
+        "agent": {
+          "runs": 12,
+          "tasks": [
+            "t04_same_access_as",
+            "t05_on_behalf",
+            "t06_bulk_ended_contractors",
+            "t07_unusual_review"
+          ],
+          "tokens": {
+            "n": 12,
+            "mean": 24771.916666666668,
+            "median": 26660.5
+          },
+          "cost": {
+            "n": 12,
+            "mean": 0.004532583333333334,
+            "median": 0.004088
+          }
+        },
+        "workflow": {
+          "runs": 9,
+          "tasks": [
+            "t01_standard_jira",
+            "t02_new_starter",
+            "t03_contractor_left"
+          ],
+          "tokens": {
+            "n": 9,
+            "mean": 383.6666666666667,
+            "median": 269
+          },
+          "cost": {
+            "n": 9,
+            "mean": 0.00017866666666666668,
+            "median": 0.000123
+          }
+        }
+      },
+      "m": 25.36893656716418,
+      "per_run": [
+        {
+          "run_id": "pass1-after-t01_standard_jira-s01-385b60",
+          "task": "t01_standard_jira",
+          "sweep": 1,
+          "passed": true,
+          "tokens": 613,
+          "cost": 0.00029,
+          "model_calls": 2,
+          "turns": [
+            2.723
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "standard_grant": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t01_standard_jira-s02-8989a0",
+          "task": "t01_standard_jira",
+          "sweep": 2,
+          "passed": true,
+          "tokens": 613,
+          "cost": 0.00029,
+          "model_calls": 2,
+          "turns": [
+            1.402
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "standard_grant": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t01_standard_jira-s03-f732a9",
+          "task": "t01_standard_jira",
+          "sweep": 3,
+          "passed": true,
+          "tokens": 613,
+          "cost": 0.00029,
+          "model_calls": 2,
+          "turns": [
+            1.617
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "standard_grant": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t02_new_starter-s01-10fb1e",
+          "task": "t02_new_starter",
+          "sweep": 1,
+          "passed": true,
+          "tokens": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "turns": [
+            0.643
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "onboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t02_new_starter-s02-a3068e",
+          "task": "t02_new_starter",
+          "sweep": 2,
+          "passed": true,
+          "tokens": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "turns": [
+            0.561
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "onboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t02_new_starter-s03-00cdea",
+          "task": "t02_new_starter",
+          "sweep": 3,
+          "passed": true,
+          "tokens": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "turns": [
+            0.764
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "onboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t03_contractor_left-s01-747bca",
+          "task": "t03_contractor_left",
+          "sweep": 1,
+          "passed": true,
+          "tokens": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "turns": [
+            0.554
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "offboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t03_contractor_left-s02-5c3230",
+          "task": "t03_contractor_left",
+          "sweep": 2,
+          "passed": true,
+          "tokens": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "turns": [
+            0.704
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "offboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t03_contractor_left-s03-42f076",
+          "task": "t03_contractor_left",
+          "sweep": 3,
+          "passed": true,
+          "tokens": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "turns": [
+            0.555
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "offboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t04_same_access_as-s01-de965e",
+          "task": "t04_same_access_as",
+          "sweep": 1,
+          "passed": true,
+          "tokens": 35887,
+          "cost": 0.007,
+          "model_calls": 11,
+          "turns": [
+            10.467,
+            3.13
+          ],
+          "end_reasons": [
+            "done",
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "cases": {
+            "nonstandard_request": 1,
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t04_same_access_as-s02-0076ef",
+          "task": "t04_same_access_as",
+          "sweep": 2,
+          "passed": true,
+          "tokens": 38725,
+          "cost": 0.00738,
+          "model_calls": 12,
+          "turns": [
+            12.845,
+            2.845
+          ],
+          "end_reasons": [
+            "done",
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "cases": {
+            "nonstandard_request": 1,
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t04_same_access_as-s03-86b29d",
+          "task": "t04_same_access_as",
+          "sweep": 3,
+          "passed": true,
+          "tokens": 35523,
+          "cost": 0.007016,
+          "model_calls": 11,
+          "turns": [
+            10.231,
+            2.899
+          ],
+          "end_reasons": [
+            "done",
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "cases": {
+            "nonstandard_request": 1,
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t05_on_behalf-s01-35a9bf",
+          "task": "t05_on_behalf",
+          "sweep": 1,
+          "passed": true,
+          "tokens": 26724,
+          "cost": 0.004015,
+          "model_calls": 10,
+          "turns": [
+            9.011
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "cases": {
+            "nonstandard_request": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t05_on_behalf-s02-632d2e",
+          "task": "t05_on_behalf",
+          "sweep": 2,
+          "passed": true,
+          "tokens": 26699,
+          "cost": 0.004068,
+          "model_calls": 10,
+          "turns": [
+            9.402
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "cases": {
+            "nonstandard_request": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t05_on_behalf-s03-712db1",
+          "task": "t05_on_behalf",
+          "sweep": 3,
+          "passed": true,
+          "tokens": 26622,
+          "cost": 0.003847,
+          "model_calls": 10,
+          "turns": [
+            8.162
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "cases": {
+            "nonstandard_request": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t06_bulk_ended_contractors-s01-22e631",
+          "task": "t06_bulk_ended_contractors",
+          "sweep": 1,
+          "passed": false,
+          "tokens": 6262,
+          "cost": 0.000884,
+          "model_calls": 3,
+          "turns": [
+            2.581
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": true,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "bulk_change": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t06_bulk_ended_contractors-s02-9c1d9f",
+          "task": "t06_bulk_ended_contractors",
+          "sweep": 2,
+          "passed": false,
+          "tokens": 24483,
+          "cost": 0.004108,
+          "model_calls": 7,
+          "turns": [
+            10.542
+          ],
+          "end_reasons": [
+            "critique_held"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 2,
+          "cases": {
+            "bulk_change": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t06_bulk_ended_contractors-s03-b445bb",
+          "task": "t06_bulk_ended_contractors",
+          "sweep": 3,
+          "passed": true,
+          "tokens": 29215,
+          "cost": 0.004636,
+          "model_calls": 8,
+          "turns": [
+            11.078
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 2,
+          "cases": {
+            "bulk_change": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t07_unusual_review-s01-812ffb",
+          "task": "t07_unusual_review",
+          "sweep": 1,
+          "passed": false,
+          "tokens": 17412,
+          "cost": 0.004018,
+          "model_calls": 6,
+          "turns": [
+            8.37
+          ],
+          "end_reasons": [
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": true,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t07_unusual_review-s02-ed2310",
+          "task": "t07_unusual_review",
+          "sweep": 2,
+          "passed": true,
+          "tokens": 12082,
+          "cost": 0.003118,
+          "model_calls": 5,
+          "turns": [
+            6.77
+          ],
+          "end_reasons": [
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t07_unusual_review-s03-b3c26e",
+          "task": "t07_unusual_review",
+          "sweep": 3,
+          "passed": true,
+          "tokens": 17629,
+          "cost": 0.004301,
+          "model_calls": 6,
+          "turns": [
+            8.646
+          ],
+          "end_reasons": [
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "cases": {
+            "operator_review": 1
+          }
+        }
+      ]
+    }
+  ],
+  "f": []
+}
