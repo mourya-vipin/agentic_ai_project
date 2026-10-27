@@ -111,6 +111,12 @@ def directory_list_contractors_ended(args, ctx, key):
     out = {"before": before, "contractors": found}
     if not found:
         out["note"] = f"No contractor whose contract ended before {before} still holds any access."
+        today = clock.today()
+        if before != today:
+            # a date the model made up read as "none left" (pass1-after t06 s01, :8): say what today gives
+            left = len(directory.contractors_ended(today))
+            out["note"] += (f" Today is {today}; leave before out for today: {left} contractor(s) whose contract "
+                            "ended before today still hold access.")
     return out
 
 
