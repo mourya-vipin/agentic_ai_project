@@ -99,8 +99,8 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
   This pass did not test planning alone. Our code gives the planner today's date and each contractor's manager, and the loop gets neither. The loop's false finish came from a date it made up. Also, the arms ran one after the other (`pass1-before` 23:31–23:34 UTC, then `pass1-after` 23:34–23:36 UTC), so the API speed was not the same for both. The verdict still stands, by the safety rule I set before the runs.
 
-  Slide 52 asks whether a plan is worth its cost. For t06, I would keep the plan. It costs more, but it also gives the model the information it needs to carry out the change correctly.
+  Slide 54 asks whether a plan is worth its cost. For t06, I would keep the plan. It costs more, but it also gives the model the information it needs to carry out the change correctly.
 
-  Slide numbers: the Pass and Why this fix fields were written with the prediction, so they keep the numbers from our work files. In Lecture 2's own numbering, their slide 54 is slide 52 and their slide 17 is slide 16.
+  Slide numbers follow the brief's numbering (the deck's own number plus 2). The Pass field was written with the prediction, so it keeps its "slides 5, 17"; in that numbering, slide 17 is slide 18.
 
 - **Links:** `results/pass1-before/`, `results/pass1-after/`
