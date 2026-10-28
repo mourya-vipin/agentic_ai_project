@@ -1,6 +1,6 @@
 """t02_new_starter (U2, workflow): Nina Kowalski gets exactly her role's birthright
 groups and one credential, whose secret goes on no thread; a hand-over record waits for
-the operator; one notice. Owner: Aman Panigrahi."""
+the operator; one notice; the request is done. Owner: Aman Panigrahi."""
 
 from checks import common
 
@@ -23,4 +23,8 @@ def check(run):
         problems.append("no single credential_handover record")
     if len(common.sent(run, THREAD)) != 1:
         problems.append(f"{len(common.sent(run, THREAD))} notices on {THREAD}, not exactly one")
-    return common.result(problems, "birthright groups, one credential, hand-over waiting, one notice", counts)
+    status = (common.request(run, REQ) or {}).get("status")
+    if status != "done":
+        problems.append(f"{REQ} is {status}, not done")
+    return common.result(problems, "birthright groups, one credential, hand-over waiting, one notice, request done",
+                         counts)
