@@ -62,7 +62,7 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
     Each t06 run cost $0.0058–$0.0063, with a mean of $0.0061. Uncached tokens ranged from 9,090 to 10,750 (mean 10,136), while total tokens ranged from 10,569 to 10,754 (mean 10,691). Turn times were 13.4–14.4 s, with a median of 13.4 s.
 
-    The other six tasks passed 17 of 18 runs. The only failure was t07 s03, where the answer missed SYN-REQ-0002, 0004, and 0006. The script counted this as a false finish. Across all 21 runs, the arm cost $0.0728, or about $0.0035 per run, and had a median turn time of 6.10 s.
+    The other six tasks passed 17 of 18 runs. The only failure was t07 s03, where the answer missed SYN-REQ-0002, 0004, and 0006. The script counted this as a false finish. But the answer was right in substance: it named the three unusual requests by person and employee ID (Rosa Lindqvist, Maya Chen, Felix Wagner) and called the other three routine. It gave no request IDs, which the U5 prompt asks for and the check reads. Counted by substance, this arm passed 21 of 21. Across all 21 runs, the arm cost $0.0728, or about $0.0035 per run, and had a median turn time of 6.10 s.
 
   - **`pass1-after` (`off`):** 18 of 21 runs passed. t06 passed only 1 of 3 runs, and the failures show what can go wrong without the planning step.
 
@@ -74,7 +74,7 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
     Each t06 run cost $0.0009–$0.0046, with a mean of $0.0032. Uncached tokens ranged from 630 to 2,467 (mean 1,768), while total tokens ranged from 6,262 to 29,215 (mean 19,987). Turn times were 2.6–11.1 s, with a median of 10.5 s.
 
-    The other six tasks again passed 17 of 18 runs. This time, t07 s01 failed for the same reason as in `pass1-before`: the answer missed the required IDs. Across all 21 runs, the arm cost $0.0560, or about $0.0027 per run, and had a median turn time of 3.01 s.
+    The other six tasks again passed 17 of 18 runs. This time, t07 s01 failed for the same reason as in `pass1-before`: the answer missed the required IDs. Again, the answer named the right three requests by person and employee ID, but gave no request IDs. Counted by substance, this arm passed 19 of 21. The t06 false finish is real. Across all 21 runs, the arm cost $0.0560, or about $0.0027 per run, and had a median turn time of 3.01 s.
 
 - **Difference:** The following compares `pass1-after` against `pass1-before` on t06, with three runs in each arm.
 
@@ -87,7 +87,7 @@ it. `make check` reads every `##` section but the template: see the README's "ma
   - **Revisions:** Decreased by 3 because the loop does not generate or revise a plan.
   - **Legal-hold proposal:** Every passing run in both arms included the proposal, as predicted.
 
-  The other six tasks showed no difference in pass rate: both arms passed 17 of 18 runs, and each had one t07 failure. Their median turn time dropped from 3.8 s to 2.9 s, even though these tasks do not use the switch. This suggests that API speed differences between the sweeps contributed to the drop in the full arm's median turn time, from 6.10 s to 3.01 s. I therefore cannot attribute that overall speedup to turning planning off alone.
+  The other six tasks showed no difference in pass rate: both arms passed 17 of 18 runs, and each had one t07 failure (18 of 18 by substance, as the Results say). Their median turn time dropped from 3.8 s to 2.9 s, even though these tasks do not use the switch. This suggests that API speed differences between the sweeps contributed to the drop in the full arm's median turn time, from 6.10 s to 3.01 s. I therefore cannot attribute that overall speedup to turning planning off alone.
 
   My prediction for the slowest t06 turn in `pass1-before` was also off. The observed range was 13.4–14.4 s, rather than the predicted 15–25 s.
 
@@ -96,6 +96,8 @@ it. `make check` reads every `##` section but the template: see the README's "ma
   The results did not meet my expectations for the loop. Only one of the three t06 runs passed, and one run falsely reported that it had finished without removing any access. The loop was cheaper and used fewer uncached tokens, but those savings are not worth the risk of an incorrect result.
 
   The planned path avoids both mistakes by giving the planner the current date and the contractor and manager IDs. It does not need to guess a date or work out who reports to whom. With only three runs per arm, I cannot draw a firm conclusion about the long-term pass rate, but the false finish is enough to trigger the safety rule I set beforehand.
+
+  This pass did not test planning alone. Our code gives the planner today's date and each contractor's manager, and the loop gets neither. The loop's false finish came from a date it made up. Also, the arms ran one after the other (`pass1-before` 23:31–23:34 UTC, then `pass1-after` 23:34–23:36 UTC), so the API speed was not the same for both. The verdict still stands, by the safety rule I set before the runs.
 
   Slide 54 asks whether a plan is worth its cost. For t06, I would keep the plan. It costs more, but it also gives the model the information it needs to carry out the change correctly.
 
