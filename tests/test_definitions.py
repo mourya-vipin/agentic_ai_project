@@ -2,6 +2,8 @@
 promise, replayed on the calls that failed in the dev-v1 runs. No tokens.
 Owner: Vipin Mourya."""
 
+import json
+
 import channel
 from agent.registry import CallContext, Registry
 from agent.tools import definitions, impl
@@ -75,9 +77,21 @@ class DefinitionsTest(ScratchTest):
                                                               "name": None}, ctx())
         self.assertEqual(found.data["name"], "Priya Nair")
 
+    def test_no_example_or_hint_names_a_real_record(self):
+        # the first examples used t04's requester and four of its groups (review, 2026-10-28)
+        import re
+        from agent.tools import rules
+        from sandbox import catalog, directory, requests
+        found = {"EMP": directory.get_employee, "GRP": catalog.get_group, "REQ": requests.get, "SYS": catalog.get_system}
+        sent = self.sent(["examples.access_grant=on", "examples.policy_check_access=on"]).values()
+        text = json.dumps(list(sent)) + " ".join(str(v) for v in vars(rules).values() if isinstance(v, tuple))
+        ids = set(re.findall(r"SYN-(EMP|GRP|REQ|SYS)-([A-Z0-9][A-Z0-9-]*[A-Z0-9])", text))
+        self.assertTrue(ids)
+        self.assertEqual([f"SYN-{k}-{v}" for k, v in sorted(ids) if found[k](f"SYN-{k}-{v}")], [])
+
     def test_policy_examples_are_rendered_while_their_switch_is_on(self):
         on = self.sent(["examples.policy_check_access=on"])["policy_check_access"]["description"]
-        self.assertIn("SYN-GRP-PAYROLL-ADMIN", on)
+        self.assertIn("SYN-GRP-EXAMPLE-ADMIN", on)
 
     def test_the_first_draft_is_sent_as_written_never_with_the_rewrites_switches(self):
         from agent.tools import definitions_v1

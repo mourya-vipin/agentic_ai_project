@@ -13,15 +13,15 @@ import re
 
 from sandbox import catalog, clock, directory, requests
 
-EMPLOYEE = ("id", re.compile(r"^SYN-EMP-\d{4}$"), "an employee ID such as SYN-EMP-0031")
-GROUP = ("id", re.compile(r"^SYN-GRP-[A-Z0-9-]+$"), "a group ID such as SYN-GRP-JIRA-WRITE")
-REQUEST = ("id", re.compile(r"^SYN-REQ-\d{4}$"), "a request ID such as SYN-REQ-0005")
-SYSTEM = ("id", re.compile(r"^SYN-SYS-[A-Z0-9-]+$"), "a system ID such as SYN-SYS-SSO")
+EMPLOYEE = ("id", re.compile(r"^SYN-EMP-\d{4}$"), "an employee ID such as SYN-EMP-9001")
+GROUP = ("id", re.compile(r"^SYN-GRP-[A-Z0-9-]+$"), "a group ID such as SYN-GRP-EXAMPLE-WRITE")
+REQUEST = ("id", re.compile(r"^SYN-REQ-\d{4}$"), "a request ID such as SYN-REQ-9001")
+SYSTEM = ("id", re.compile(r"^SYN-SYS-[A-Z0-9-]+$"), "a system ID such as SYN-SYS-EXAMPLE")
 CREDENTIAL = ("id", re.compile(r"^SYN-CRED-\d{4}$"), "a credential ID such as SYN-CRED-0251")
 DATE = ("date", re.compile(r"^\d{4}-\d{2}-\d{2}$"), "a date as YYYY-MM-DD")
 TEXT = ("text", None, "text")
 FLAG = ("bool", None, "true or false")
-IDS = ("ids", GROUP[1], "a list of group IDs such as [\"SYN-GRP-JIRA-WRITE\"]")
+IDS = ("ids", GROUP[1], "a list of group IDs such as [\"SYN-GRP-EXAMPLE-WRITE\"]")
 
 
 def closest_employees(text: str, limit: int = 3) -> list[str]:

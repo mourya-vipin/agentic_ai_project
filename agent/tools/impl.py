@@ -52,7 +52,7 @@ def _request(request_id: str | None) -> dict | None:
         return None
     item = requests.get(request_id)
     if item is None:
-        raise PermanentError(f"No request {request_id!r}. Request IDs look like SYN-REQ-0005; "
+        raise PermanentError(f"No request {request_id!r}. Request IDs look like SYN-REQ-9001; "
                              "requests_list_today lists today's. A retry with the same ID will fail the same way.")
     return item
 

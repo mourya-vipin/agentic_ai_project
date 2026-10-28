@@ -46,7 +46,7 @@ class RegistryTest(ScratchTest):
     def test_a_call_rejected_at_the_boundary_gets_its_repair_fact_and_nothing_runs(self):
         result = self.registry.call("grant_access", {"employee_id": LEO, "group_id": "Finance Reports"}, ctx())
         self.assertTrue(result.is_error)
-        self.assertIn("group_id is 'Finance Reports'; give a group ID such as SYN-GRP-JIRA-WRITE", result.content)
+        self.assertIn("group_id is 'Finance Reports'; give a group ID such as SYN-GRP-EXAMPLE-WRITE", result.content)
         self.assertIn("will fail the same way", result.content)
         self.assertLessEqual(len(result.content), reg.REPAIR_CHARS)
         self.assertTrue(self.lines("tool_call")[-1]["rejected"])

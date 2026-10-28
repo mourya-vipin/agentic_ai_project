@@ -16,6 +16,7 @@ Needs only Python 3.10 or later and an OpenAI API key; nothing else to install.
 
 ```bash
 make setup                      # once: the virtual environment and the dependencies
+source .venv/bin/activate       # in every new terminal, so python is the project's Python
 export OPENAI_API_KEY=...       # the model's key, in your shell (never in a file in the repository)
 make app                        # resets the sandbox, seeds the demo day, serves http://localhost:8000
 ```

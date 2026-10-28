@@ -1,6 +1,6 @@
 {
   "model": "gpt-4.1-mini",
-  "date": "2026-10-26",
+  "date": "2026-10-28",
   "no_tools_prompt_tokens": 39,
   "sets": {
     "first_draft": {
@@ -44,18 +44,18 @@
     },
     "rewrite": {
       "tools": 15,
-      "definition_tokens": 2473,
+      "definition_tokens": 2476,
       "per_tool": {
-        "access_grant": 331,
+        "access_grant": 332,
         "access_list_memberships": 142,
-        "access_propose_change": 202,
-        "access_revoke": 187,
+        "access_propose_change": 203,
+        "access_revoke": 186,
         "access_revoke_all": 165,
-        "catalog_search_groups": 153,
+        "catalog_search_groups": 154,
         "directory_get_employee": 219,
         "directory_list_contractors_ended": 107,
         "directory_search_employees": 150,
-        "manager_confirmation_draft": 187,
+        "manager_confirmation_draft": 188,
         "policy_check_access": 251,
         "reply_draft": 207,
         "requests_get": 103,
@@ -64,16 +64,16 @@
       },
       "fixed_overhead_tokens": 12.0,
       "per_tool_without_overhead": {
-        "access_grant": 319.0,
+        "access_grant": 320.0,
         "access_list_memberships": 130.0,
-        "access_propose_change": 190.0,
-        "access_revoke": 175.0,
+        "access_propose_change": 191.0,
+        "access_revoke": 174.0,
         "access_revoke_all": 153.0,
-        "catalog_search_groups": 141.0,
+        "catalog_search_groups": 142.0,
         "directory_get_employee": 207.0,
         "directory_list_contractors_ended": 95.0,
         "directory_search_employees": 138.0,
-        "manager_confirmation_draft": 175.0,
+        "manager_confirmation_draft": 176.0,
         "policy_check_access": 239.0,
         "reply_draft": 195.0,
         "requests_get": 91.0,
@@ -83,6 +83,6 @@
     }
   },
   "method": "one-message call with and without the definitions; difference in prompt tokens",
-  "spent_usd": 0.003152,
+  "spent_usd": 0.003155,
   "input_price_per_million": 0.4
 }
