@@ -3,7 +3,8 @@ to its use case's path (Lecture 1, slide 19).
 
 Owner: Aman Panigrahi. Trusted data first (the thread, the requester's directory
 record); a model call, traced as a step of its own, only where code cannot tell.
-The switches control.<use_case> say which path each use case takes.
+The switches control.<use_case> say which path each use case takes; U5 and U6 have only
+the agent path, so their switches must say agent, and any other setting stops the turn.
 
 An operator message. One model call (purpose "route_operator", no tools) answers
 {"intent", "request_ids"}, seeing the session's last three turns. A message is a
@@ -100,11 +101,21 @@ def handle_operator(session_id: str, text: str) -> Reply:
     elif intent == "bulk_change":
         reply = _as_reply(bulk_change(session_id, text))
     else:
+        _agent_path(OPERATOR_REVIEW)
         reply = _as_reply(loop.run_loop(session_id, use_case=OPERATOR_REVIEW, system=_prompt(OPERATOR_REVIEW),
                                         user_content=_with_history(session_id, text), tools=TOOLS[OPERATOR_REVIEW],
                                         bound=BOUND))
     session.add(session_id, "agent", reply.text)
     return reply
+
+
+def _agent_path(use_case: str) -> None:
+    """Read control.<use_case> for a use case that has only the agent path, and refuse
+    any other setting rather than run a path the switch does not name."""
+    path = runtime.switch(f"control.{use_case}")
+    if path != "agent":
+        raise ValueError(f"control.{use_case} is {path!r}, but {use_case} has only the agent path: "
+                         "set it to agent in switches.yaml")
 
 
 def route_operator(session_id: str, text: str, earlier: list[dict]) -> tuple[str, list[str], str]:
@@ -126,6 +137,7 @@ def route_operator(session_id: str, text: str, earlier: list[dict]) -> tuple[str
 
 def bulk_change(session_id: str, text: str) -> LoopResult:
     """U6: planned if plan.bulk_change is on, else the bounded loop."""
+    _agent_path(BULK_CHANGE)
     if runtime.switch("plan.bulk_change") == "on":
         return executor.run_planned(session_id, text, bound=BOUND)
     return loop.run_loop(session_id, use_case=BULK_CHANGE, system=_prompt(BULK_CHANGE),

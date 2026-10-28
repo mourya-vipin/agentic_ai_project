@@ -44,6 +44,10 @@
 
 - The bounded loop is not told today's date; only the planner's context carries it (`agent/planner.py: build_context`). With planning off, the loop made a date up (`pass1-after-t06_bulk_ended_contractors-s01-22e631`, trace line 7). The empty-list note now gives today's date (below); the date in the loop's prompts waits for Milestone 2, because it would change t04, t05 and t07, which the baseline measured.
 
+- The t03 check does not test the proposed removal of a protected group: t03's contractor, Jonas Berg (SYN-EMP-0150), holds none (`access_revoke_all` keeps nothing, `baseline-t03_contractor_left-s01-6f5852`, trace line 10), so there is nothing to propose. A task fact that gives him a legal hold waits for Milestone 2.
+
+- The t07 check finds a request only by its request ID. In `pass1-before-t07_unusual_review-s03-2cfcaa` and `pass1-after-t07_unusual_review-s01-812ffb` the answer picked out the right three requests by name and employee ID but gave no request IDs, which the U5 prompt asks for, so both runs failed and the analysis counts them as false finishes. Mapping a name or an employee ID to its request, tested on these two answers, waits for Milestone 2; changing the check now would rescore runs already recorded.
+
 ### Fixes after the baseline
 
 - The critique read "cannot be granted" as a claim that a group was granted, so it held a true reply (`baseline-t05_on_behalf-s02-3d3af4`, trace lines 19 and 22) and failed a first draft in `baseline-t05_on_behalf-s03-8e0479` (line 19). `agent/critique.py` now treats "cannot" as a negation, and reads a modal or future ("will be granted", "can only be granted", "to be removed") as a claim that the change is waiting, so a promise passes only when an open proposal or confirmation backs it (Aman Panigrahi's case). Tests in `tests/test_critique.py`. Found by Aman Panigrahi.
@@ -57,6 +61,10 @@
 - With planning off, U6 called `directory_list_contractors_ended` with a date it made up, `before: "2024-06-01"`, got an empty list, and ended `done` having removed nothing (`pass1-after-t06_bulk_ended_contractors-s01-22e631`, trace lines 7 to 10). An empty list for any date but today now also says today's date and how many contractors whose contract ended before today still hold access (`agent/tools/impl.py`; the replay in `tests/test_definitions.py`). No measured run changes: of the six calls to the tool in the baseline and both Pass 1 arms, that run's was the only empty one, and it stays recorded as it ran, at `2ca29b2`. The definitions do not change, so neither do their measured costs. Found by Shruti Tewaney's Pass 1 (Vipin Mourya's tools).
 
 - The examples of `policy_check_access` and `access_grant`, and the ID hints in the definitions and the boundary's messages, used real records: Leo Martins (SYN-EMP-0031), t04's requester, with four of the five groups t04 tests, and Jonas Berg, whose contract has ended on the demo day and in t03. They now use IDs that no record holds (SYN-EMP-9001, SYN-REQ-9001, SYN-GRP-EXAMPLE-READ, …), and `tests/test_definitions.py` fails if an example or hint names a real record. The runs recorded before 2026-10-28 stay as they ran; M1.md, Part 3 names this as a threat to t04's numbers. The planned path is unaffected: neither tool is in a U6 plan's tools. Found in review (Vipin Mourya's tools).
+
+- U5 and U6 never read their control switches: only employee requests read `control.<use_case>`. `agent/router.py` now reads `control.operator_review` and `control.bulk_change` on every operator turn and stops the turn on any setting other than agent, the only path either has. Tests in `tests/test_routing.py`. No behaviour changes: both switches are agent in every recorded run. Found in review.
+
+- The t02 check did not test the request's status, as the t01 and t03 checks do. `checks/t02_new_starter.py` now fails a run that leaves the request anything but `done`; tests in `tests/test_checks.py`. No recorded result changes: all 9 recorded t02 runs, in the baseline and both Pass 1 arms, set it to `done` (trace line 18). Found in review.
 
 ### Reused from our assignments and the course code
 

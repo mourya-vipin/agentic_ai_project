@@ -59,6 +59,42 @@ class EachUseCaseReachesItsPath(TaskRunTest):
         self.assertEqual([b["use_case"] for b in self.of("bound")], ["bulk_change"])
 
 
+class OperatorTurnsReadTheirControlSwitch(TaskRunTest):
+    """U5 and U6 have only the agent path. Their switches are read on every turn, and a
+    setting other than agent stops the turn before the loop or the planner runs.
+    switches.yaml allows only agent, so the setting is patched where the router reads it."""
+
+    def run_with(self, task: str, backend: str, name: str, value: str) -> dict:
+        from unittest import mock
+        from harness import runtime
+        real = runtime.switch
+        read = []
+
+        def switch(key, *default):
+            read.append(key)
+            return value if key == name else real(key, *default)
+        with mock.patch.object(router.runtime, "switch", side_effect=switch):
+            record = self.run_on(task, backend)
+        self.assertIn(name, read)
+        return record
+
+    def test_each_operator_use_case_reads_its_switch(self):
+        for task, backend, name in (("t07_unusual_review", "RoutesQuestion", "control.operator_review"),
+                                    ("t06_bulk_ended_contractors", "RoutesBulk", "control.bulk_change")):
+            with self.subTest(name=name):
+                record = self.run_with(task, backend, name, "agent")
+                self.assertIsNone(record["error"])
+
+    def test_a_setting_other_than_agent_stops_the_turn(self):
+        for task, backend, name in (("t07_unusual_review", "RoutesQuestion", "control.operator_review"),
+                                    ("t06_bulk_ended_contractors", "RoutesBulk", "control.bulk_change")):
+            with self.subTest(name=name):
+                record = self.run_with(task, backend, name, "workflow")
+                self.assertIn(f"{name} is 'workflow'", record["error"])
+                self.assertEqual(self.of("bound"), [], "no loop ran")
+                self.assertEqual([m["purpose"] for m in self.of("model_call")], ["route_operator"])
+
+
 class TheCaseThatCouldBeMisrouted(TaskRunTest):
     def test_t05_goes_to_the_agent_even_when_the_router_says_self(self):
         """t05 names one group Dev Rao's role allows; the routing call wrongly says the
