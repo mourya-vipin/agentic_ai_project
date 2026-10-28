@@ -25,9 +25,10 @@ from __future__ import annotations
 
 from agent.tools.definitions_v1 import ALIASES as FIRST_DRAFT_NAMES
 
-EMP = "An employee ID, SYN-EMP- and four digits, such as SYN-EMP-0031."
-GRP = "A group ID, SYN-GRP- and its name, such as SYN-GRP-JIRA-WRITE."
-REQ = "A request ID, SYN-REQ- and four digits, such as SYN-REQ-0005."
+# The IDs in hints and examples belong to no record, so no test task's answer is shown to the model.
+EMP = "An employee ID, SYN-EMP- and four digits, such as SYN-EMP-9001."
+GRP = "A group ID, SYN-GRP- and its name, such as SYN-GRP-EXAMPLE-WRITE."
+REQ = "A request ID, SYN-REQ- and four digits, such as SYN-REQ-9001."
 DATE = "A date as YYYY-MM-DD."
 CAP = " At most 4,000 characters come back; a longer result says it was cut."
 STATUSES = ["new", "in_progress", "done", "partly_done", "pending_operator", "refused"]
@@ -84,7 +85,7 @@ DEFINITIONS: list[dict] = [
           "Use it to turn what a requester wrote into group IDs. An empty list means the query was valid and no "
           "group matched." + CAP,
           {"query": _s("Words to look for, at most 80 characters."),
-           "system_id": _s("Only this system, such as SYN-SYS-JIRA. Leave it out to search every system.")},
+           "system_id": _s("Only this system, such as SYN-SYS-EXAMPLE. Leave it out to search every system.")},
           ["query"]),
     _tool("policy_check_access",
           "Ask the role policy whether one person may have each of up to 20 groups, in one call. Each decision "
@@ -93,12 +94,12 @@ DEFINITIONS: list[dict] = [
           "nothing is checked.",
           {"employee_id": _s(EMP),
            "group_ids": {"type": "array", "items": {"type": "string"},
-                         "description": "One to 20 group IDs, such as [\"SYN-GRP-JIRA-WRITE\", \"SYN-GRP-DWH-READ\"]."}},
+                         "description": "One to 20 group IDs, such as [\"SYN-GRP-EXAMPLE-READ\", \"SYN-GRP-EXAMPLE-WRITE\"]."}},
           ["employee_id", "group_ids"],
           examples=[
-              {"employee_id": "SYN-EMP-0031", "group_ids": ["SYN-GRP-FINREP-READ"]},
-              {"employee_id": "SYN-EMP-0031", "group_ids": ["SYN-GRP-CONFLUENCE-FINANCE", "SYN-GRP-FINREP-WRITE",
-                                                            "SYN-GRP-PAYROLL-ADMIN"]},
+              {"employee_id": "SYN-EMP-9001", "group_ids": ["SYN-GRP-EXAMPLE-READ"]},
+              {"employee_id": "SYN-EMP-9001", "group_ids": ["SYN-GRP-EXAMPLE-READ", "SYN-GRP-EXAMPLE-WRITE",
+                                                            "SYN-GRP-EXAMPLE-ADMIN"]},
           ]),
     _tool("requests_get",
           "Read one request: its text, who sent it, its thread, status and route, every membership granted or "
@@ -120,13 +121,13 @@ DEFINITIONS: list[dict] = [
                             "out for employees.")},
           ["employee_id", "group_id", "request_id"],
           examples=[
-              {"employee_id": "SYN-EMP-0031", "group_id": "SYN-GRP-FINREP-READ", "request_id": "SYN-REQ-0005"},
-              {"employee_id": "SYN-EMP-0150", "group_id": "SYN-GRP-CONTRACTOR-PORTAL", "request_id": "SYN-REQ-0004",
+              {"employee_id": "SYN-EMP-9001", "group_id": "SYN-GRP-EXAMPLE-READ", "request_id": "SYN-REQ-9001"},
+              {"employee_id": "SYN-EMP-9002", "group_id": "SYN-GRP-EXAMPLE-PORTAL", "request_id": "SYN-REQ-9002",
                "expires_at": "2026-11-30"},
           ]),
     _tool("access_revoke",
           "Remove one group from one person. On a request from an employee, only the requester's own groups. A "
-          "protected group (such as SYN-GRP-LEGAL-HOLD) is never removed: write its removal with "
+          "protected group (access_list_memberships marks it protected) is never removed: write its removal with "
           "access_propose_change (action \"revoke\") instead; this tool fails on it. Returns removed or "
           "not_a_member.",
           {"employee_id": _s(EMP), "group_id": _s(GRP), "request_id": _s(REQ),

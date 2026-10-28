@@ -38,6 +38,7 @@
 - No tool returns a credential's secret; only the operator's reveal on the person page shows one.
 - `notices_send_template` and `credentials_issue` are for our workflows only; the model never sees them.
 - On an employee's request, `access_revoke` removes only the requester's own groups.
+- A time-boxed group's limit (`max_days`) is not enforced on `access_grant`'s `expires_at`: only the date's form is checked. For Milestone 2, at the boundary.
 
 - On a non-standard request, `access_grant` grants only to the requester or to someone who reports to the requester; anyone else's grant is refused with a pointer to `manager_confirmation_draft`. The case's request is the one the router assigned, whatever request the model names. (Found in the console session `traces/s-20261025-175741-0501.jsonl:88`, where the agent granted Dev Rao a group on a teammate's request.)
 
@@ -54,6 +55,8 @@
 - In the second U6 loop pilot, on the two fixes above, the loop wrote one note per contractor rather than one per manager, so Hannah Lee, the manager of two of them, got two notes in one step; the critique failed the first for leaving out the other contractor and held the second as its round 2, and the run ended `critique_held` with no note to her (`dev-bulk-loop-2-t06_bulk_ended_contractors-s01-429cd0`, trace lines 16 to 23). `agent/prompts/bulk_change.md` now asks for one note per manager, covering every person of that manager's whose access changed. This is the last change to the loop's prompt before Pass 1.
 
 - With planning off, U6 called `directory_list_contractors_ended` with a date it made up, `before: "2024-06-01"`, got an empty list, and ended `done` having removed nothing (`pass1-after-t06_bulk_ended_contractors-s01-22e631`, trace lines 7 to 10). An empty list for any date but today now also says today's date and how many contractors whose contract ended before today still hold access (`agent/tools/impl.py`; the replay in `tests/test_definitions.py`). No measured run changes: of the six calls to the tool in the baseline and both Pass 1 arms, that run's was the only empty one, and it stays recorded as it ran, at `2ca29b2`. The definitions do not change, so neither do their measured costs. Found by Shruti Tewaney's Pass 1 (Vipin Mourya's tools).
+
+- The examples of `policy_check_access` and `access_grant`, and the ID hints in the definitions and the boundary's messages, used real records: Leo Martins (SYN-EMP-0031), t04's requester, with four of the five groups t04 tests, and Jonas Berg, whose contract has ended on the demo day and in t03. They now use IDs that no record holds (SYN-EMP-9001, SYN-REQ-9001, SYN-GRP-EXAMPLE-READ, …), and `tests/test_definitions.py` fails if an example or hint names a real record. The runs recorded before 2026-10-28 stay as they ran; M1.md, Part 3 names this as a threat to t04's numbers. The planned path is unaffected: neither tool is in a U6 plan's tools. Found in review (Vipin Mourya's tools).
 
 ### Reused from our assignments and the course code
 

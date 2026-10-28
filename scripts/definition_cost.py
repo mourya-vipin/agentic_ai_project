@@ -3,6 +3,7 @@ with and without them, the difference in the input tokens the API reports.
 Owner: Vipin Mourya.
 
     python scripts/definition_cost.py                 # prints, and writes docs/milestones/m1_definition_cost.json
+                                                      # and a dated copy, m1_definition_cost_<date>.json
     python scripts/definition_cost.py --calls 6.2     # also prices a run that carries them on 6.2 model calls
 
 It builds the model client exactly as harness/ping.py does and sends the
@@ -89,6 +90,8 @@ def main(argv=None) -> int:
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(report, indent=2) + "\n")
+    # each measurement keeps a file of its own, so every figure the write-up cites can be read again
+    OUT.with_name(f"{OUT.stem}_{report['date']}.json").write_text(json.dumps(report, indent=2) + "\n")
     for name, entry in report["sets"].items():
         line = f"{name}: {entry['tools']} tools, {entry['definition_tokens']} tokens of definitions per call"
         if "per_run_tokens" in entry:
