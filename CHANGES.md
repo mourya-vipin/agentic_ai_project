@@ -41,6 +41,8 @@
 
 - On a non-standard request, `access_grant` grants only to the requester or to someone who reports to the requester; anyone else's grant is refused with a pointer to `manager_confirmation_draft`. The case's request is the one the router assigned, whatever request the model names. (Found in the console session `traces/s-20261025-175741-0501.jsonl:88`, where the agent granted Dev Rao a group on a teammate's request.)
 
+- The bounded loop is not told today's date; only the planner's context carries it (`agent/planner.py: build_context`). With planning off, the loop made a date up (`pass1-after-t06_bulk_ended_contractors-s01-22e631`, trace line 7). The empty-list note now gives today's date (below); the date in the loop's prompts waits for Milestone 2, because it would change t04, t05 and t07, which the baseline measured.
+
 ### Fixes after the baseline
 
 - The critique read "cannot be granted" as a claim that a group was granted, so it held a true reply (`baseline-t05_on_behalf-s02-3d3af4`, trace lines 19 and 22) and failed a first draft in `baseline-t05_on_behalf-s03-8e0479` (line 19). `agent/critique.py` now treats "cannot" as a negation, and reads a modal or future ("will be granted", "can only be granted", "to be removed") as a claim that the change is waiting, so a promise passes only when an open proposal or confirmation backs it (Aman Panigrahi's case). Tests in `tests/test_critique.py`. Found by Aman Panigrahi.
