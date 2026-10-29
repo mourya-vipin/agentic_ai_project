@@ -90,8 +90,9 @@ class CommittedArmsTest(unittest.TestCase):
     def test_baseline(self):
         a = analyze.arm(ROOT / "results" / "baseline")
         self.assertEqual(a["passes_by_substance"], 20)
-        self.assertEqual([p["tokens"] for p in a["per_task_detail"]["t06_bulk_ended_contractors"]["planning"]],
-                         [5587, 5611, 5799])
+        planning = a["per_task_detail"]["t06_bulk_ended_contractors"]["planning"]
+        self.assertEqual([p["tokens"] for p in planning], [5587, 5611, 5799])
+        self.assertEqual([p["revise_seconds"] for p in planning], [5.708, 14.794, 8.061])
         self.assertEqual(round(a["gate4"]["a1"]["break_even_f"], 5), 0.00013)
         h = a["bound_headroom"]
         self.assertEqual((h["most_calls"]["value"], h["most_tokens"]["value"]), (7, 29088))

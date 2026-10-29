@@ -620,6 +620,8 @@
               "sweep": 1,
               "calls": 2,
               "seconds": 10.136,
+              "plan_seconds": 4.428,
+              "revise_seconds": 5.708,
               "tokens": 5587,
               "cost": 0.0036988000000000004,
               "run_tokens": 10550
@@ -629,6 +631,8 @@
               "sweep": 2,
               "calls": 2,
               "seconds": 19.168,
+              "plan_seconds": 4.374,
+              "revise_seconds": 14.794,
               "tokens": 5611,
               "cost": 0.0032668000000000003,
               "run_tokens": 10569
@@ -638,6 +642,8 @@
               "sweep": 3,
               "calls": 2,
               "seconds": 13.408000000000001,
+              "plan_seconds": 5.347,
+              "revise_seconds": 8.061,
               "tokens": 5799,
               "cost": 0.0034908,
               "run_tokens": 10755
