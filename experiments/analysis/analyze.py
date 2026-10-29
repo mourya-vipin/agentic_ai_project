@@ -31,7 +31,23 @@ sweep) and prints, per arm:
   turn's use case when it is a question or a bulk change);
 - m: the mean cost of a run whose cases all took the agent path over the mean cost of
   a run whose cases all took a workflow; and each path's turns: median, slowest, and
-  how many took over 10 s (Lecture 1, slide 34).
+  how many took over 10 s (Lecture 1, slide 34);
+- per task: passes, and passes by substance for t07 (below); cost, uncached tokens
+  (all but cache reads) and all tokens per run, mean and range; turns, median and
+  range; the same for all the other tasks of the arm; and, where a task plans, each
+  run's planning and revision time and tokens (the planner's and reviser's calls);
+- gate 4 for U4: c (the workflow-path mean), f (the U4 runs that passed), and from
+  them the extra cost per case, the cost per extra correct case, the break-even f and
+  the blended cost, with A1's m (--a1-m) and with the arm's own m;
+- our bound against what each loop used: the most model calls, tokens and seconds of
+  any loop (from its bound line to its end line), its first prompt and what each step
+  added, and the 95th percentile of a loop call's latency.
+
+By substance: the t07 check finds a request only by its request ID (CHANGES.md,
+Limited). A failed t07 run whose answer picks out the right requests by their
+requesters' names or employee IDs is read again as the check reads it, once each name
+and ID is followed by its request ID (from the run's own requests_list_today result).
+Every other run counts as its check said.
 
 Across arms, f, when two arms set one use case's control switch differently: the share
 of that use case's tasks the agent passed in at least two of three sweeps and the
@@ -45,15 +61,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import statistics
 import sys
 from collections import Counter, defaultdict
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from harness import records  # noqa: E402  (the repository root is on the path only from here)
+from agent.bounds import Bound  # noqa: E402  (the repository root is on the path only from here)
+from checks import t07_unusual_review as t07  # noqa: E402
+from harness import records  # noqa: E402
 
 FINISHED = ("done", "answered", "plan_done", "workflow_done")
 OUR_BOUND = ("step_limit", "loop_token_budget", "wall_clock")
@@ -71,6 +91,18 @@ AFTER_FAIL = "author's calls after a failed critique round"
 USE_CASES = ("standard_grant", "onboarding", "offboarding", "nonstandard_request", QUESTION, BULK)   # U1 to U6
 COMPONENTS = ("routing (operator turn)", "routing (request)", *(f"loop: {u}" for u in USE_CASES),
               "planner", "reviser", "executor fill")
+PLANNING = ("plan", "revise")                                        # the planner's and reviser's calls
+U4 = "nonstandard_request"
+SUBSTANCE_TASK = "t07_unusual_review"
+REQUEST_TOOLS = ("requests_list_today", "requests_get")
+
+# Gate 4's inputs from outside our runs (M1.md, Part 1, task 5)
+A1_M = 9.70                     # Shruti's A1 (shruti072003/agentic-ai-assignment1, reports/LAB_01.md, line 95)
+WRONG_CASE_USD = 0.25 * 47.66   # 15 minutes, our assumption, at $47.66 an hour (US BLS, Occupational
+                                # Outlook Handbook, network and computer systems administrators, 2025 median
+                                # pay, read 2026-10-26)
+SHARE_TO_AGENT = 0.2            # r, the share of cases routed to the agent: our assumption
+CAUTIOUS_F = 0.5
 
 
 def _in_order(names, order) -> list[str]:
@@ -113,6 +145,84 @@ def _usage(event: dict) -> dict:
 def _add(into: dict, usage: dict) -> None:
     for k in ("calls", "tokens", "cost"):
         into[k] = into.get(k, 0) + usage[k]
+
+
+def _prompt(event: dict) -> int:
+    u = event.get("usage") or {}
+    return sum(u.get(k) or 0 for k in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
+
+
+def _at(event: dict) -> datetime | None:
+    return datetime.fromisoformat(event["at"]) if event.get("at") else None
+
+
+def loops(events: list[dict]) -> list[dict]:
+    """Each loop's use of our bound, from its bound line to its end line: model calls,
+    tokens (prompt and output, as the loop counts them), seconds, each call's prompt
+    tokens and latency."""
+    out, now = [], None
+    for e in events:
+        kind = e.get("type")
+        if kind == "bound":
+            now = {"use_case": e.get("use_case"), "path": e.get("path", "loop"), "calls": 0, "tokens": 0,
+                   "prompts": [], "latencies": [], "start": _at(e)}
+        elif now is None:
+            continue
+        elif kind == "model_call":
+            now["calls"] += 1
+            now["tokens"] += _usage(e)["tokens"]
+            now["prompts"].append(_prompt(e))
+            now["latencies"].append(e.get("latency_s") or 0.0)
+        elif kind == "end":
+            start, end = now.pop("start"), _at(e)
+            now["seconds"] = (end - start).total_seconds() if start and end else None
+            now["end_reason"] = e.get("terminal_reason")
+            out.append(now)
+            now = None
+    return out
+
+
+def planning(events: list[dict]) -> dict:
+    """The planner's and reviser's calls in one run: calls, seconds, tokens and cost."""
+    out = {"calls": 0, "seconds": 0.0, "tokens": 0, "cost": 0.0}
+    for e in events:
+        if e.get("type") == "model_call" and e.get("purpose") in PLANNING:
+            _add(out, _usage(e))
+            out["seconds"] += e.get("latency_s") or 0.0
+    return out
+
+
+def by_substance(record: dict, events: list[dict]) -> bool:
+    """Whether a run passed by substance (the module's docstring): its check's verdict,
+    except that a failed t07 run that wrote nothing is read again, its answer with each
+    requester's name and employee ID followed by their request ID."""
+    passed = bool(record.get("passed"))
+    if passed or record["task"] != SUBSTANCE_TASK or (record.get("measures") or {}).get("writes"):
+        return passed
+    answers = [e.get("text") or "" for e in events if e.get("type") == "reply" and e.get("function") == "operator_turn"]
+    if not answers:
+        return False
+    people = defaultdict(set)                      # (employee ID, name) -> the requests they made
+    for e in events:
+        if e.get("type") != "tool_call" or e.get("name") not in REQUEST_TOOLS:
+            continue
+        try:
+            output = json.loads(e.get("output") or "")
+        except (json.JSONDecodeError, TypeError):
+            continue
+        for r in (output.get("requests", [output]) if isinstance(output, dict) else []):
+            if isinstance(r, dict) and r.get("id") and r.get("requester_id"):
+                people[(r["requester_id"], r.get("requester_name"))].add(r["id"])
+    text = answers[0]
+    for (employee_id, name), made in people.items():
+        if len(made) != 1:
+            continue                               # a person with two requests stands for neither
+        request_id = next(iter(made))
+        text = re.sub(rf"\b{re.escape(employee_id)}\b", f"{employee_id} ({request_id})", text)
+        if name:
+            text = re.sub(rf"\b{re.escape(name)}\b(?! \(SYN-EMP-)", f"{name} ({request_id})", text)
+    found, flagged = t07.read_answer(text)
+    return found == set(t07.UNUSUAL) and not flagged
 
 
 def one_run(record: dict, events: list[dict]) -> dict:
@@ -166,7 +276,10 @@ def one_run(record: dict, events: list[dict]) -> dict:
     passed = bool(record.get("passed"))
     return {
         "run_id": record["run_id"], "task": record["task"], "sweep": record["sweep"], "passed": passed,
+        "by_substance": by_substance(record, events),
         "tokens": record["tokens"]["total"], "cost": record["cost_usd"],
+        "uncached": record["tokens"]["total"] - (record["tokens"].get("cache_read") or 0),
+        "planning": planning(events), "loops": loops(events),
         "model_calls": record.get("model_calls", types["model_call"]),
         "turns": record.get("turn_latency_s") or [],
         "end_reasons": ends,
@@ -214,7 +327,90 @@ def _sum(rows: list[dict]) -> dict:
     return out
 
 
-def arm(folder: Path) -> dict:
+def _spread(values: list[float]) -> dict:
+    return {**_stats(values), "min": min(values, default=None), "max": max(values, default=None)}
+
+
+def _detail(rows: list[dict]) -> dict:
+    return {"runs": len(rows), "passed": sum(r["passed"] for r in rows),
+            "by_substance": sum(r["by_substance"] for r in rows),
+            "cost": _spread([r["cost"] for r in rows]), "uncached": _spread([r["uncached"] for r in rows]),
+            "tokens": _spread([r["tokens"] for r in rows]), "turns": _spread([t for r in rows for t in r["turns"]])}
+
+
+def per_task_detail(runs: list[dict], tasks: list[str]) -> dict:
+    """Each task's runs, against the arm's other tasks; and each planned run's planning."""
+    out = {}
+    for t in tasks:
+        mine = [r for r in runs if r["task"] == t]
+        rest = _detail([r for r in runs if r["task"] != t])
+        out[t] = {**_detail(mine),
+                  "rest": {k: rest[k] for k in ("runs", "passed", "by_substance")}
+                          | {"median_turn": rest["turns"]["median"]},
+                  "planning": [{"run_id": r["run_id"], "sweep": r["sweep"], **r["planning"], "run_tokens": r["tokens"]}
+                               for r in mine if r["planning"]["calls"]]}
+    return out
+
+
+def gate4(runs: list[dict], c: float | None, own_m: float | None, a1_m: float = A1_M,
+          wrong_case: float = WRONG_CASE_USD, r: float = SHARE_TO_AGENT) -> dict:
+    """Gate 4 for U4 (M1.md, Part 1, task 5), with A1's m and with the arm's own m. f is
+    the share of the U4 cases on the agent path whose run passed: M1.md argues that a
+    workflow gets those cases wrong."""
+    u4 = [x for x in runs if "agent" in x["case_paths"].get(U4, [])]
+    f = sum(x["passed"] for x in u4) / len(u4) if u4 else None
+
+    def at(m):
+        if c is None or m is None:
+            return None
+        extra = c * (m - 1)
+        return {"m": m, "extra_per_case": extra, "per_extra_correct": extra / f if f else None,
+                "per_extra_correct_cautious": extra / CAUTIOUS_F, "break_even_f": extra / wrong_case,
+                "one_in": wrong_case / extra if extra > 0 else None,
+                "blended": c * ((1 - r) + r * m), "agent_every_case": c * m}
+    return {"c": c, "f": f, "u4_runs": len(u4), "u4_passed": sum(x["passed"] for x in u4), "cautious_f": CAUTIOUS_F,
+            "wrong_case": wrong_case, "r": r, "a1": at(a1_m), "own": at(own_m)}
+
+
+def _p95(values: list[float]) -> float | None:
+    if len(values) < 2:
+        return values[0] if values else None
+    return statistics.quantiles(values, n=20, method="inclusive")[18]
+
+
+def headroom(runs: list[dict], bound: Bound = Bound()) -> dict | None:
+    """Our bound against what each loop used (planned or not), and the agent loop's
+    growth: each step adds to one conversation, so a loop whose first prompt is F tokens
+    and grows by A a step uses about N*F + A*N*(N-1)/2 at the step limit N. A is each
+    loop's mean growth, (last prompt - first prompt) / (calls - 1); the planned path's
+    calls are not one conversation, so F and A leave them out."""
+    every = [{**loop, "run_id": r["run_id"]} for r in runs for loop in r["loops"]]
+    if not every:
+        return None
+
+    def most(key):
+        top = max(every, key=lambda loop: loop[key] or 0)
+        return {"value": top[key], "run_id": top["run_id"], "use_case": top["use_case"], "path": top["path"]}
+
+    agent = [loop for loop in every if loop["path"] == "loop" and loop["prompts"]]
+    first = _spread([loop["prompts"][0] for loop in agent])
+    added = _spread([(loop["prompts"][-1] - loop["prompts"][0]) / (loop["calls"] - 1)
+                     for loop in agent if loop["calls"] > 1])
+    latencies = [t for loop in every for t in loop["latencies"]]
+    n = bound.max_steps
+
+    def at_limit(f, a):
+        return None if f is None or a is None else n * f + a * n * (n - 1) / 2
+    return {"bound": {"max_steps": n, "token_budget": bound.token_budget, "wall_clock_s": bound.wall_clock_s},
+            "loops": len(every), "agent_loops": len(agent), "most_calls": most("calls"),
+            "most_tokens": most("tokens"), "longest": most("seconds"), "first_prompt": first, "added_per_step": added,
+            "at_step_limit": {"medians": at_limit(first["median"], added["median"]),
+                              "maxima": at_limit(first["max"], added["max"])},
+            "call_latency": {"n": len(latencies), "p95": _p95(latencies), "max": max(latencies, default=None)}}
+
+
+def arm(folder: Path, a1_m: float = A1_M, wrong_case: float = WRONG_CASE_USD,
+        share_to_agent: float = SHARE_TO_AGENT) -> dict:
     runs = [one_run(r, trace_of(folder, r)) for r in runs_of(folder)]
     n = len(runs)
     tasks = sorted({r["task"] for r in runs})
@@ -264,7 +460,8 @@ def arm(folder: Path) -> dict:
     switch_sets = {json.dumps(r["switches"], sort_keys=True) for r in runs}
     return {
         "arm": folder.name, "folder": str(folder), "free": records.is_free_folder(folder),
-        "runs": n, "passes": sum(r["passed"] for r in runs), "tasks": tasks, "sweeps": sweeps,
+        "runs": n, "passes": sum(r["passed"] for r in runs),
+        "passes_by_substance": sum(r["by_substance"] for r in runs), "tasks": tasks, "sweeps": sweeps,
         "models": sorted({str(r["model"]) for r in runs}),
         "switches": json.loads(next(iter(switch_sets))) if len(switch_sets) == 1 else None,
         "per_task": {t: [sum(r["passed"] for r in runs if r["task"] == t), sum(r["task"] == t for r in runs)]
@@ -301,9 +498,13 @@ def arm(folder: Path) -> dict:
         "misroutes": {"count": sum(r["misrouted"] for r in runs), "runs": ids([r for r in runs if r["misrouted"]])},
         "components": component_rows, "after_failed_round": after_fail,
         "use_cases": use_case_rows, "by_path": by_path, "m": m,
-        "per_run": [{k: r[k] for k in ("run_id", "task", "sweep", "passed", "tokens", "cost", "model_calls",
-                                       "turns", "end_reasons", "path", "false_finish", "repeat_calls",
-                                       "critique_rounds", "cases")} for r in runs],
+        "per_task_detail": per_task_detail(runs, tasks),
+        "gate4": gate4(runs, (by_path.get("workflow") or {}).get("cost", {}).get("mean"), m, a1_m, wrong_case,
+                       share_to_agent),
+        "bound_headroom": headroom(runs),
+        "per_run": [{k: r[k] for k in ("run_id", "task", "sweep", "passed", "by_substance", "tokens", "uncached",
+                                       "cost", "model_calls", "turns", "end_reasons", "path", "false_finish",
+                                       "repeat_calls", "critique_rounds", "cases")} for r in runs],
     }
 
 
@@ -422,7 +623,80 @@ def report(a: dict) -> str:
                      "on different cases, as no arm ran the same case both ways)")
     else:
         lines.append("\nm: not applicable (this arm has no runs on one of the two paths)")
+    lines += ["", *detail_report(a), "", *gate4_report(a["gate4"]), "", *headroom_report(a["bound_headroom"])]
     return "\n".join(lines)
+
+
+def _range(s: dict, show, unit="") -> str:
+    return "n/a" if s["mean"] is None else f"{show(s['mean'])}{unit} ({show(s['min'])}–{show(s['max'])}{unit})"
+
+
+def detail_report(a: dict) -> list[str]:
+    lines = [f"Per task (cost and tokens per run: mean, and range; turns: median, and range; uncached: all but cache "
+             f"reads; by substance: t07 read again, as the module's docstring says): {a['passes_by_substance']} of "
+             f"{a['runs']} by substance", "",
+             "| Task | Passed | By substance | Cost per run | Uncached tokens per run | Tokens per run | Turns "
+             "| The other tasks' median turn |", "|---|---|---|---|---|---|---|---|"]
+    planned = []
+    for t, d in a["per_task_detail"].items():
+        turns = d["turns"]
+        median = "n/a" if turns["median"] is None else (f"{turns['median']:.2f} s ({turns['min']:.2f}–"
+                                                         f"{turns['max']:.2f} s)")
+        lines.append(f"| {t} | {d['passed']} of {d['runs']} | {d['by_substance']} of {d['runs']} | "
+                     f"{_range(d['cost'], _money)} | {_range(d['uncached'], _num)} | "
+                     f"{_range(d['tokens'], _num)} | {median} | {_num(d['rest']['median_turn'], 2)} s |")
+        planned += d["planning"]
+    if planned:
+        lines += ["", "Planning and revision per planned run (the planner's and reviser's model calls)", "",
+                  "| Run | Calls | Seconds | Tokens | Of the run's tokens | Cost |", "|---|---|---|---|---|---|"]
+        lines += [f"| {p['run_id']} | {p['calls']} | {p['seconds']:.1f} | {_num(p['tokens'])} | "
+                  f"{_num(p['run_tokens'])} | {_money(p['cost'], 5)} |" for p in planned]
+    return lines
+
+
+def gate4_report(g: dict) -> list[str]:
+    head = (f"Gate 4, U4 ({U4}): c = {_money(g['c'], 5)} (the workflow-path mean); f = {g['u4_passed']} of "
+            f"{g['u4_runs']} U4 runs passed = {_num(g['f'], 2)} (cautious: {g['cautious_f']}); a wrong case = "
+            f"{_money(g['wrong_case'], 3)}; r = {g['r']}")
+    shown = [(label, v) for label, v in (("A1's m", g["a1"]), ("this arm's m", g["own"])) if v]
+    if not shown:
+        return [head, "", "Gate 4: not applicable (this arm has no workflow-path runs, or no m)"]
+    lines = [head, "", "| Quantity | " + " | ".join(f"With {label} = {v['m']:.2f}" for label, v in shown) + " |",
+             "|---|" + "---|" * len(shown)]
+    rows = (("Extra cost per case, c(m - 1)", lambda v: _money(v["extra_per_case"])),
+            ("Per extra correct case, c(m - 1) / f", lambda v: _money(v["per_extra_correct"])),
+            (f"The same at f = {g['cautious_f']}", lambda v: _money(v["per_extra_correct_cautious"])),
+            ("Break-even f, c(m - 1) / a wrong case", lambda v: f"{v['break_even_f']:.5f} (one case in "
+                                                                f"{_num(v['one_in'])})"),
+            ("Blended cost, c[(1 - r) + rm]", lambda v: _money(v["blended"])),
+            ("The agent on every case, cm", lambda v: _money(v["agent_every_case"])))
+    lines += [f"| {label} | " + " | ".join(show(v) for _, v in shown) + " |" for label, show in rows]
+    return lines
+
+
+def headroom_report(h: dict | None) -> list[str]:
+    if not h:
+        return ["Our bound: no loop ran in this arm"]
+    b = h["bound"]
+    lines = [f"Our bound ({b['max_steps']} model calls, {b['token_budget']:,} tokens, {b['wall_clock_s']:g} s a turn) "
+             f"against {h['loops']} loops, each from its bound line to its end line", "",
+             "| Used in one loop | Most | Run | Use case | Bound |", "|---|---|---|---|---|"]
+    for label, key, show, limit in (("Model calls", "most_calls", str, b["max_steps"]),
+                                    ("Tokens", "most_tokens", _num, f"{b['token_budget']:,}"),
+                                    ("Seconds", "longest", lambda x: _num(x, 1), f"{b['wall_clock_s']:g}")):
+        top = h[key]
+        lines.append(f"| {label} | {show(top['value'])} | {top['run_id']} | {top['use_case']} ({top['path']}) | "
+                     f"{limit} |")
+    f, a, at, lat = h["first_prompt"], h["added_per_step"], h["at_step_limit"], h["call_latency"]
+    lines += ["", f"The agent loop ({h['agent_loops']} loops): first prompt F, median {_num(f['median'])}, most "
+                  f"{_num(f['max'])} tokens; A, each loop's mean growth a step, median {_num(a['median'])}, most "
+                  f"{_num(a['max'])} tokens",
+              f"At {b['max_steps']} steps, N*F + A*N(N-1)/2: {_num(at['medians'])} tokens with the medians, "
+              f"{_num(at['maxima'])} with the most",
+              f"Loop model calls: {lat['n']}; latency 95th percentile {_num(lat['p95'], 2)} s, slowest "
+              f"{_num(lat['max'], 2)} s; {b['max_steps']} calls at the 95th percentile: "
+              f"{_num(lat['p95'] * b['max_steps'] if lat['p95'] is not None else None, 1)} s"]
+    return lines
 
 
 def f_report(values: list[dict]) -> str:
@@ -443,6 +717,11 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("arms", nargs="+", help="results/<arm> folders")
     p.add_argument("--json", metavar="OUT", help="also write every number to this JSON file")
+    p.add_argument("--a1-m", type=float, default=A1_M, help=f"gate 4's m from A1 (default {A1_M})")
+    p.add_argument("--wrong-case", type=float, default=WRONG_CASE_USD,
+                   help=f"gate 4's cost of a wrong case, in dollars (default {WRONG_CASE_USD:.2f})")
+    p.add_argument("--share-to-agent", type=float, default=SHARE_TO_AGENT,
+                   help=f"gate 4's r, the share of cases routed to the agent (default {SHARE_TO_AGENT})")
     a = p.parse_args(argv)
     arms = []
     for name in a.arms:
@@ -450,7 +729,7 @@ def main(argv=None) -> int:
         if not folder.is_dir():
             print(f"{name}: no such folder", file=sys.stderr)
             return 2
-        arms.append(arm(folder))
+        arms.append(arm(folder, a.a1_m, a.wrong_case, a.share_to_agent))
     if not any(x["runs"] for x in arms):
         print("no runs to analyze", file=sys.stderr)
         return 2
