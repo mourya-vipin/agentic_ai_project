@@ -35,8 +35,24 @@ https://developers.openai.com/api/docs/pricing.
 python run.py --tasks tasks/ --sweeps 3 --arm baseline            # every test task, three sweeps
 python -m harness.summarize results/baseline                       # the starter's summary table
 python experiments/analysis/analyze.py results/baseline            # every other number in our write-up
+python experiments/analysis/analyze.py results/pass1-before results/pass1-after   # Pass 1, both arms
+python scripts/definition_cost.py                                  # what the tool definitions cost (about $0.003)
+python scripts/definition_cost.py --per-run results/baseline --measured docs/milestones/m1_definition_cost_2026-10-25.json
+                                                                   # their cost per run in an arm, no model call
 make test && make check                                            # tests and structure checks, no tokens
 ```
+
+The arms in `results/`; every run record names the commit it ran on. Running an arm's name again skips the
+runs it has finished, so repeat one under a new name.
+
+| Arm | `run.py` with | What it is |
+|---|---|---|
+| `baseline` | `--tasks tasks/ --sweeps 3` | Part 4's baseline, 21 runs at `188a31a` |
+| `pass1-before`, `pass1-after` | `--tasks tasks/ --sweeps 3 --set plan.bulk_change=on` (or `=off`) | Pass 1's two arms (`experiments/LEDGER.md`), at `2ca29b2` |
+| `pilot-examples` | `--tasks tasks/t04_same_access_as.yaml tasks/t05_on_behalf.yaml --sweeps 3` | a pilot on the tool examples with IDs that no record holds, at `e38da9c`; it replaces no recorded number |
+| `dev-v1`, `dev-v2` | `--tasks tasks/ --sweeps 1` | pilots on the first-draft and the rewritten tool definitions (M1.md, Part 3) |
+| `dev`, `dev-2`, `dev-3`, `dev-aman-check`, `dev-critique-fix`, `dev-bulk-loop`, `-2`, `-3` | one task; the `dev-bulk-loop` arms with `--set plan.bulk_change=off` | development pilots, not evidence |
+| `_free/` | a scripted or fake model, such as `--backend tests.fakes:BadArgs` | free runs: tests, not evidence; `make check` and the summarizer leave them out |
 
 ## Where things are
 
@@ -47,6 +63,10 @@ make test && make check                                            # tests and s
 | `agent/` | the agent: `service.py` (the one entry point), the router, workflows, the bounded loop, the planner and executor, the critique, the tool registry and tools |
 | `tasks/`, `checks/` | the test tasks and their checks |
 | `docs/milestones/M1.md` | the Milestone 1 write-up |
+| `docs/milestones/m1_*.json` | the numbers M1.md cites: the baseline, Pass 1, and each definition-cost measurement by date |
+| `experiments/LEDGER.md`, `experiments/analysis/` | the pass's ledger entry, and our analysis script |
+| `results/`, `traces/` | every run's record and trace, and the console session M1.md cites |
+| `scripts/definition_cost.py` | measures what the tool definitions cost |
 | `CHANGES.md` | what each milestone added, removed and limited, and what we reused |
 
 ---
