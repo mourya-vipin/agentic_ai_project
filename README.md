@@ -280,15 +280,17 @@ as `seeded`: the input, not part of the exchange.
 ## Your test tasks
 
 A **test task** is one realistic piece of work your system receives, written as a
-file in `tasks/`, one YAML file each. `tasks/example.yaml` shows every field.
+file in `tasks/`, one YAML file each: `tasks/t05_on_behalf.yaml` has one `input:`, and
+`tasks/t07_unusual_review.yaml` has several, as `inputs:`.
 Keep the test task you tune prompts on in `tasks/dev/`. `tasks/sessions/` is for
 long sessions. `--tasks tasks/` leaves both folders out. Where several things
 arrive, a test task gives `inputs:`, a list, instead of `input:`, and may have
 several strangers, one per thread. A test task in which your agent asks no one has
 `outside: []`.
 
-The strangers are scripted, as `tasks/example.yaml` shows: each answers when a
-turn ends waiting on their thread.
+The strangers are scripted: each answers when a turn ends waiting on their thread.
+No Milestone 1 task waits on anyone, so all of ours have `outside: []`; the starter's
+`tasks/example.yaml`, removed in this milestone (CHANGES.md), showed the format.
 
 The check is a function in `checks/` that decides pass or fail after the run. It
 receives the run (`RunInfo`): its ID, the test task, the state folder, the
