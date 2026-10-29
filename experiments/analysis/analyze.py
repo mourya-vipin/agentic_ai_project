@@ -35,7 +35,8 @@ sweep) and prints, per arm:
 - per task: passes, and passes by substance for t07 (below); cost, uncached tokens
   (all but cache reads) and all tokens per run, mean and range; turns, median and
   range; the same for all the other tasks of the arm; and, where a task plans, each
-  run's planning and revision time and tokens (the planner's and reviser's calls);
+  run's planning and revision time (the planner's call, the reviser's, and both) and
+  tokens;
 - gate 4 for U4: c (the workflow-path mean), f (the U4 runs that passed), and from
   them the extra cost per case, the cost per extra correct case, the break-even f and
   the blended cost, with A1's m (--a1-m) and with the arm's own m;
@@ -183,12 +184,15 @@ def loops(events: list[dict]) -> list[dict]:
 
 
 def planning(events: list[dict]) -> dict:
-    """The planner's and reviser's calls in one run: calls, seconds, tokens and cost."""
-    out = {"calls": 0, "seconds": 0.0, "tokens": 0, "cost": 0.0}
+    """The planner's and reviser's calls in one run: calls, seconds (the planner's, the
+    reviser's and both), tokens and cost."""
+    out = {"calls": 0, "seconds": 0.0, "plan_seconds": 0.0, "revise_seconds": 0.0, "tokens": 0, "cost": 0.0}
     for e in events:
         if e.get("type") == "model_call" and e.get("purpose") in PLANNING:
             _add(out, _usage(e))
-            out["seconds"] += e.get("latency_s") or 0.0
+            seconds = e.get("latency_s") or 0.0
+            out["seconds"] += seconds
+            out[f"{e['purpose']}_seconds"] += seconds
     return out
 
 
@@ -648,9 +652,11 @@ def detail_report(a: dict) -> list[str]:
         planned += d["planning"]
     if planned:
         lines += ["", "Planning and revision per planned run (the planner's and reviser's model calls)", "",
-                  "| Run | Calls | Seconds | Tokens | Of the run's tokens | Cost |", "|---|---|---|---|---|---|"]
-        lines += [f"| {p['run_id']} | {p['calls']} | {p['seconds']:.1f} | {_num(p['tokens'])} | "
-                  f"{_num(p['run_tokens'])} | {_money(p['cost'], 5)} |" for p in planned]
+                  "| Run | Calls | Planner, s | Reviser, s | Both, s | Tokens | Of the run's tokens | Cost |",
+                  "|---|---|---|---|---|---|---|---|"]
+        lines += [f"| {p['run_id']} | {p['calls']} | {p['plan_seconds']:.3f} | {p['revise_seconds']:.3f} | "
+                  f"{p['seconds']:.1f} | {_num(p['tokens'])} | {_num(p['run_tokens'])} | {_money(p['cost'], 5)} |"
+                  for p in planned]
     return lines
 
 
