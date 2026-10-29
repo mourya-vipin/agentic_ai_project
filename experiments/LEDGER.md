@@ -80,7 +80,7 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
   - **Runs passed:** Dropped from 3 of 3 to 1 of 3 (−2). I predicted at least 2 of 3, so this prediction was **missed**.
   - **False finishes:** Increased by 1, due to s01. I predicted zero, so this prediction was **missed**.
-  - **Cost per run:** Fell by $0.0029 (48%), meeting my prediction of at least a 15% decrease. However, the cheapest run cost just $0.0009 because it finished without doing the required work. The one run that passed cost $0.0046, still 25% less than the baseline.
+  - **Cost per run:** Fell by $0.0028 (47%), meeting my prediction of at least a 15% decrease. However, the cheapest run cost just $0.0009 because it finished without doing the required work. The one run that passed cost $0.0046, still 23% less than the planned arm's t06 mean ($0.0061).
   - **Uncached tokens per run:** Fell by 8,368 (83%), exceeding my predicted decrease of at least 30%. This was a much larger drop than expected, with the mean falling to 1,768 instead of the predicted 5,500.
   - **Total tokens per run:** Increased by 9,296 (87%), as predicted. The successful run used 29,215 total tokens.
   - **Median t06 turn time:** Dropped from 13.4 s to 10.5 s, a decrease of 2.8 s. This met my prediction of at least 2 s. However, the shortest turn, at 2.6 s, was the false finish.
