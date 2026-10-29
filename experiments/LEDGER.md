@@ -85,6 +85,8 @@ it. `make check` reads every `##` section but the template: see the README's "ma
   - **Total tokens per run:** Increased by 9,296 (87%), as predicted. The successful run used 29,215 total tokens.
   - **Median t06 turn time:** Dropped from 13.4 s to 10.5 s, a decrease of 2.8 s. This met my prediction of at least 2 s. However, the shortest turn, at 2.6 s, was the false finish.
   - **Revisions:** Decreased by 3 because the loop does not generate or revise a plan.
+  - **Runs with a repeated call:** 0 in both arms (no `repeat_call` event in either), so neither path repeated a call.
+  - **The plan, in the `on` arm:** 0 plans rejected by the validator, 3 revisions (one per t06 run, each after the legal-hold checkpoint failed), 0 runs ended at `plan_rejected` or `revision_bound`, 0 refused off-plan calls and 0 orphan flags. The `off` arm wrote no plan, so it has none of these.
   - **Legal-hold proposal:** Every passing run in both arms included the proposal, as predicted.
 
   The other six tasks showed no difference in pass rate: both arms passed 17 of 18 runs, and each had one t07 failure (18 of 18 by substance, as the Results say). Their median turn time dropped from 3.8 s to 2.9 s, even though these tasks do not use the switch. This suggests that API speed differences between the sweeps contributed to the drop in the full arm's median turn time, from 6.10 s to 3.01 s. I therefore cannot attribute that overall speedup to turning planning off alone.
