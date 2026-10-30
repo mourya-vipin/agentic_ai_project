@@ -7,7 +7,7 @@ The switches control.<use_case> say which path each use case takes; U5 and U6 ha
 the agent path, so their switches must say agent, and any other setting stops the turn.
 
 An operator message. One model call (purpose "route_operator", no tools) answers
-{"intent", "request_ids"}, seeing the session's last three turns. A message is a
+{"intent", "request_ids"}, seeing the session's last three messages. A message is a
 new task when it asks us to act on requests or on the directory; it is a question
 when it asks about work done or about the records. Code decides from the answer:
 
@@ -55,7 +55,7 @@ NONSTANDARD, OPERATOR_REVIEW, BULK_CHANGE = "nonstandard_request", "operator_rev
 INTENTS = ("process_requests", "bulk_change", "question")
 PROMPTS = Path(__file__).parent / "prompts"
 BOUND = Bound()
-HISTORY_TURNS = 3                       # earlier turns the operator router sees
+HISTORY_TURNS = 3                       # earlier messages the operator router sees; U5's loop sees this many turns
 
 READS = ["directory_get_employee", "directory_search_employees", "access_list_memberships", "catalog_search_groups",
          "policy_check_access", "requests_get", "requests_list_today"]
