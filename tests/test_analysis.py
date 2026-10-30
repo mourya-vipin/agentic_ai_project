@@ -1,6 +1,6 @@
 """experiments/analysis/analyze.py: the t07 runs read again by substance, gate 4's
-arithmetic and each loop's use of our bound, on made-up traces; then the figures M1.md
-gives, from the committed arms. No tokens. Owner: Aman Panigrahi."""
+arithmetic, each loop's use of our bound and the plan diff, on made-up traces; then the
+figures M1.md gives, from the committed arms. No tokens. Owner: Aman Panigrahi."""
 
 import importlib.util
 import json
@@ -84,6 +84,25 @@ class LoopsTest(unittest.TestCase):
         self.assertEqual(h["at_step_limit"]["medians"], 14 * 2000 + 700 * 91)
 
 
+class PlanDiffTest(unittest.TestCase):
+    def test_every_plan_diff_line_is_summed_and_a_run_without_one_has_none(self):
+        events = [{"type": "plan_diff", "executed": [1, 2], "skipped": [3], "out_of_order": [], "failed": [2],
+                   "extra": [7]},
+                  {"type": "tool_call", "name": "access_revoke_all"},
+                  {"type": "plan_diff", "executed": [1], "skipped": [], "out_of_order": [2], "failed": [], "extra": []}]
+        self.assertEqual(analyze.plan_diff(events), {"diffs": 2, "executed": 3, "skipped": 1, "out_of_order": 1,
+                                                     "failed": 1, "extra": 1})
+        self.assertIsNone(analyze.plan_diff([{"type": "tool_call", "name": "requests_get"}]))
+
+    def test_an_arm_counts_the_planned_runs_that_had_each_label(self):
+        runs = [{"run_id": "planned", "diff": analyze.plan_diff([{"type": "plan_diff", "executed": [1], "skipped": [2],
+                                                                  "out_of_order": [], "failed": [], "extra": []}])},
+                {"run_id": "loop", "diff": None}]
+        d = analyze.diff_totals(runs)
+        self.assertEqual((d["runs"], d["executed"], d["skipped"]), (1, 1, 1))
+        self.assertEqual(d["runs_with"], {"skipped": ["planned"], "out_of_order": [], "failed": [], "extra": []})
+
+
 class CommittedArmsTest(unittest.TestCase):
     """The figures M1.md and the ledger take from the script."""
 
@@ -97,6 +116,11 @@ class CommittedArmsTest(unittest.TestCase):
         h = a["bound_headroom"]
         self.assertEqual((h["most_calls"]["value"], h["most_tokens"]["value"]), (7, 29088))
         self.assertEqual(round(h["at_step_limit"]["medians"]), 89216)
+        d = a["plan"]["diff"]
+        self.assertEqual((d["runs"], d["executed"], d["skipped"], d["out_of_order"], d["failed"], d["extra"]),
+                         (3, 27, 0, 0, 0, 0))
+        calls = a["per_task_detail"]["t07_unusual_review"]["tool_calls"]
+        self.assertEqual((calls["min"], calls["max"]), (18, 21))
 
     def test_pass1(self):
         before, after = (analyze.arm(ROOT / "results" / name) for name in ("pass1-before", "pass1-after"))

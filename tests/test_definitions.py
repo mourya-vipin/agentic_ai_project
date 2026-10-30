@@ -89,6 +89,19 @@ class DefinitionsTest(ScratchTest):
         self.assertTrue(ids)
         self.assertEqual([f"SYN-{k}-{v}" for k, v in sorted(ids) if found[k](f"SYN-{k}-{v}")], [])
 
+    def test_no_description_names_a_real_person(self):
+        # the argument descriptions named t04's colleague, Priya Nair, and its requester's email
+        # after the IDs were fixed (review, 2026-10-30): an ID check alone cannot see a name
+        import re
+        from sandbox import db
+        sent = json.dumps(list(self.sent(["examples.access_grant=on", "examples.policy_check_access=on"]).values()))
+        with db.connect() as conn:
+            people = conn.execute("SELECT name, email FROM employees").fetchall()
+        self.assertTrue(people)
+        named = sorted({value for p in people for value in (p["name"], p["name"].split()[-1], p["email"])
+                        if re.search(rf"\b{re.escape(value)}\b", sent)})
+        self.assertEqual(named, [], "a full name, surname or email of a real employee")
+
     def test_policy_examples_are_rendered_while_their_switch_is_on(self):
         on = self.sent(["examples.policy_check_access=on"])["policy_check_access"]["description"]
         self.assertIn("SYN-GRP-EXAMPLE-ADMIN", on)
