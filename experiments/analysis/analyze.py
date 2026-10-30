@@ -18,7 +18,9 @@ sweep) and prints, per arm:
   denied by its hook, or failed as protocol errors; distinct tool-call sequences;
 - the plan: plans that failed validation, revisions, failed checkpoints, refused
   off-plan calls, orphan flags, and runs ended at plan_rejected, revision_bound or
-  step_halted;
+  step_halted; and the diff, from every plan_diff line: plan steps executed, skipped,
+  out of order and failed, and tool calls that match no step (extra), with the planned
+  runs that had each;
 - the critique: rounds, failed rounds, drafts held (critique_held), and misses
   (drafts it passed in a run whose check then failed);
 - misroutes (the checks' measures.misrouted);
@@ -33,8 +35,8 @@ sweep) and prints, per arm:
   a run whose cases all took a workflow; and each path's turns: median, slowest, and
   how many took over 10 s (Lecture 1, slide 34);
 - per task: passes, and passes by substance for t07 (below); cost, uncached tokens
-  (all but cache reads) and all tokens per run, mean and range; turns, median and
-  range; the same for all the other tasks of the arm; and, where a task plans, each
+  (all but cache reads), all tokens and tool calls per run, mean and range; turns,
+  median and range; the same for all the other tasks of the arm; and, where a task plans, each
   run's planning and revision time (the planner's call, the reviser's, and both) and
   tokens;
 - gate 4 for U4: c (the workflow-path mean), f (the U4 runs that passed), and from
@@ -79,6 +81,7 @@ from harness import records  # noqa: E402
 FINISHED = ("done", "answered", "plan_done", "workflow_done")
 OUR_BOUND = ("step_limit", "loop_token_budget", "wall_clock")
 PLAN_ENDS = ("plan_rejected", "revision_bound", "step_halted")
+DIFF_LABELS = ("executed", "skipped", "out_of_order", "failed", "extra")   # a plan_diff line's lists
 SLOW_TURN_S = 10.0          # a turn over this is slow (Lecture 1, slide 34)
 CRITIQUE_HELD = "critique_held"
 QUESTION, BULK = "operator_review", "bulk_change"
@@ -196,6 +199,17 @@ def planning(events: list[dict]) -> dict:
     return out
 
 
+def plan_diff(events: list[dict]) -> dict | None:
+    """The diff of each planned turn against its plan (the executor's plan_diff lines,
+    agent/detectors.py: diff), summed over the run: how many plan steps were executed,
+    skipped, out of order and failed, and how many tool calls matched no step (extra).
+    None for a run that wrote no plan_diff line."""
+    diffs = [e for e in events if e.get("type") == "plan_diff"]
+    if not diffs:
+        return None
+    return {"diffs": len(diffs), **{label: sum(len(e.get(label) or []) for e in diffs) for label in DIFF_LABELS}}
+
+
 def by_substance(record: dict, events: list[dict]) -> bool:
     """Whether a run passed by substance (the module's docstring): its check's verdict,
     except that a failed t07 run that wrote nothing is read again, its answer with each
@@ -294,7 +308,9 @@ def one_run(record: dict, events: list[dict]) -> dict:
         "denied": sum(1 for c in tool_calls if c.get("denied")),
         "protocol_errors": sum(1 for c in tool_calls if c.get("error_class") == "protocol"),
         "sequence": [c.get("name") for c in tool_calls],
+        "tool_calls": len(tool_calls),
         "plans": types["plan"],
+        "diff": plan_diff(events),
         "invalid_plans": sum(1 for e in events if e.get("type") == "plan_check" and not e.get("valid")),
         "revisions": types["revision"],
         "failed_checkpoints": sum(1 for e in events if e.get("type") == "checkpoint" and not e.get("passed")),
@@ -339,7 +355,8 @@ def _detail(rows: list[dict]) -> dict:
     return {"runs": len(rows), "passed": sum(r["passed"] for r in rows),
             "by_substance": sum(r["by_substance"] for r in rows),
             "cost": _spread([r["cost"] for r in rows]), "uncached": _spread([r["uncached"] for r in rows]),
-            "tokens": _spread([r["tokens"] for r in rows]), "turns": _spread([t for r in rows for t in r["turns"]])}
+            "tokens": _spread([r["tokens"] for r in rows]), "turns": _spread([t for r in rows for t in r["turns"]]),
+            "tool_calls": _spread([r["tool_calls"] for r in rows])}
 
 
 def per_task_detail(runs: list[dict], tasks: list[str]) -> dict:
@@ -354,6 +371,14 @@ def per_task_detail(runs: list[dict], tasks: list[str]) -> dict:
                   "planning": [{"run_id": r["run_id"], "sweep": r["sweep"], **r["planning"], "run_tokens": r["tokens"]}
                                for r in mine if r["planning"]["calls"]]}
     return out
+
+
+def diff_totals(runs: list[dict]) -> dict:
+    """The plan diff over an arm: each label summed over every run with a plan_diff line,
+    and the runs that had a skipped step, a step out of order, a failed step or an extra call."""
+    diffed = [r for r in runs if r["diff"]]
+    return {"runs": len(diffed), **{label: sum(r["diff"][label] for r in diffed) for label in DIFF_LABELS},
+            "runs_with": {label: ids([r for r in diffed if r["diff"][label]]) for label in DIFF_LABELS[1:]}}
 
 
 def gate4(runs: list[dict], c: float | None, own_m: float | None, a1_m: float = A1_M,
@@ -491,7 +516,8 @@ def arm(folder: Path, a1_m: float = A1_M, wrong_case: float = WRONG_CASE_USD,
         "plan": {name: sum(r[name] for r in runs) for name in
                  ("plans", "invalid_plans", "revisions", "failed_checkpoints", "off_plan", "orphan_flags")}
                 | {"runs_planned": len([r for r in runs if r["plans"]]),
-                   "ended": {x: ids([r for r in runs if x in r["end_reasons"]]) for x in PLAN_ENDS}},
+                   "ended": {x: ids([r for r in runs if x in r["end_reasons"]]) for x in PLAN_ENDS},
+                   "diff": diff_totals(runs)},
         "critique": {"rounds": sum(r["critique_rounds"] for r in runs),
                      "failed_rounds": sum(r["critique_failed"] for r in runs),
                      "passed_drafts": sum(r["critique_passed"] for r in runs),
@@ -507,8 +533,9 @@ def arm(folder: Path, a1_m: float = A1_M, wrong_case: float = WRONG_CASE_USD,
                        share_to_agent),
         "bound_headroom": headroom(runs),
         "per_run": [{k: r[k] for k in ("run_id", "task", "sweep", "passed", "by_substance", "tokens", "uncached",
-                                       "cost", "model_calls", "turns", "end_reasons", "path", "false_finish",
-                                       "repeat_calls", "critique_rounds", "cases")} for r in runs],
+                                       "cost", "model_calls", "tool_calls", "turns", "end_reasons", "path",
+                                       "false_finish", "repeat_calls", "critique_rounds", "diff", "cases")}
+                    for r in runs],
     }
 
 
@@ -589,6 +616,17 @@ def report(a: dict) -> str:
               f"{p['revisions']} revisions; {p['failed_checkpoints']} failed checkpoints; "
               f"{p['off_plan']} refused off-plan calls; {p['orphan_flags']} orphan flags"]
     lines += [f"Runs ended at {x}: {_ids(r, n)}" for x, r in p["ended"].items()]
+    d = p["diff"]
+    if d["runs"]:
+        w = d["runs_with"]
+        lines += [f"Plan diff ({d['runs']} planned runs, every plan_diff line summed): {d['executed']} steps executed, "
+                  f"{d['skipped']} skipped, {d['out_of_order']} out of order, {d['failed']} failed; "
+                  f"{d['extra']} calls that match no step (extra)",
+                  f"Planned runs with a skipped step: {_ids(w['skipped'], d['runs'])}; a step out of order: "
+                  f"{_ids(w['out_of_order'], d['runs'])}; a failed step: {_ids(w['failed'], d['runs'])}; "
+                  f"an extra call: {_ids(w['extra'], d['runs'])}"]
+    else:
+        lines.append("Plan diff: no planned run in this arm")
 
     c = a["critique"]
     per = c["rounds_per_critiqued_run"]
@@ -636,19 +674,21 @@ def _range(s: dict, show, unit="") -> str:
 
 
 def detail_report(a: dict) -> list[str]:
-    lines = [f"Per task (cost and tokens per run: mean, and range; turns: median, and range; uncached: all but cache "
-             f"reads; by substance: t07 read again, as the module's docstring says): {a['passes_by_substance']} of "
-             f"{a['runs']} by substance", "",
-             "| Task | Passed | By substance | Cost per run | Uncached tokens per run | Tokens per run | Turns "
-             "| The other tasks' median turn |", "|---|---|---|---|---|---|---|---|"]
+    lines = [f"Per task (cost, tokens and tool calls per run: mean, and range; turns: median, and range; uncached: "
+             f"all but cache reads; by substance: t07 read again, as the module's docstring says): "
+             f"{a['passes_by_substance']} of {a['runs']} by substance", "",
+             "| Task | Passed | By substance | Cost per run | Uncached tokens per run | Tokens per run "
+             "| Tool calls per run | Turns | The other tasks' median turn |", "|---|---|---|---|---|---|---|---|---|"]
     planned = []
     for t, d in a["per_task_detail"].items():
-        turns = d["turns"]
+        turns, calls = d["turns"], d["tool_calls"]
         median = "n/a" if turns["median"] is None else (f"{turns['median']:.2f} s ({turns['min']:.2f}–"
                                                          f"{turns['max']:.2f} s)")
+        tool_calls = "n/a" if calls["mean"] is None else (f"{_num(calls['mean'], 1)} ({_num(calls['min'])}–"
+                                                          f"{_num(calls['max'])})")
         lines.append(f"| {t} | {d['passed']} of {d['runs']} | {d['by_substance']} of {d['runs']} | "
                      f"{_range(d['cost'], _money)} | {_range(d['uncached'], _num)} | "
-                     f"{_range(d['tokens'], _num)} | {median} | {_num(d['rest']['median_turn'], 2)} s |")
+                     f"{_range(d['tokens'], _num)} | {tool_calls} | {median} | {_num(d['rest']['median_turn'], 2)} s |")
         planned += d["planning"]
     if planned:
         lines += ["", "Planning and revision per planned run (the planner's and reviser's model calls)", "",

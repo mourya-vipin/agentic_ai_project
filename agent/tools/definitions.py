@@ -56,14 +56,14 @@ DEFINITIONS: list[dict] = [
           "An unknown ID is an error that names the closest people." + CAP,
           {"employee_id": {"type": ["string", "null"], "description": EMP + " Or null."},
            "email": {"type": ["string", "null"],
-                     "description": "A work email, such as leo.martins@syn-corp.example. Or null."},
-           "name": {"type": ["string", "null"], "description": "A person's full name, such as Priya Nair. Or null."}},
+                     "description": "A work email, such as cleo.vance@syn-corp.example. Or null."},
+           "name": {"type": ["string", "null"], "description": "A person's full name, such as Cleo Vance. Or null."}},
           ["employee_id", "email", "name"]),
     _tool("directory_search_employees",
           "Search the directory by part of a name, an email, an ID or a job title, optionally in one department. "
           "Returns up to 10 matches in ID order, how many matched in all, and a note when the list is cut. An "
           "empty list means the query was valid and no one matched." + CAP,
-          {"query": _s("What to look for, at most 80 characters, such as 'Nair' or 'analyst'."),
+          {"query": _s("What to look for, at most 80 characters, such as 'Vance' or 'analyst'."),
            "dept": _s("Only this department, such as Finance. Leave it out to search everyone.")},
           ["query"]),
     _tool("directory_list_contractors_ended",

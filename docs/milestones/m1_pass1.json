@@ -190,6 +190,20 @@
           "plan_rejected": [],
           "revision_bound": [],
           "step_halted": []
+        },
+        "diff": {
+          "runs": 3,
+          "executed": 27,
+          "skipped": 0,
+          "out_of_order": 0,
+          "failed": 0,
+          "extra": 0,
+          "runs_with": {
+            "skipped": [],
+            "out_of_order": [],
+            "failed": [],
+            "extra": []
+          }
         }
       },
       "critique": {
@@ -404,6 +418,13 @@
             "min": 1.344,
             "max": 4.215
           },
+          "tool_calls": {
+            "n": 3,
+            "mean": 6,
+            "median": 6,
+            "min": 6,
+            "max": 6
+          },
           "rest": {
             "runs": 18,
             "passed": 17,
@@ -443,6 +464,13 @@
             "median": 0.729,
             "min": 0.581,
             "max": 1.109
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 11,
+            "median": 11,
+            "min": 11,
+            "max": 11
           },
           "rest": {
             "runs": 18,
@@ -484,6 +512,13 @@
             "min": 0.577,
             "max": 0.639
           },
+          "tool_calls": {
+            "n": 3,
+            "mean": 5,
+            "median": 5,
+            "min": 5,
+            "max": 5
+          },
           "rest": {
             "runs": 18,
             "passed": 17,
@@ -523,6 +558,13 @@
             "median": 6.977499999999999,
             "min": 2.688,
             "max": 10.85
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 11.333333333333334,
+            "median": 11,
+            "min": 11,
+            "max": 12
           },
           "rest": {
             "runs": 18,
@@ -564,6 +606,13 @@
             "min": 7.989,
             "max": 8.715
           },
+          "tool_calls": {
+            "n": 3,
+            "mean": 6.666666666666667,
+            "median": 7,
+            "min": 6,
+            "max": 7
+          },
           "rest": {
             "runs": 18,
             "passed": 17,
@@ -603,6 +652,13 @@
             "median": 13.386,
             "min": 13.383,
             "max": 14.385
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 9,
+            "median": 9,
+            "min": 9,
+            "max": 9
           },
           "rest": {
             "runs": 18,
@@ -677,6 +733,13 @@
             "median": 9.338,
             "min": 8.694,
             "max": 14.442
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 20,
+            "median": 21,
+            "min": 18,
+            "max": 21
           },
           "rest": {
             "runs": 18,
@@ -777,6 +840,7 @@
           "uncached": 613,
           "cost": 0.00029,
           "model_calls": 2,
+          "tool_calls": 6,
           "turns": [
             4.215
           ],
@@ -787,6 +851,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "standard_grant": 1
           }
@@ -801,6 +866,7 @@
           "uncached": 613,
           "cost": 0.00029,
           "model_calls": 2,
+          "tool_calls": 6,
           "turns": [
             1.344
           ],
@@ -811,6 +877,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "standard_grant": 1
           }
@@ -825,6 +892,7 @@
           "uncached": 613,
           "cost": 0.00029,
           "model_calls": 2,
+          "tool_calls": 6,
           "turns": [
             1.42
           ],
@@ -835,6 +903,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "standard_grant": 1
           }
@@ -849,6 +918,7 @@
           "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 11,
           "turns": [
             1.109
           ],
@@ -859,6 +929,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "onboarding": 1
           }
@@ -873,6 +944,7 @@
           "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 11,
           "turns": [
             0.729
           ],
@@ -883,6 +955,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "onboarding": 1
           }
@@ -897,6 +970,7 @@
           "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 11,
           "turns": [
             0.581
           ],
@@ -907,6 +981,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "onboarding": 1
           }
@@ -921,6 +996,7 @@
           "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 5,
           "turns": [
             0.639
           ],
@@ -931,6 +1007,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "offboarding": 1
           }
@@ -945,6 +1022,7 @@
           "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 5,
           "turns": [
             0.577
           ],
@@ -955,6 +1033,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "offboarding": 1
           }
@@ -969,6 +1048,7 @@
           "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 5,
           "turns": [
             0.589
           ],
@@ -979,6 +1059,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "offboarding": 1
           }
@@ -993,6 +1074,7 @@
           "uncached": 10586,
           "cost": 0.007756,
           "model_calls": 11,
+          "tool_calls": 11,
           "turns": [
             10.837,
             3.806
@@ -1005,6 +1087,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1,
             "operator_review": 1
@@ -1020,6 +1103,7 @@
           "uncached": 11604,
           "cost": 0.00828,
           "model_calls": 11,
+          "tool_calls": 11,
           "turns": [
             10.149,
             2.688
@@ -1032,6 +1116,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1,
             "operator_review": 1
@@ -1047,6 +1132,7 @@
           "uncached": 11027,
           "cost": 0.008087,
           "model_calls": 11,
+          "tool_calls": 12,
           "turns": [
             10.85,
             2.962
@@ -1059,6 +1145,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1,
             "operator_review": 1
@@ -1074,6 +1161,7 @@
           "uncached": 3173,
           "cost": 0.003743,
           "model_calls": 9,
+          "tool_calls": 6,
           "turns": [
             7.989
           ],
@@ -1084,6 +1172,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1
           }
@@ -1098,6 +1187,7 @@
           "uncached": 3660,
           "cost": 0.004374,
           "model_calls": 10,
+          "tool_calls": 7,
           "turns": [
             8.715
           ],
@@ -1108,6 +1198,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1
           }
@@ -1122,6 +1213,7 @@
           "uncached": 4530,
           "cost": 0.004593,
           "model_calls": 10,
+          "tool_calls": 7,
           "turns": [
             8.699
           ],
@@ -1132,6 +1224,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1
           }
@@ -1146,6 +1239,7 @@
           "uncached": 10750,
           "cost": 0.006252,
           "model_calls": 5,
+          "tool_calls": 9,
           "turns": [
             14.385
           ],
@@ -1156,6 +1250,14 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 2,
+          "diff": {
+            "diffs": 1,
+            "executed": 9,
+            "skipped": 0,
+            "out_of_order": 0,
+            "failed": 0,
+            "extra": 0
+          },
           "cases": {
             "bulk_change": 1
           }
@@ -1170,6 +1272,7 @@
           "uncached": 10569,
           "cost": 0.006143,
           "model_calls": 5,
+          "tool_calls": 9,
           "turns": [
             13.383
           ],
@@ -1180,6 +1283,14 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 2,
+          "diff": {
+            "diffs": 1,
+            "executed": 9,
+            "skipped": 0,
+            "out_of_order": 0,
+            "failed": 0,
+            "extra": 0
+          },
           "cases": {
             "bulk_change": 1
           }
@@ -1194,6 +1305,7 @@
           "uncached": 9090,
           "cost": 0.005757,
           "model_calls": 5,
+          "tool_calls": 9,
           "turns": [
             13.386
           ],
@@ -1204,6 +1316,14 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 2,
+          "diff": {
+            "diffs": 1,
+            "executed": 9,
+            "skipped": 0,
+            "out_of_order": 0,
+            "failed": 0,
+            "extra": 0
+          },
           "cases": {
             "bulk_change": 1
           }
@@ -1218,6 +1338,7 @@
           "uncached": 6849,
           "cost": 0.007835,
           "model_calls": 13,
+          "tool_calls": 21,
           "turns": [
             14.442
           ],
@@ -1228,6 +1349,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "operator_review": 1
           }
@@ -1242,6 +1364,7 @@
           "uncached": 4641,
           "cost": 0.004096,
           "model_calls": 6,
+          "tool_calls": 18,
           "turns": [
             8.694
           ],
@@ -1252,6 +1375,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "operator_review": 1
           }
@@ -1266,6 +1390,7 @@
           "uncached": 4559,
           "cost": 0.004237,
           "model_calls": 6,
+          "tool_calls": 21,
           "turns": [
             9.338
           ],
@@ -1276,6 +1401,7 @@
           "false_finish": true,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "operator_review": 1
           }
@@ -1473,6 +1599,20 @@
           "plan_rejected": [],
           "revision_bound": [],
           "step_halted": []
+        },
+        "diff": {
+          "runs": 0,
+          "executed": 0,
+          "skipped": 0,
+          "out_of_order": 0,
+          "failed": 0,
+          "extra": 0,
+          "runs_with": {
+            "skipped": [],
+            "out_of_order": [],
+            "failed": [],
+            "extra": []
+          }
         }
       },
       "critique": {
@@ -1679,6 +1819,13 @@
             "min": 1.402,
             "max": 2.723
           },
+          "tool_calls": {
+            "n": 3,
+            "mean": 6,
+            "median": 6,
+            "min": 6,
+            "max": 6
+          },
           "rest": {
             "runs": 18,
             "passed": 15,
@@ -1718,6 +1865,13 @@
             "median": 0.643,
             "min": 0.561,
             "max": 0.764
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 11,
+            "median": 11,
+            "min": 11,
+            "max": 11
           },
           "rest": {
             "runs": 18,
@@ -1759,6 +1913,13 @@
             "min": 0.554,
             "max": 0.704
           },
+          "tool_calls": {
+            "n": 3,
+            "mean": 5,
+            "median": 5,
+            "min": 5,
+            "max": 5
+          },
           "rest": {
             "runs": 18,
             "passed": 15,
@@ -1798,6 +1959,13 @@
             "median": 6.6805,
             "min": 2.845,
             "max": 12.845
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 12.333333333333334,
+            "median": 12,
+            "min": 12,
+            "max": 13
           },
           "rest": {
             "runs": 18,
@@ -1839,6 +2007,13 @@
             "min": 8.162,
             "max": 9.402
           },
+          "tool_calls": {
+            "n": 3,
+            "mean": 7,
+            "median": 7,
+            "min": 7,
+            "max": 7
+          },
           "rest": {
             "runs": 18,
             "passed": 15,
@@ -1879,6 +2054,13 @@
             "min": 2.581,
             "max": 11.078
           },
+          "tool_calls": {
+            "n": 3,
+            "mean": 6,
+            "median": 8,
+            "min": 1,
+            "max": 9
+          },
           "rest": {
             "runs": 18,
             "passed": 17,
@@ -1918,6 +2100,13 @@
             "median": 8.37,
             "min": 6.77,
             "max": 8.646
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 16.333333333333332,
+            "median": 18,
+            "min": 12,
+            "max": 19
           },
           "rest": {
             "runs": 18,
@@ -2018,6 +2207,7 @@
           "uncached": 613,
           "cost": 0.00029,
           "model_calls": 2,
+          "tool_calls": 6,
           "turns": [
             2.723
           ],
@@ -2028,6 +2218,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "standard_grant": 1
           }
@@ -2042,6 +2233,7 @@
           "uncached": 613,
           "cost": 0.00029,
           "model_calls": 2,
+          "tool_calls": 6,
           "turns": [
             1.402
           ],
@@ -2052,6 +2244,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "standard_grant": 1
           }
@@ -2066,6 +2259,7 @@
           "uncached": 613,
           "cost": 0.00029,
           "model_calls": 2,
+          "tool_calls": 6,
           "turns": [
             1.617
           ],
@@ -2076,6 +2270,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "standard_grant": 1
           }
@@ -2090,6 +2285,7 @@
           "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 11,
           "turns": [
             0.643
           ],
@@ -2100,6 +2296,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "onboarding": 1
           }
@@ -2114,6 +2311,7 @@
           "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 11,
           "turns": [
             0.561
           ],
@@ -2124,6 +2322,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "onboarding": 1
           }
@@ -2138,6 +2337,7 @@
           "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 11,
           "turns": [
             0.764
           ],
@@ -2148,6 +2348,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "onboarding": 1
           }
@@ -2162,6 +2363,7 @@
           "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 5,
           "turns": [
             0.554
           ],
@@ -2172,6 +2374,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "offboarding": 1
           }
@@ -2186,6 +2389,7 @@
           "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 5,
           "turns": [
             0.704
           ],
@@ -2196,6 +2400,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "offboarding": 1
           }
@@ -2210,6 +2415,7 @@
           "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 5,
           "turns": [
             0.555
           ],
@@ -2220,6 +2426,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "offboarding": 1
           }
@@ -2234,6 +2441,7 @@
           "uncached": 6959,
           "cost": 0.007,
           "model_calls": 11,
+          "tool_calls": 13,
           "turns": [
             10.467,
             3.13
@@ -2246,6 +2454,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1,
             "operator_review": 1
@@ -2261,6 +2470,7 @@
           "uncached": 7749,
           "cost": 0.00738,
           "model_calls": 12,
+          "tool_calls": 12,
           "turns": [
             12.845,
             2.845
@@ -2273,6 +2483,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1,
             "operator_review": 1
@@ -2288,6 +2499,7 @@
           "uncached": 6851,
           "cost": 0.007016,
           "model_calls": 11,
+          "tool_calls": 12,
           "turns": [
             10.231,
             2.899
@@ -2300,6 +2512,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1,
             "operator_review": 1
@@ -2315,6 +2528,7 @@
           "uncached": 2532,
           "cost": 0.004015,
           "model_calls": 10,
+          "tool_calls": 7,
           "turns": [
             9.011
           ],
@@ -2325,6 +2539,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1
           }
@@ -2339,6 +2554,7 @@
           "uncached": 2635,
           "cost": 0.004068,
           "model_calls": 10,
+          "tool_calls": 7,
           "turns": [
             9.402
           ],
@@ -2349,6 +2565,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1
           }
@@ -2363,6 +2580,7 @@
           "uncached": 2174,
           "cost": 0.003847,
           "model_calls": 10,
+          "tool_calls": 7,
           "turns": [
             8.162
           ],
@@ -2373,6 +2591,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1
           }
@@ -2387,6 +2606,7 @@
           "uncached": 630,
           "cost": 0.000884,
           "model_calls": 3,
+          "tool_calls": 1,
           "turns": [
             2.581
           ],
@@ -2397,6 +2617,7 @@
           "false_finish": true,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "bulk_change": 1
           }
@@ -2411,6 +2632,7 @@
           "uncached": 2467,
           "cost": 0.004108,
           "model_calls": 7,
+          "tool_calls": 8,
           "turns": [
             10.542
           ],
@@ -2421,6 +2643,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 2,
+          "diff": null,
           "cases": {
             "bulk_change": 1
           }
@@ -2435,6 +2658,7 @@
           "uncached": 2207,
           "cost": 0.004636,
           "model_calls": 8,
+          "tool_calls": 9,
           "turns": [
             11.078
           ],
@@ -2445,6 +2669,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 2,
+          "diff": null,
           "cases": {
             "bulk_change": 1
           }
@@ -2459,6 +2684,7 @@
           "uncached": 4484,
           "cost": 0.004018,
           "model_calls": 6,
+          "tool_calls": 18,
           "turns": [
             8.37
           ],
@@ -2469,6 +2695,7 @@
           "false_finish": true,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "operator_review": 1
           }
@@ -2483,6 +2710,7 @@
           "uncached": 3762,
           "cost": 0.003118,
           "model_calls": 5,
+          "tool_calls": 12,
           "turns": [
             6.77
           ],
@@ -2493,6 +2721,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "operator_review": 1
           }
@@ -2507,6 +2736,7 @@
           "uncached": 5085,
           "cost": 0.004301,
           "model_calls": 6,
+          "tool_calls": 19,
           "turns": [
             8.646
           ],
@@ -2517,6 +2747,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "operator_review": 1
           }
