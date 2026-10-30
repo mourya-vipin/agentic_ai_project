@@ -30,7 +30,7 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
   The main issue is that the planner does not know which groups are protected. As a result, its first plan never includes the proposal needed for the legal hold.
 
-- **Evidence:** In the baseline, `results/baseline/baseline-t06_bulk_ended_contractors-s01-70317d.trace.jsonl:17` shows the failed checkpoint, followed by the revision at `:18`. In `results/baseline/baseline-t06_bulk_ended_contractors-s02-d3eb0b.trace.jsonl`, the plan appears at `:7` and the revision at `:18` (14.8 s).
+- **Evidence:** In the baseline, `results/baseline/baseline-t06_bulk_ended_contractors-s01-70317d.trace.jsonl:17` shows the failed checkpoint, followed by the revision at `:18`–`:19`. In `results/baseline/baseline-t06_bulk_ended_contractors-s02-d3eb0b.trace.jsonl`, the plan appears at `:7` and the revision at `:18` (14.8 s).
 
   I ran three pilot tests with the switch set to `off` before making this prediction. The first two attempts did not work:
   - `results/dev-bulk-loop/` failed because the model used `access_revoke` on the legal hold and then incorrectly reported that it had finished (`:24`–`:27`).
