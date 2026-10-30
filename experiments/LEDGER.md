@@ -103,6 +103,6 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
   Slide 54 asks whether a plan is worth its cost. For t06, I would keep the plan. It costs more, but it also gives the model the information it needs to carry out the change correctly.
 
-  Slide numbers follow the brief's numbering (the deck's own number plus 2). The Pass field was written with the prediction, so it keeps its "slides 5, 17"; in that numbering, slide 17 is slide 18.
+  Slide numbers follow the brief's numbering (the deck's own number plus 2).
 
 - **Links:** `results/pass1-before/`, `results/pass1-after/`
