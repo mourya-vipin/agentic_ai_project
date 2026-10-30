@@ -590,7 +590,8 @@ def report(a: dict) -> str:
 
     tok, cost, turns, calls = a["tokens_per_run"], a["cost_per_run"], a["turns"], a["model_calls"]
     lines += ["", f"Tokens per run: mean {_num(tok['mean'])}, median {_num(tok['median'])} ({tok['n']} runs)",
-              f"Cost per run: mean {_money(cost['mean'])}, median {_money(cost['median'])} ({cost['n']} runs)",
+              f"Cost per run: mean {_money(cost['mean'])}, median {_money(cost['median'])} ({cost['n']} runs); "
+              f"in all {_money(cost['mean'] * cost['n'] if cost['n'] else None)}",
               f"Turns: median {_num(turns['median'], 2)} s, slowest {_num(turns['slowest'], 2)} s "
               f"({turns['slowest_run']}), over {turns['n']} turns in {n} runs",
               f"Model calls per run: mean {_num(calls['mean'], 2)}, median {_num(calls['median'], 1)} ({n} runs); "

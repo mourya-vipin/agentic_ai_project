@@ -26,7 +26,7 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
 - **Owner:** Shruti Tewaney
 
-- **Problem:** In the baseline, t06 had the slowest turns in the baseline, 15.8 s, 24.3 s, and 18.6 s, compared with a median of 10.5 s across all 21 runs. Planning and revising took 10.1 s, 19.2 s, and 13.4 s, respectively. They also accounted for roughly 5,600 of the 10,600 tokens used per run. Each run had one revision.
+- **Problem:** In the baseline, t06 had the slowest turns in the baseline, 15.8 s, 24.3 s, and 18.6 s, compared with a median run time of 10.5 s across all 21 runs (the median turn is 8.23 s). Planning and revising took 10.1 s, 19.2 s, and 13.4 s, respectively. They also accounted for roughly 5,600 of the 10,600 tokens used per run. Each run had one revision.
 
   The main issue is that the planner does not know which groups are protected. As a result, its first plan never includes the proposal needed for the legal hold.
 
@@ -39,7 +39,7 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
 - **Why this fix:** Slide 54 asks whether a plan is worth the cost of making it. In t06, the plan's main benefit is that it adds the legal-hold proposal. The loop can now handle this case too: `access_revoke_all` returns `kept_protected` and a `next_step` pointing to `access_propose_change`.
 
-  The question is whether keeping the planning step is worth the extra time and tokens. Assignment 2 gives a mixed result. The planned arm used fewer tokens per run than the loop (9,064 vs. 12,538), and the loop had six runs with an exact repeat compared with none for the planned arm. However, the planned arm did not pass more runs: 8 of 18 passed, compared with 10 of 18 for the loop.
+  The question is whether keeping the planning step is worth the extra time and tokens. My Assignment 2 (`shruti072003/agentic-ai-assignment2`, `reports/LAB_02.md`, lines 82–89) gives a mixed result. The planned arm used fewer tokens per run than the loop (9,064 vs. 12,538), and the loop had six runs with an exact repeat compared with none for the planned arm. However, the planned arm did not pass more runs: 8 of 18 passed, compared with 10 of 18 for the loop.
 
 - **Prediction:** I will compare cost and uncached tokens (input plus output) on t06, with three sweeps per arm.
 
