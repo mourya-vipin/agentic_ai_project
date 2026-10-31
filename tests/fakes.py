@@ -303,6 +303,23 @@ class BadPlanner(GoodPlanner):
         return plan
 
 
+class DecliningPlanner(GoodPlanner):
+    """Submits a plan with no steps, as the planner's prompt asks for an instruction that
+    is not a removal of ended contractors' access."""
+    def plan(self, request):
+        return {"steps": []}
+
+
+class NoPlanCall(GoodPlanner):
+    """Answers the planner in text, with no submit_plan call: a bad plan, not a decline."""
+    def create(self, *, system, messages, tools):
+        if "submit_plan" in [t["name"] for t in tools or []]:
+            from harness.client import Usage
+            return ([{"type": "text", "text": "Here is my plan: remove everyone's access."}], "end_turn", self.name,
+                    Usage(input_tokens=200, output_tokens=20))
+        return super().create(system=system, messages=messages, tools=tools)
+
+
 class BadReviser(GoodPlanner):
     """Revises t06's plan into one where a note depends on a step that never comes."""
     def revise(self, request):

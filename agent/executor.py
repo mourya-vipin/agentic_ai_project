@@ -11,7 +11,10 @@ The run, in order:
   1. Plan: the planner sees the operator's instruction, the tool list, and IDs and
      counts our code read (planner.build_context). A plan that fails the validator
      is re-planned with its messages, at most MAX_REPLANS times; then the run ends
-     plan_rejected, with no tool call and no write stamped with this run.
+     plan_rejected, with no tool call and no write stamped with this run. A plan the
+     planner submits with no steps says the instruction is not the one bulk change
+     these tools support (removing ended contractors' access): the run ends
+     unsupported_instruction at once, with nothing run and no re-plan.
   2. Log: trace.plan(1, plan) before the first tool call; orphan_flag if any.
   3. Execute the steps in order through the registry, each call naming its plan
      step. A step with "$fill" arguments gets one model call (purpose="fill") offered
@@ -55,6 +58,7 @@ REVISION_BOUND = "revision_bound"
 PLAN_DONE = "plan_done"
 STEP_HALTED = "step_halted"
 NOTHING_TO_DO = "nothing_to_do"
+UNSUPPORTED = "unsupported_instruction"
 
 
 class _End(Exception):
@@ -167,6 +171,13 @@ class PlannedRun:
         feedback = None
         for attempt in range(1, MAX_REPLANS + 2):
             plan = planner.make_plan(self.sid, self.text, self.context, feedback, call=self.model)
+            if plan.get("steps") == [] and not plan.get("meta", {}).get("error"):
+                # The planner's own answer that this is not a bulk change it can plan
+                # (agent/prompts/planner.md): end now, rather than re-plan it into one.
+                self.trace.event("plan_check", attempt=attempt, valid=False, supported=False,
+                                 problems=["the planner wrote no steps: not a supported bulk change"], plan=plan)
+                raise _End(UNSUPPORTED, "the planner found the instruction is not a removal of the access of "
+                                        "contractors whose contract ended")
             problems = self._problems(plan)
             self.trace.event("plan_check", attempt=attempt, valid=not problems,
                              problems=validator.messages(problems)[:10], plan=plan)
@@ -345,6 +356,10 @@ class PlannedRun:
     def _reply(self, reason: str, detail: str, report: dict | None) -> str:
         if reason == NOTHING_TO_DO:
             return f"There is nothing to do: {detail}, so I wrote no plan and changed nothing."
+        if reason == UNSUPPORTED:
+            return ("I can run one kind of bulk change: removing the access of contractors whose contract ended, "
+                    "with a note to each one's manager. Your instruction asks for something else, so I wrote no "
+                    "plan and changed nothing. You can make the change by hand on /people.")
         if reason == PLAN_REJECTED:
             return ("I could not write a plan that passes our checks, so nothing was run and nothing changed. "
                     f"Why: {detail}")
