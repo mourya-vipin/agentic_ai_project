@@ -71,3 +71,20 @@ def set_route(request_id, route, *, stamp) -> None:
         conn.execute("UPDATE requests SET route = ? WHERE id = ?", (route, str(request_id).strip().upper()))
         db.audit(conn, actor="system", action="set_route", stamp=stamp, request_id=str(request_id).strip().upper(),
                  detail={"route": route})
+
+
+def claim(request_id, session_id) -> bool:
+    """Whether this session may work on the request: the first session to claim it holds it
+    until it releases it, so two console sessions at once do not both handle it."""
+    rid, sid = str(request_id).strip().upper(), str(session_id)
+    with db.connect() as conn:
+        conn.execute("INSERT OR IGNORE INTO request_claims (request_id, session_id, at) VALUES (?, ?, ?)",
+                     (rid, sid, clock.now()))
+        row = conn.execute("SELECT session_id FROM request_claims WHERE request_id = ?", (rid,)).fetchone()
+    return row["session_id"] == sid
+
+
+def release(request_id, session_id) -> None:
+    with db.connect() as conn:
+        conn.execute("DELETE FROM request_claims WHERE request_id = ? AND session_id = ?",
+                     (str(request_id).strip().upper(), str(session_id)))

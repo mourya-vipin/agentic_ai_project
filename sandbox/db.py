@@ -82,12 +82,19 @@ CREATE TABLE IF NOT EXISTS faults (
     tool TEXT PRIMARY KEY, remaining INTEGER NOT NULL, kind TEXT NOT NULL DEFAULT 'transient',
     synthetic INTEGER NOT NULL DEFAULT 1);
 
+CREATE TABLE IF NOT EXISTS request_claims (
+    request_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, at TEXT NOT NULL,
+    synthetic INTEGER NOT NULL DEFAULT 1);
+
 CREATE INDEX IF NOT EXISTS memberships_by_employee ON memberships (employee_id, removed_at);
 CREATE INDEX IF NOT EXISTS memberships_by_group ON memberships (group_id, removed_at);
+-- one active membership per person and group, so two grants at once cannot make two
+CREATE UNIQUE INDEX IF NOT EXISTS memberships_one_active ON memberships (employee_id, group_id)
+    WHERE removed_at IS NULL;
 """
 
 TABLES = ("clock", "employees", "systems", "groups", "role_policy", "memberships", "credentials", "requests",
-          "pending_actions", "identity_keys", "notices_sent", "audit_log", "faults")
+          "pending_actions", "identity_keys", "notices_sent", "audit_log", "faults", "request_claims")
 
 
 def remove() -> None:

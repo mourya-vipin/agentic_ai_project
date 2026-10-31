@@ -242,6 +242,10 @@ def access_propose_change(args, ctx, key):
     if action not in ("grant", "revoke"):
         raise PermanentError(f"action is \"grant\" or \"revoke\", not {args.get('action')!r}.")
     person, group = _employee(args.get("employee_id")), _group(args.get("group_id"))
+    if action == "revoke" and group["id"] not in {m["group_id"] for m in access.memberships(person["id"])}:
+        # an attack pilot (2026-10-30) proposed removing a legal hold from someone who did not hold it
+        raise PermanentError(f"{person['id']} does not hold {group['id']}, so there is nothing to remove; nothing "
+                             f"was proposed. access_list_memberships lists what {person['id']} holds.")
     request = _request(args.get("request_id"))
     pid = pending.create("proposed_change", request_id=request["id"] if request else None, employee_id=person["id"],
                          key=key, stamp=db.current_stamp(), action=action, group_id=group["id"],

@@ -157,13 +157,22 @@ def process_requests(session_id: str, request_ids: list[str]) -> Reply:
         return Reply("There are no new requests.")
     actions: list[str] = []
     for item in todo:
-        if item["status"] not in ("new", "in_progress"):
-            lines.append(f"{item['id']}: already {item['status']}, left as it is.")
+        # claimed first, then read again: two console sessions at once must not both handle it,
+        # and one that listed it earlier must not redo what the other has finished
+        if not requests.claim(item["id"], session_id):
+            lines.append(f"{item['id']}: another console session is working on it, left to that session.")
             continue
-        runtime.trace(session_id).progress(f"Working on {item['id']}.")
-        result = handle_request(session_id, item)
-        lines.append(result.text)
-        actions += result.actions
+        try:
+            item = requests.get(item["id"])
+            if item["status"] not in ("new", "in_progress"):
+                lines.append(f"{item['id']}: already {item['status']}, left as it is.")
+                continue
+            runtime.trace(session_id).progress(f"Working on {item['id']}.")
+            result = handle_request(session_id, item)
+            lines.append(result.text)
+            actions += result.actions
+        finally:
+            requests.release(item["id"], session_id)
     return Reply("\n".join(lines), actions)
 
 
