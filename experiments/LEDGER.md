@@ -39,7 +39,7 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
 - **Why this fix:** Slide 54 asks whether a plan is worth the cost of making it. In t06, the plan's main benefit is that it adds the legal-hold proposal. The loop can now handle this case too: `access_revoke_all` returns `kept_protected` and a `next_step` pointing to `access_propose_change`.
 
-  The question is whether keeping the planning step is worth the extra time and tokens. My Assignment 2 (`shruti072003/agentic-ai-assignment2`, `reports/LAB_02.md`, lines 82–89) gives a mixed result. The planned arm used fewer tokens per run than the loop (9,064 vs. 12,538), and the loop had six runs with an exact repeat compared with none for the planned arm. However, the planned arm did not pass more runs: 8 of 18 passed, compared with 10 of 18 for the loop.
+  The question is whether keeping the planning step is worth the extra time and tokens. My Assignment 2 (`shruti072003/agentic-ai-assignment2`, `reports/LAB_02.md`, lines 79–90) gives a mixed result. The planned arm used fewer tokens per run than the loop (9,064 vs. 12,538), and the loop had six runs with an exact repeat compared with none for the planned arm. However, the planned arm did not pass more runs: 8 of 18 passed, compared with 10 of 18 for the loop.
 
 - **Prediction:** I will compare cost and uncached tokens (input plus output) on t06, with three sweeps per arm.
 
@@ -82,7 +82,7 @@ it. `make check` reads every `##` section but the template: see the README's "ma
   - **False finishes:** Increased by 1, due to s01. I predicted zero, so this prediction was **missed**.
   - **Cost per run:** Fell by $0.0028 (47%), meeting my prediction of at least a 15% decrease. However, the cheapest run cost just $0.0009 because it finished without doing the required work. The one run that passed cost $0.0046, still 23% less than the planned arm's t06 mean ($0.0061).
   - **Uncached tokens per run:** Fell by 8,368 (83%), exceeding my predicted decrease of at least 30%. This was a much larger drop than expected, with the mean falling to 1,768 instead of the predicted 5,500.
-  - **Total tokens per run:** Increased by 9,296 (87%), as predicted. The successful run used 29,215 total tokens.
+  - **Total tokens per run:** Increased by 9,296 (87%): the direction I predicted, but short of the predicted 24,000, more than twice. The successful run used 29,215 total tokens.
   - **Median t06 turn time:** Dropped from 13.4 s to 10.5 s, a decrease of 2.8 s. This met my prediction of at least 2 s. However, the shortest turn, at 2.6 s, was the false finish.
   - **Revisions:** Decreased by 3 because the loop does not generate or revise a plan.
   - **Runs with a repeated call:** 0 in both arms (no `repeat_call` event in either), so neither path repeated a call.
@@ -97,12 +97,12 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
   The results did not meet my expectations for the loop. Only one of the three t06 runs passed, and one run falsely reported that it had finished without removing any access. The loop was cheaper and used fewer uncached tokens, but those savings are not worth the risk of an incorrect result.
 
-  The planned path avoids both mistakes by giving the planner the current date and the contractor and manager IDs. It does not need to guess a date or work out who reports to whom. With only three runs per arm, I cannot draw a firm conclusion about the long-term pass rate, but the false finish is enough to trigger the safety rule I set beforehand.
+  The planned path avoids both mistakes by giving the planner the current date and the contractor and manager IDs. It does not need to guess a date or read the managers from a tool result. With only three runs per arm, I cannot draw a firm conclusion about the long-term pass rate, but the false finish is enough to trigger the safety rule I set beforehand.
 
-  This pass did not test planning alone. Our code gives the planner today's date and each contractor's manager, and the loop gets neither. The loop's false finish came from a date it made up. Also, the arms ran one after the other (`pass1-before` 23:31–23:34 UTC, then `pass1-after` 23:34–23:36 UTC), so the API speed was not the same for both. The verdict still stands, by the safety rule I set before the runs.
+  This pass did not test planning alone. Our code gives the planner today's date and each contractor's manager, and the loop gets no date. The loop's false finish came from a date it made up. Also, the arms ran one after the other (`pass1-before` 23:31–23:34 UTC, then `pass1-after` 23:34–23:36 UTC), so the API speed was not the same for both. The verdict still stands, by the safety rule I set before the runs.
 
   Slide 54 asks whether a plan is worth its cost. For t06, I would keep the plan. It costs more, but it also gives the model the information it needs to carry out the change correctly.
 
-  Slide numbers follow the brief's numbering (the deck's own number plus 2).
+  Slide numbers follow the brief: for Lecture 2 that is the deck's own number plus 2, and for Lecture 3 the deck's own number.
 
 - **Links:** `results/pass1-before/`, `results/pass1-after/`

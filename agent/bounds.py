@@ -14,13 +14,13 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Bound:
-    # Model calls per turn. t04 makes 11 tool calls (11 or 12 in the baseline): one a
-    # call, plus the answer, is 12, and 2 to spare. 12 was tight in Shruti's A1: it
+    # Model calls per turn. t04's request turn makes 10 tool calls in each baseline run:
+    # one a call, plus the answer, is 11, and 3 to spare. 12 was tight in Shruti's A1: it
     # stopped 24 of 60 agent runs. The model batches its calls, so the most in one
     # baseline loop was 7 (t05); in pass 1, 12 (t07, sweep 1).
     max_steps: int = 14
     # Tokens per turn, prompts and output. A typical loop at the step limit uses
-    # 14 x 2,156 (the median first prompt) + 649 (the median growth a step) x 91 =
+    # 14 x 2,156 (the median first prompt) + 648.7 (the median growth a step) x 91 =
     # 89,216, so it can use all 14 steps, and a loop whose prompt grows faster stops
     # first. The most in one baseline loop was 29,088 (t04); the harness's ceiling is
     # 400,000.
