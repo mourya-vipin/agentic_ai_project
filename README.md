@@ -52,6 +52,7 @@ runs it has finished, so repeat one under a new name.
 | `pilot-examples` | `--tasks tasks/t04_same_access_as.yaml tasks/t05_on_behalf.yaml --sweeps 3` | a pilot on the tool examples with IDs that no record holds, at `e38da9c`; it replaces no recorded number |
 | `dev-v1`, `dev-v2` | `--tasks tasks/ --sweeps 1` | pilots on the first-draft and the rewritten tool definitions (M1.md, Part 3) |
 | `dev`, `dev-2`, `dev-3`, `dev-aman-check`, `dev-critique-fix`, `dev-bulk-loop`, `-2`, `-3` | one task; the `dev-bulk-loop` arms with `--set plan.bulk_change=off` | development pilots, not evidence |
+| `dev-fixes`, `dev-fixes-2` | `--tasks` t04, t05, t06 | checks of the planner and critique fixes of 2026-10-30 (CHANGES.md), at `3879eca` and `c3262f0`; not evidence |
 | `_free/` | a scripted or fake model, such as `--backend tests.fakes:BadArgs` | free runs: tests, not evidence; `make check` and the summarizer leave them out |
 
 ## Where things are
@@ -65,7 +66,7 @@ runs it has finished, so repeat one under a new name.
 | `docs/milestones/M1.md` | the Milestone 1 write-up |
 | `docs/milestones/m1_*.json` | the numbers M1.md cites: the baseline, Pass 1, and each definition-cost measurement by date |
 | `experiments/LEDGER.md`, `experiments/analysis/` | the pass's ledger entry, and our analysis script |
-| `results/`, `traces/` | every run's record and trace, and the console session M1.md cites |
+| `results/`, `traces/` | every run's record and trace, and the console sessions M1.md and CHANGES.md cite |
 | `scripts/definition_cost.py` | measures what the tool definitions cost |
 | `CHANGES.md` | what each milestone added, removed and limited, and what we reused |
 
