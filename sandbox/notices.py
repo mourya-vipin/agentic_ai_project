@@ -64,8 +64,12 @@ def send_as_operator(pending_id) -> dict:
     if item is None or item["kind"] != "reply_draft" or item["status"] != "open":
         raise KeyError(f"no open reply draft {pending_id}")
     thread_id = item["thread_id"] or f"SYN-MAIL-{item['employee_id']}"
-    message = channel.send(thread_id, item["body"], sender=channel.OPERATOR)
-    pending.close(pending_id, "done", stamp="manual")
+    pending.close(pending_id, "done", stamp="manual")     # first, so a second click finds it closed
+    try:
+        message = channel.send(thread_id, item["body"], sender=channel.OPERATOR)
+    except Exception:
+        pending.reopen(pending_id, stamp="manual")
+        raise
     return {"status": "sent", "message_id": message.id, "thread_id": thread_id}
 
 

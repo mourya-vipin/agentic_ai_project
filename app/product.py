@@ -15,6 +15,8 @@ reply draft sent from here goes out as the operator's (channel.send(..., sender=
 
 from __future__ import annotations
 
+import functools
+
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
@@ -32,6 +34,21 @@ def _page(request: Request, name: str, **context):
 
 def _back(url: str) -> RedirectResponse:
     return RedirectResponse(url, status_code=303)
+
+
+def _refused(handler):
+    """A form the sandbox refuses answers with its reason, not a server error: a value it
+    does not take is a 400, a record that does not exist (or is no longer open) a 404.
+    The sandbox checks before it writes, so nothing has changed."""
+    @functools.wraps(handler)
+    def wrapper(*args, **kwargs):
+        try:
+            return handler(*args, **kwargs)
+        except (KeyError, access.NotFound) as exc:      # NotFound is a ValueError, so first
+            raise HTTPException(404, str(exc.args[0]) if exc.args else "not found")
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+    return wrapper
 
 
 @router.get("/")
@@ -54,6 +71,7 @@ def request_page(request: Request, request_id: str):
 
 
 @router.post("/requests/{request_id}/status")
+@_refused
 def request_status(request_id: str, status: str = Form(...), note: str = Form("")):
     requests.set_status(request_id, status, stamp=MANUAL, note=note)
     return _back(f"/requests/{request_id}")
@@ -66,7 +84,12 @@ def people_page(request: Request, q: str = ""):
 
 
 @router.get("/people/{employee_id}")
-def person_page(request: Request, employee_id: str, revealed: str = "", secret: str = ""):
+def person_page(request: Request, employee_id: str):
+    return _person(request, employee_id)
+
+
+def _person(request: Request, employee_id: str, revealed: str = "", secret: str = ""):
+    """A secret is shown only from credential_reveal, never from the address bar."""
     person = directory.get_employee(employee_id)
     if person is None:
         raise HTTPException(404, f"no employee {employee_id}")
@@ -80,12 +103,14 @@ def person_page(request: Request, employee_id: str, revealed: str = "", secret: 
 
 
 @router.post("/people/{employee_id}/grant")
+@_refused
 def person_grant(employee_id: str, group_id: str = Form(...), request_id: str = Form("")):
     access.grant(employee_id, group_id, request_id=request_id or None, key=None, stamp=MANUAL, actor="operator")
     return _back(f"/people/{employee_id}")
 
 
 @router.post("/people/{employee_id}/revoke")
+@_refused
 def person_revoke(employee_id: str, group_id: str = Form(...), request_id: str = Form("")):
     access.revoke(employee_id, group_id, request_id=request_id or None, key=None, stamp=MANUAL, actor="operator",
                   reason="removed by hand")
@@ -93,9 +118,14 @@ def person_revoke(employee_id: str, group_id: str = Form(...), request_id: str =
 
 
 @router.post("/credentials/{credential_id}/reveal")
+@_refused
 def credential_reveal(request: Request, credential_id: str, employee_id: str = Form(...)):
-    """Shows one secret once, on the person's page, for a hand-over outside our channel."""
-    return person_page(request, employee_id, revealed=credential_id, secret=credentials.reveal(credential_id))
+    """Shows one secret once, on the person's page, for a hand-over outside our channel;
+    only the credential's own holder's page shows it."""
+    cred_id = str(credential_id).strip().upper()
+    if cred_id not in {c["id"] for c in credentials.for_employee(str(employee_id).strip().upper())}:
+        raise KeyError(f"no credential {credential_id} for {employee_id}")
+    return _person(request, employee_id, revealed=cred_id, secret=credentials.reveal(cred_id))
 
 
 @router.get("/pending")
@@ -104,28 +134,36 @@ def pending_page(request: Request):
 
 
 @router.post("/pending/{pending_id}/apply")
+@_refused
 def pending_apply(pending_id: str):
-    """A proposed change, done by hand by the operator."""
+    """A proposed change, done by hand by the operator. It is closed first, so a second
+    click finds it closed, and opened again if the change then fails."""
     item = pending.get(pending_id)
     if item is None or item["kind"] != "proposed_change" or item["status"] != "open":
         raise HTTPException(404, f"no open proposed change {pending_id}")
-    if item["action"] == "revoke":
-        access.revoke(item["employee_id"], item["group_id"], request_id=item["request_id"], key=None, stamp=MANUAL,
-                      actor="operator", reason="approved by the operator")
-    else:
-        access.grant(item["employee_id"], item["group_id"], request_id=item["request_id"], key=None, stamp=MANUAL,
-                     actor="operator")
     pending.close(pending_id, "done", stamp=MANUAL)
+    try:
+        if item["action"] == "revoke":
+            access.revoke(item["employee_id"], item["group_id"], request_id=item["request_id"], key=None,
+                          stamp=MANUAL, actor="operator", reason="approved by the operator")
+        else:
+            access.grant(item["employee_id"], item["group_id"], request_id=item["request_id"], key=None,
+                         stamp=MANUAL, actor="operator")
+    except Exception:
+        pending.reopen(pending_id, stamp=MANUAL)
+        raise
     return _back("/pending")
 
 
 @router.post("/pending/{pending_id}/send")
+@_refused
 def pending_send(pending_id: str):
     notices.send_as_operator(pending_id)
     return _back("/pending")
 
 
 @router.post("/pending/{pending_id}/close")
+@_refused
 def pending_close(pending_id: str, status: str = Form("done")):
     pending.close(pending_id, status, stamp=MANUAL)
     return _back("/pending")
