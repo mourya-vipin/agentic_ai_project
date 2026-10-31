@@ -26,7 +26,7 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
 - **Owner:** Shruti Tewaney
 
-- **Problem:** In the baseline, t06 had the slowest turns in the baseline, 15.8 s, 24.3 s, and 18.6 s, compared with a median run time of 10.5 s across all 21 runs (the median turn is 8.23 s). Planning and revising took 10.1 s, 19.2 s, and 13.4 s, respectively. They also accounted for roughly 5,600 of the 10,600 tokens used per run. Each run had one revision.
+- **Problem:** In the baseline, t06 had the baseline's slowest turn and highest median turn (its three: 15.8 s, 24.3 s, and 18.6 s), compared with a median run time of 10.5 s across all 21 runs (the median turn is 8.23 s). Planning and revising took 10.1 s, 19.2 s, and 13.4 s, respectively. They also accounted for roughly 5,600 of the 10,600 tokens used per run. Each run had one revision.
 
   The main issue is that the planner does not know which groups are protected. As a result, its first plan never includes the proposal needed for the legal hold.
 
@@ -82,7 +82,7 @@ it. `make check` reads every `##` section but the template: see the README's "ma
   - **False finishes:** Increased by 1, due to s01. I predicted zero, so this prediction was **missed**.
   - **Cost per run:** Fell by $0.0028 (47%), meeting my prediction of at least a 15% decrease. However, the cheapest run cost just $0.0009 because it finished without doing the required work. The one run that passed cost $0.0046, still 23% less than the planned arm's t06 mean ($0.0061).
   - **Uncached tokens per run:** Fell by 8,368 (83%), exceeding my predicted decrease of at least 30%. This was a much larger drop than expected, with the mean falling to 1,768 instead of the predicted 5,500.
-  - **Total tokens per run:** Increased by 9,296 (87%): the direction I predicted, but short of the predicted 24,000, more than twice. The successful run used 29,215 total tokens.
+  - **Total tokens per run:** Increased by 9,296 (87%): the direction I predicted, but short of the predicted 24,000 (more than twice a planned run): 1.87 times. The successful run used 29,215 total tokens.
   - **Median t06 turn time:** Dropped from 13.4 s to 10.5 s, a decrease of 2.8 s. This met my prediction of at least 2 s. However, the shortest turn, at 2.6 s, was the false finish.
   - **Revisions:** Decreased by 3 because the loop does not generate or revise a plan.
   - **Runs with a repeated call:** 0 in both arms (no `repeat_call` event in either), so neither path repeated a call.
