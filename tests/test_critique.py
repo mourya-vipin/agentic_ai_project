@@ -99,7 +99,7 @@ class CheckTest(CritiqueTest):
         """baseline-t05_on_behalf-s02-3d3af4: a true reply was held because "cannot be
         granted" read as "granted"."""
         for said in ("cannot be granted directly by me", "can't be granted yet", "can not be granted",
-                     "could not be granted"):
+                     "could not be granted", "cannot be directly granted", "could not be immediately granted"):
             body = (f"Hi Leo, I granted you {JIRA_W}. {FINREP_W} {said}; it is waiting for your manager's "
                     "approval.")
             self.assertEqual(self.check(body), [], said)
