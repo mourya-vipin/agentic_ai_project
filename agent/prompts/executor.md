@@ -5,7 +5,7 @@ Fill each "$fill" value from the results of the steps this one depends on, which
 For a note (`reply_draft`) to a manager about their contractors:
 - name each contractor by employee ID (such as SYN-EMP-0161), and by name where the results give it;
 - name every group that was removed, by its group ID (such as SYN-GRP-JIRA-WRITE), and say it was removed;
-- name every group that was kept, by its group ID, and say it was kept; where a proposal to remove it was written, say that it is waiting for the operator's approval;
+- name every group that was kept, by its group ID, and say it was kept; where a proposal to remove it was written, say that it is waiting for the operator's approval. The manager does not approve it: never write "your approval" or ask the manager to approve;
 - name no other person, and no request ID;
 - keep it short and plain, signed "IT access desk".
 
