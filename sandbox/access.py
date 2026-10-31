@@ -15,6 +15,7 @@ agent's access_grant tool checks catalog.policy_for() before it calls grant().
 from __future__ import annotations
 
 import json
+import sqlite3
 
 from harness.trace import now as wall_now
 from sandbox import catalog, clock, db, directory
@@ -86,12 +87,18 @@ def grant(employee_id, group_id, *, request_id, key, stamp, actor, expires_at=No
         _require(employee_id, group_id)
         row = conn.execute("SELECT id FROM memberships WHERE employee_id = ? AND group_id = ? AND removed_at IS NULL",
                            (employee_id, group_id)).fetchone()
-        if row:
+        cur = None
+        if row is None:
+            try:
+                cur = conn.execute("INSERT INTO memberships (employee_id, group_id, granted_at, expires_at, request_id, "
+                                   "actor, stamp, key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                   (employee_id, group_id, clock.now(), expires_at, request_id, actor, stamp, key))
+            except sqlite3.IntegrityError:      # another grant of the same group won the race
+                row = conn.execute("SELECT id FROM memberships WHERE employee_id = ? AND group_id = ? "
+                                   "AND removed_at IS NULL", (employee_id, group_id)).fetchone()
+        if cur is None:
             result = {"status": "already_member", "membership_id": row["id"]}
         else:
-            cur = conn.execute("INSERT INTO memberships (employee_id, group_id, granted_at, expires_at, request_id, "
-                               "actor, stamp, key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                               (employee_id, group_id, clock.now(), expires_at, request_id, actor, stamp, key))
             result = {"status": "granted", "membership_id": cur.lastrowid}
             db.audit(conn, actor=actor, action="grant", stamp=stamp, employee_id=employee_id, group_id=group_id,
                      request_id=request_id, detail={"expires_at": expires_at, "key": key})
@@ -115,9 +122,10 @@ def revoke(employee_id, group_id, *, request_id, key, stamp, actor, reason) -> d
             result = {"status": "not_a_member"}
         elif group["protected"]:
             result = {"status": "protected", "membership_id": row["id"]}
+        elif conn.execute("UPDATE memberships SET removed_at = ?, removed_request_id = ?, removed_stamp = ? "
+                          "WHERE id = ? AND removed_at IS NULL", (clock.now(), request_id, stamp, row["id"])).rowcount == 0:
+            result = {"status": "not_a_member"}         # another removal of it won the race
         else:
-            conn.execute("UPDATE memberships SET removed_at = ?, removed_request_id = ?, removed_stamp = ? WHERE id = ?",
-                         (clock.now(), request_id, stamp, row["id"]))
             result = {"status": "removed", "membership_id": row["id"]}
             db.audit(conn, actor=actor, action="revoke", stamp=stamp, employee_id=employee_id, group_id=group_id,
                      request_id=request_id, detail={"reason": reason, "key": key})

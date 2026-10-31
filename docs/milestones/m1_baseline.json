@@ -6,6 +6,7 @@
       "free": false,
       "runs": 21,
       "passes": 20,
+      "passes_by_substance": 20,
       "tasks": [
         "t01_standard_jira",
         "t02_new_starter",
@@ -191,6 +192,20 @@
           "plan_rejected": [],
           "revision_bound": [],
           "step_halted": []
+        },
+        "diff": {
+          "runs": 3,
+          "executed": 27,
+          "skipped": 0,
+          "out_of_order": 0,
+          "failed": 0,
+          "extra": 0,
+          "runs_with": {
+            "skipped": [],
+            "out_of_order": [],
+            "failed": [],
+            "extra": []
+          }
         }
       },
       "critique": {
@@ -338,6 +353,13 @@
             "n": 12,
             "mean": 0.005434083333333333,
             "median": 0.005237
+          },
+          "turns": {
+            "n": 15,
+            "mean": 12.682733333333333,
+            "median": 12.352,
+            "slowest": 24.318,
+            "over_slow": 11
           }
         },
         "workflow": {
@@ -356,19 +378,473 @@
             "n": 9,
             "mean": 0.00017866666666666668,
             "median": 0.000123
+          },
+          "turns": {
+            "n": 9,
+            "mean": 2.335444444444444,
+            "median": 1.606,
+            "slowest": 7.029,
+            "over_slow": 0
           }
         }
       },
       "m": 30.414645522388057,
+      "per_task_detail": {
+        "t01_standard_jira": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.00029,
+            "median": 0.00029,
+            "min": 0.00029,
+            "max": 0.00029
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 613,
+            "median": 613,
+            "min": 613,
+            "max": 613
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 613,
+            "median": 613,
+            "min": 613,
+            "max": 613
+          },
+          "turns": {
+            "n": 3,
+            "mean": 3.772,
+            "median": 2.237,
+            "min": 2.05,
+            "max": 7.029
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 6,
+            "median": 6,
+            "min": 6,
+            "max": 6
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 17,
+            "by_substance": 17,
+            "median_turn": 10.533
+          },
+          "planning": []
+        },
+        "t02_new_starter": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.000123,
+            "median": 0.000123,
+            "min": 0.000123,
+            "max": 0.000123
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 269,
+            "median": 269,
+            "min": 269,
+            "max": 269
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 269,
+            "median": 269,
+            "min": 269,
+            "max": 269
+          },
+          "turns": {
+            "n": 3,
+            "mean": 1.1956666666666667,
+            "median": 1.045,
+            "min": 0.936,
+            "max": 1.606
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 11,
+            "median": 11,
+            "min": 11,
+            "max": 11
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 17,
+            "by_substance": 17,
+            "median_turn": 10.533
+          },
+          "planning": []
+        },
+        "t03_contractor_left": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.000123,
+            "median": 0.000123,
+            "min": 0.000123,
+            "max": 0.000123
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 269,
+            "median": 269,
+            "min": 269,
+            "max": 269
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 269,
+            "median": 269,
+            "min": 269,
+            "max": 269
+          },
+          "turns": {
+            "n": 3,
+            "mean": 2.0386666666666664,
+            "median": 1.143,
+            "min": 0.902,
+            "max": 4.071
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 5,
+            "median": 5,
+            "min": 5,
+            "max": 5
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 17,
+            "by_substance": 17,
+            "median_turn": 10.533
+          },
+          "planning": []
+        },
+        "t04_same_access_as": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.007695666666666667,
+            "median": 0.006814,
+            "min": 0.006634,
+            "max": 0.009639
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 9776.666666666666,
+            "median": 6620,
+            "min": 6451,
+            "max": 16259
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 34822,
+            "median": 34819,
+            "min": 34739,
+            "max": 34908
+          },
+          "turns": {
+            "n": 6,
+            "mean": 9.512500000000001,
+            "median": 8.948500000000001,
+            "min": 3.547,
+            "max": 17.138
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 11.333333333333334,
+            "median": 11,
+            "min": 11,
+            "max": 12
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 17,
+            "by_substance": 17,
+            "median_turn": 8.231
+          },
+          "planning": []
+        },
+        "t05_on_behalf": {
+          "runs": 3,
+          "passed": 2,
+          "by_substance": 2,
+          "cost": {
+            "n": 3,
+            "mean": 0.0036636666666666666,
+            "median": 0.003554,
+            "min": 0.003062,
+            "max": 0.004375
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 3459.3333333333335,
+            "median": 3106,
+            "min": 2896,
+            "max": 4376
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 20227.333333333332,
+            "median": 20130,
+            "min": 16592,
+            "max": 23960
+          },
+          "turns": {
+            "n": 3,
+            "mean": 10.493333333333332,
+            "median": 10.533,
+            "min": 9.433,
+            "max": 11.514
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 6.666666666666667,
+            "median": 7,
+            "min": 6,
+            "max": 7
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 18,
+            "by_substance": 18,
+            "median_turn": 4.517
+          },
+          "planning": []
+        },
+        "t06_bulk_ended_contractors": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.005872333333333334,
+            "median": 0.005875,
+            "min": 0.00565,
+            "max": 0.006092
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 9600.666666666666,
+            "median": 9219,
+            "min": 9033,
+            "max": 10550
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 10624.666666666666,
+            "median": 10569,
+            "min": 10550,
+            "max": 10755
+          },
+          "turns": {
+            "n": 3,
+            "mean": 19.581333333333333,
+            "median": 18.614,
+            "min": 15.812,
+            "max": 24.318
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 9,
+            "median": 9,
+            "min": 9,
+            "max": 9
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 17,
+            "by_substance": 17,
+            "median_turn": 4.517
+          },
+          "planning": [
+            {
+              "run_id": "baseline-t06_bulk_ended_contractors-s01-70317d",
+              "sweep": 1,
+              "calls": 2,
+              "seconds": 10.136,
+              "plan_seconds": 4.428,
+              "revise_seconds": 5.708,
+              "tokens": 5587,
+              "cost": 0.0036988000000000004,
+              "run_tokens": 10550
+            },
+            {
+              "run_id": "baseline-t06_bulk_ended_contractors-s02-d3eb0b",
+              "sweep": 2,
+              "calls": 2,
+              "seconds": 19.168,
+              "plan_seconds": 4.374,
+              "revise_seconds": 14.794,
+              "tokens": 5611,
+              "cost": 0.0032668000000000003,
+              "run_tokens": 10569
+            },
+            {
+              "run_id": "baseline-t06_bulk_ended_contractors-s03-59c9c4",
+              "sweep": 3,
+              "calls": 2,
+              "seconds": 13.408000000000001,
+              "plan_seconds": 5.347,
+              "revise_seconds": 8.061,
+              "tokens": 5799,
+              "cost": 0.0034908,
+              "run_tokens": 10755
+            }
+          ]
+        },
+        "t07_unusual_review": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.004504666666666666,
+            "median": 0.004478,
+            "min": 0.004212,
+            "max": 0.004824
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 5470.333333333333,
+            "median": 4980,
+            "min": 4736,
+            "max": 6695
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 17587.666666666668,
+            "median": 17652,
+            "min": 12583,
+            "max": 22528
+          },
+          "turns": {
+            "n": 3,
+            "mean": 14.314,
+            "median": 12.352,
+            "min": 12.013,
+            "max": 18.577
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 19.666666666666668,
+            "median": 20,
+            "min": 18,
+            "max": 21
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 17,
+            "by_substance": 17,
+            "median_turn": 4.517
+          },
+          "planning": []
+        }
+      },
+      "gate4": {
+        "c": 0.00017866666666666668,
+        "f": 0.8333333333333334,
+        "u4_runs": 6,
+        "u4_passed": 5,
+        "cautious_f": 0.5,
+        "wrong_case": 11.915,
+        "r": 0.2,
+        "a1": {
+          "m": 9.7,
+          "extra_per_case": 0.0015544,
+          "per_extra_correct": 0.00186528,
+          "per_extra_correct_cautious": 0.0031088,
+          "break_even_f": 0.00013045740663029796,
+          "one_in": 7665.33710756562,
+          "blended": 0.0004895466666666667,
+          "agent_every_case": 0.0017330666666666667
+        },
+        "own": {
+          "m": 30.414645522388057,
+          "extra_per_case": 0.005255416666666667,
+          "per_extra_correct": 0.0063065,
+          "per_extra_correct_cautious": 0.010510833333333334,
+          "break_even_f": 0.0004410756749195692,
+          "one_in": 2267.184650757155,
+          "blended": 0.00122975,
+          "agent_every_case": 0.005434083333333333
+        }
+      },
+      "bound_headroom": {
+        "bound": {
+          "max_steps": 14,
+          "token_budget": 90000,
+          "wall_clock_s": 120.0
+        },
+        "loops": 15,
+        "agent_loops": 12,
+        "most_calls": {
+          "value": 7,
+          "run_id": "baseline-t05_on_behalf-s03-8e0479",
+          "use_case": "nonstandard_request",
+          "path": "loop"
+        },
+        "most_tokens": {
+          "value": 29088,
+          "run_id": "baseline-t04_same_access_as-s01-2b1137",
+          "use_case": "nonstandard_request",
+          "path": "loop"
+        },
+        "longest": {
+          "value": 23.459,
+          "run_id": "baseline-t06_bulk_ended_contractors-s02-d3eb0b",
+          "use_case": "bulk_change",
+          "path": "planned"
+        },
+        "first_prompt": {
+          "n": 12,
+          "mean": 2098.9166666666665,
+          "median": 2156.0,
+          "min": 1352,
+          "max": 2749
+        },
+        "added_per_step": {
+          "n": 12,
+          "mean": 755.0138888888889,
+          "median": 648.7,
+          "min": 151.8,
+          "max": 1469.0
+        },
+        "at_step_limit": {
+          "medians": 89215.70000000001,
+          "maxima": 172165.0
+        },
+        "call_latency": {
+          "n": 69,
+          "p95": 5.563600000000001,
+          "max": 14.794
+        }
+      },
       "per_run": [
         {
           "run_id": "baseline-t01_standard_jira-s01-2a069d",
           "task": "t01_standard_jira",
           "sweep": 1,
           "passed": true,
+          "by_substance": true,
           "tokens": 613,
+          "uncached": 613,
           "cost": 0.00029,
           "model_calls": 2,
+          "tool_calls": 6,
           "turns": [
             7.029
           ],
@@ -379,6 +855,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "standard_grant": 1
           }
@@ -388,9 +865,12 @@
           "task": "t01_standard_jira",
           "sweep": 2,
           "passed": true,
+          "by_substance": true,
           "tokens": 613,
+          "uncached": 613,
           "cost": 0.00029,
           "model_calls": 2,
+          "tool_calls": 6,
           "turns": [
             2.237
           ],
@@ -401,6 +881,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "standard_grant": 1
           }
@@ -410,9 +891,12 @@
           "task": "t01_standard_jira",
           "sweep": 3,
           "passed": true,
+          "by_substance": true,
           "tokens": 613,
+          "uncached": 613,
           "cost": 0.00029,
           "model_calls": 2,
+          "tool_calls": 6,
           "turns": [
             2.05
           ],
@@ -423,6 +907,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "standard_grant": 1
           }
@@ -432,9 +917,12 @@
           "task": "t02_new_starter",
           "sweep": 1,
           "passed": true,
+          "by_substance": true,
           "tokens": 269,
+          "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 11,
           "turns": [
             1.606
           ],
@@ -445,6 +933,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "onboarding": 1
           }
@@ -454,9 +943,12 @@
           "task": "t02_new_starter",
           "sweep": 2,
           "passed": true,
+          "by_substance": true,
           "tokens": 269,
+          "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 11,
           "turns": [
             0.936
           ],
@@ -467,6 +959,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "onboarding": 1
           }
@@ -476,9 +969,12 @@
           "task": "t02_new_starter",
           "sweep": 3,
           "passed": true,
+          "by_substance": true,
           "tokens": 269,
+          "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 11,
           "turns": [
             1.045
           ],
@@ -489,6 +985,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "onboarding": 1
           }
@@ -498,9 +995,12 @@
           "task": "t03_contractor_left",
           "sweep": 1,
           "passed": true,
+          "by_substance": true,
           "tokens": 269,
+          "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 5,
           "turns": [
             4.071
           ],
@@ -511,6 +1011,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "offboarding": 1
           }
@@ -520,9 +1021,12 @@
           "task": "t03_contractor_left",
           "sweep": 2,
           "passed": true,
+          "by_substance": true,
           "tokens": 269,
+          "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 5,
           "turns": [
             1.143
           ],
@@ -533,6 +1037,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "offboarding": 1
           }
@@ -542,9 +1047,12 @@
           "task": "t03_contractor_left",
           "sweep": 3,
           "passed": true,
+          "by_substance": true,
           "tokens": 269,
+          "uncached": 269,
           "cost": 0.000123,
           "model_calls": 1,
+          "tool_calls": 5,
           "turns": [
             0.902
           ],
@@ -555,6 +1063,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "offboarding": 1
           }
@@ -564,9 +1073,12 @@
           "task": "t04_same_access_as",
           "sweep": 1,
           "passed": true,
+          "by_substance": true,
           "tokens": 34819,
+          "uncached": 16259,
           "cost": 0.009639,
           "model_calls": 11,
+          "tool_calls": 11,
           "turns": [
             17.138,
             4.517
@@ -579,6 +1091,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1,
             "operator_review": 1
@@ -589,9 +1102,12 @@
           "task": "t04_same_access_as",
           "sweep": 2,
           "passed": true,
+          "by_substance": true,
           "tokens": 34739,
+          "uncached": 6451,
           "cost": 0.006634,
           "model_calls": 11,
+          "tool_calls": 11,
           "turns": [
             13.38,
             3.547
@@ -604,6 +1120,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1,
             "operator_review": 1
@@ -614,9 +1131,12 @@
           "task": "t04_same_access_as",
           "sweep": 3,
           "passed": true,
+          "by_substance": true,
           "tokens": 34908,
+          "uncached": 6620,
           "cost": 0.006814,
           "model_calls": 11,
+          "tool_calls": 12,
           "turns": [
             14.218,
             4.275
@@ -629,6 +1149,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1,
             "operator_review": 1
@@ -639,9 +1160,12 @@
           "task": "t05_on_behalf",
           "sweep": 1,
           "passed": true,
+          "by_substance": true,
           "tokens": 20130,
+          "uncached": 3106,
           "cost": 0.003554,
           "model_calls": 8,
+          "tool_calls": 6,
           "turns": [
             10.533
           ],
@@ -652,6 +1176,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 1,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1
           }
@@ -661,9 +1186,12 @@
           "task": "t05_on_behalf",
           "sweep": 2,
           "passed": false,
+          "by_substance": false,
           "tokens": 16592,
+          "uncached": 2896,
           "cost": 0.003062,
           "model_calls": 7,
+          "tool_calls": 7,
           "turns": [
             9.433
           ],
@@ -674,6 +1202,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 2,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1
           }
@@ -683,9 +1212,12 @@
           "task": "t05_on_behalf",
           "sweep": 3,
           "passed": true,
+          "by_substance": true,
           "tokens": 23960,
+          "uncached": 4376,
           "cost": 0.004375,
           "model_calls": 9,
+          "tool_calls": 7,
           "turns": [
             11.514
           ],
@@ -696,6 +1228,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 2,
+          "diff": null,
           "cases": {
             "nonstandard_request": 1
           }
@@ -705,9 +1238,12 @@
           "task": "t06_bulk_ended_contractors",
           "sweep": 1,
           "passed": true,
+          "by_substance": true,
           "tokens": 10550,
+          "uncached": 10550,
           "cost": 0.006092,
           "model_calls": 5,
+          "tool_calls": 9,
           "turns": [
             15.812
           ],
@@ -718,6 +1254,14 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 2,
+          "diff": {
+            "diffs": 1,
+            "executed": 9,
+            "skipped": 0,
+            "out_of_order": 0,
+            "failed": 0,
+            "extra": 0
+          },
           "cases": {
             "bulk_change": 1
           }
@@ -727,9 +1271,12 @@
           "task": "t06_bulk_ended_contractors",
           "sweep": 2,
           "passed": true,
+          "by_substance": true,
           "tokens": 10569,
+          "uncached": 9033,
           "cost": 0.00565,
           "model_calls": 5,
+          "tool_calls": 9,
           "turns": [
             24.318
           ],
@@ -740,6 +1287,14 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 2,
+          "diff": {
+            "diffs": 1,
+            "executed": 9,
+            "skipped": 0,
+            "out_of_order": 0,
+            "failed": 0,
+            "extra": 0
+          },
           "cases": {
             "bulk_change": 1
           }
@@ -749,9 +1304,12 @@
           "task": "t06_bulk_ended_contractors",
           "sweep": 3,
           "passed": true,
+          "by_substance": true,
           "tokens": 10755,
+          "uncached": 9219,
           "cost": 0.005875,
           "model_calls": 5,
+          "tool_calls": 9,
           "turns": [
             18.614
           ],
@@ -762,6 +1320,14 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 2,
+          "diff": {
+            "diffs": 1,
+            "executed": 9,
+            "skipped": 0,
+            "out_of_order": 0,
+            "failed": 0,
+            "extra": 0
+          },
           "cases": {
             "bulk_change": 1
           }
@@ -771,9 +1337,12 @@
           "task": "t07_unusual_review",
           "sweep": 1,
           "passed": true,
+          "by_substance": true,
           "tokens": 12583,
+          "uncached": 6695,
           "cost": 0.004212,
           "model_calls": 5,
+          "tool_calls": 18,
           "turns": [
             18.577
           ],
@@ -784,6 +1353,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "operator_review": 1
           }
@@ -793,9 +1363,12 @@
           "task": "t07_unusual_review",
           "sweep": 2,
           "passed": true,
+          "by_substance": true,
           "tokens": 17652,
+          "uncached": 4980,
           "cost": 0.004478,
           "model_calls": 6,
+          "tool_calls": 20,
           "turns": [
             12.352
           ],
@@ -806,6 +1379,7 @@
           "false_finish": false,
           "repeat_calls": 0,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "operator_review": 1
           }
@@ -815,9 +1389,12 @@
           "task": "t07_unusual_review",
           "sweep": 3,
           "passed": true,
+          "by_substance": true,
           "tokens": 22528,
+          "uncached": 4736,
           "cost": 0.004824,
           "model_calls": 7,
+          "tool_calls": 21,
           "turns": [
             12.013
           ],
@@ -828,6 +1405,7 @@
           "false_finish": false,
           "repeat_calls": 1,
           "critique_rounds": 0,
+          "diff": null,
           "cases": {
             "operator_review": 1
           }

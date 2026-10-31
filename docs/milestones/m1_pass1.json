@@ -1,0 +1,2759 @@
+{
+  "arms": [
+    {
+      "arm": "pass1-before",
+      "folder": "results/pass1-before",
+      "free": false,
+      "runs": 21,
+      "passes": 20,
+      "passes_by_substance": 21,
+      "tasks": [
+        "t01_standard_jira",
+        "t02_new_starter",
+        "t03_contractor_left",
+        "t04_same_access_as",
+        "t05_on_behalf",
+        "t06_bulk_ended_contractors",
+        "t07_unusual_review"
+      ],
+      "sweeps": [
+        1,
+        2,
+        3
+      ],
+      "models": [
+        "gpt-4.1-mini"
+      ],
+      "switches": {
+        "control.bulk_change": "agent",
+        "control.nonstandard_request": "agent",
+        "control.offboarding": "workflow",
+        "control.onboarding": "workflow",
+        "control.operator_review": "agent",
+        "control.standard_grant": "workflow",
+        "critique.requester_reply": "external",
+        "examples.access_grant": "on",
+        "examples.policy_check_access": "on",
+        "notes": "off",
+        "plan.bulk_change": "on",
+        "strict.directory_get_employee": "on"
+      },
+      "per_task": {
+        "t01_standard_jira": [
+          3,
+          3
+        ],
+        "t02_new_starter": [
+          3,
+          3
+        ],
+        "t03_contractor_left": [
+          3,
+          3
+        ],
+        "t04_same_access_as": [
+          3,
+          3
+        ],
+        "t05_on_behalf": [
+          3,
+          3
+        ],
+        "t06_bulk_ended_contractors": [
+          3,
+          3
+        ],
+        "t07_unusual_review": [
+          2,
+          3
+        ]
+      },
+      "per_sweep": {
+        "1": [
+          7,
+          7
+        ],
+        "2": [
+          7,
+          7
+        ],
+        "3": [
+          6,
+          7
+        ]
+      },
+      "task_use_cases": {
+        "t01_standard_jira": [
+          "standard_grant"
+        ],
+        "t02_new_starter": [
+          "onboarding"
+        ],
+        "t03_contractor_left": [
+          "offboarding"
+        ],
+        "t04_same_access_as": [
+          "nonstandard_request",
+          "operator_review"
+        ],
+        "t05_on_behalf": [
+          "nonstandard_request"
+        ],
+        "t06_bulk_ended_contractors": [
+          "bulk_change"
+        ],
+        "t07_unusual_review": [
+          "operator_review"
+        ]
+      },
+      "tokens_per_run": {
+        "n": 21,
+        "mean": 14227.57142857143,
+        "median": 10750
+      },
+      "cost_per_run": {
+        "n": 21,
+        "mean": 0.0034648095238095237,
+        "median": 0.004096
+      },
+      "turns": {
+        "n": 24,
+        "mean": 6.313583333333333,
+        "median": 6.102,
+        "slowest": 14.442,
+        "slowest_run": "pass1-before-t07_unusual_review-s01-606369"
+      },
+      "longest_run": {
+        "run_id": "pass1-before-t07_unusual_review-s01-606369",
+        "model_calls": 13
+      },
+      "model_calls": {
+        "n": 21,
+        "mean": 5.428571428571429,
+        "median": 5
+      },
+      "end_reasons": {
+        "workflow_done": 9,
+        "done": 6,
+        "answered": 6,
+        "plan_done": 3
+      },
+      "last_end_reasons": {
+        "workflow_done": 9,
+        "answered": 6,
+        "done": 3,
+        "plan_done": 3
+      },
+      "ended_at_our_bound": [],
+      "false_finishes": [
+        "pass1-before-t07_unusual_review-s03-2cfcaa"
+      ],
+      "repeat_calls": {
+        "events": 0,
+        "runs": []
+      },
+      "boundary": {
+        "rejected": {
+          "calls": 0,
+          "runs": []
+        },
+        "denied": {
+          "calls": 0,
+          "runs": []
+        },
+        "protocol_errors": {
+          "calls": 0,
+          "runs": []
+        }
+      },
+      "distinct_sequences": {
+        "per_task": {
+          "t01_standard_jira": 1,
+          "t02_new_starter": 1,
+          "t03_contractor_left": 1,
+          "t04_same_access_as": 2,
+          "t05_on_behalf": 2,
+          "t06_bulk_ended_contractors": 2,
+          "t07_unusual_review": 3
+        },
+        "total": 12
+      },
+      "plan": {
+        "plans": 6,
+        "invalid_plans": 0,
+        "revisions": 3,
+        "failed_checkpoints": 3,
+        "off_plan": 0,
+        "orphan_flags": 0,
+        "runs_planned": 3,
+        "ended": {
+          "plan_rejected": [],
+          "revision_bound": [],
+          "step_halted": []
+        },
+        "diff": {
+          "runs": 3,
+          "executed": 27,
+          "skipped": 0,
+          "out_of_order": 0,
+          "failed": 0,
+          "extra": 0,
+          "runs_with": {
+            "skipped": [],
+            "out_of_order": [],
+            "failed": [],
+            "extra": []
+          }
+        }
+      },
+      "critique": {
+        "rounds": 12,
+        "failed_rounds": 0,
+        "passed_drafts": 12,
+        "runs_with_critique": 9,
+        "rounds_per_critiqued_run": {
+          "n": 9,
+          "mean": 1.3333333333333333,
+          "median": 1
+        },
+        "held": [],
+        "misses": {
+          "drafts": 0,
+          "runs": []
+        }
+      },
+      "misroutes": {
+        "count": 0,
+        "runs": []
+      },
+      "components": {
+        "routing (operator turn)": {
+          "calls": 24,
+          "tokens": 7093,
+          "cost": 0.0032043999999999996
+        },
+        "routing (request)": {
+          "calls": 9,
+          "tokens": 3111,
+          "cost": 0.0014892
+        },
+        "loop: nonstandard_request": {
+          "calls": 41,
+          "tokens": 162195,
+          "cost": 0.030027600000000005
+        },
+        "loop: operator_review": {
+          "calls": 28,
+          "tokens": 95153,
+          "cost": 0.020271200000000003
+        },
+        "planner": {
+          "calls": 3,
+          "tokens": 6901,
+          "cost": 0.004354
+        },
+        "reviser": {
+          "calls": 3,
+          "tokens": 10096,
+          "cost": 0.006508
+        },
+        "executor fill": {
+          "calls": 6,
+          "tokens": 14230,
+          "cost": 0.0069052
+        },
+        "critique check (code, no model call)": {
+          "calls": 0,
+          "tokens": 0,
+          "cost": 0.0
+        }
+      },
+      "after_failed_round": {
+        "calls": 0,
+        "tokens": 0,
+        "cost": 0.0
+      },
+      "use_cases": {
+        "standard_grant": {
+          "calls": 3,
+          "tokens": 1032,
+          "cost": 0.0004992,
+          "path": "workflow",
+          "cases": 3,
+          "cost_per_case": 0.0001664
+        },
+        "onboarding": {
+          "calls": 0,
+          "tokens": 0,
+          "cost": 0.0,
+          "path": "workflow",
+          "cases": 3,
+          "cost_per_case": 0.0
+        },
+        "offboarding": {
+          "calls": 0,
+          "tokens": 0,
+          "cost": 0.0,
+          "path": "workflow",
+          "cases": 3,
+          "cost_per_case": 0.0
+        },
+        "nonstandard_request": {
+          "calls": 47,
+          "tokens": 164274,
+          "cost": 0.0310176,
+          "path": "agent",
+          "cases": 6,
+          "cost_per_case": 0.0051696
+        },
+        "operator_review": {
+          "calls": 34,
+          "tokens": 97365,
+          "cost": 0.0212424,
+          "path": "agent",
+          "cases": 6,
+          "cost_per_case": 0.0035404000000000004
+        },
+        "bulk_change": {
+          "calls": 15,
+          "tokens": 32073,
+          "cost": 0.0181524,
+          "path": "agent",
+          "cases": 3,
+          "cost_per_case": 0.006050799999999999
+        },
+        "routing of request turns (shared)": {
+          "calls": 15,
+          "tokens": 4035,
+          "cost": 0.0018479999999999996,
+          "path": "-",
+          "cases": 0,
+          "cost_per_case": null
+        }
+      },
+      "by_path": {
+        "agent": {
+          "runs": 12,
+          "tasks": [
+            "t04_same_access_as",
+            "t05_on_behalf",
+            "t06_bulk_ended_contractors",
+            "t07_unusual_review"
+          ],
+          "tokens": {
+            "n": 12,
+            "mean": 24610.5,
+            "median": 24843.5
+          },
+          "cost": {
+            "n": 12,
+            "mean": 0.005929416666666666,
+            "median": 0.00595
+          },
+          "turns": {
+            "n": 15,
+            "mean": 9.354866666666666,
+            "median": 9.338,
+            "slowest": 14.442,
+            "over_slow": 7
+          }
+        },
+        "workflow": {
+          "runs": 9,
+          "tasks": [
+            "t01_standard_jira",
+            "t02_new_starter",
+            "t03_contractor_left"
+          ],
+          "tokens": {
+            "n": 9,
+            "mean": 383.6666666666667,
+            "median": 269
+          },
+          "cost": {
+            "n": 9,
+            "mean": 0.00017866666666666668,
+            "median": 0.000123
+          },
+          "turns": {
+            "n": 9,
+            "mean": 1.2447777777777778,
+            "median": 0.729,
+            "slowest": 4.215,
+            "over_slow": 0
+          }
+        }
+      },
+      "m": 33.18703358208955,
+      "per_task_detail": {
+        "t01_standard_jira": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.00029,
+            "median": 0.00029,
+            "min": 0.00029,
+            "max": 0.00029
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 613,
+            "median": 613,
+            "min": 613,
+            "max": 613
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 613,
+            "median": 613,
+            "min": 613,
+            "max": 613
+          },
+          "turns": {
+            "n": 3,
+            "mean": 2.3263333333333334,
+            "median": 1.42,
+            "min": 1.344,
+            "max": 4.215
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 6,
+            "median": 6,
+            "min": 6,
+            "max": 6
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 17,
+            "by_substance": 18,
+            "median_turn": 8.694
+          },
+          "planning": []
+        },
+        "t02_new_starter": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.000123,
+            "median": 0.000123,
+            "min": 0.000123,
+            "max": 0.000123
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 269,
+            "median": 269,
+            "min": 269,
+            "max": 269
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 269,
+            "median": 269,
+            "min": 269,
+            "max": 269
+          },
+          "turns": {
+            "n": 3,
+            "mean": 0.8063333333333333,
+            "median": 0.729,
+            "min": 0.581,
+            "max": 1.109
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 11,
+            "median": 11,
+            "min": 11,
+            "max": 11
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 17,
+            "by_substance": 18,
+            "median_turn": 8.694
+          },
+          "planning": []
+        },
+        "t03_contractor_left": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.000123,
+            "median": 0.000123,
+            "min": 0.000123,
+            "max": 0.000123
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 269,
+            "median": 269,
+            "min": 269,
+            "max": 269
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 269,
+            "median": 269,
+            "min": 269,
+            "max": 269
+          },
+          "turns": {
+            "n": 3,
+            "mean": 0.6016666666666667,
+            "median": 0.589,
+            "min": 0.577,
+            "max": 0.639
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 5,
+            "median": 5,
+            "min": 5,
+            "max": 5
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 17,
+            "by_substance": 18,
+            "median_turn": 8.694
+          },
+          "planning": []
+        },
+        "t04_same_access_as": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.008041,
+            "median": 0.008087,
+            "min": 0.007756,
+            "max": 0.00828
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 11072.333333333334,
+            "median": 11027,
+            "min": 10586,
+            "max": 11604
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 34965.666666666664,
+            "median": 35091,
+            "min": 34650,
+            "max": 35156
+          },
+          "turns": {
+            "n": 6,
+            "mean": 6.882,
+            "median": 6.977499999999999,
+            "min": 2.688,
+            "max": 10.85
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 11.333333333333334,
+            "median": 11,
+            "min": 11,
+            "max": 12
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 17,
+            "by_substance": 18,
+            "median_turn": 6.102
+          },
+          "planning": []
+        },
+        "t05_on_behalf": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.004236666666666666,
+            "median": 0.004374,
+            "min": 0.003743,
+            "max": 0.004593
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 3787.6666666666665,
+            "median": 3660,
+            "min": 3173,
+            "max": 4530
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 25462.333333333332,
+            "median": 26674,
+            "min": 23013,
+            "max": 26700
+          },
+          "turns": {
+            "n": 3,
+            "mean": 8.467666666666666,
+            "median": 8.699,
+            "min": 7.989,
+            "max": 8.715
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 6.666666666666667,
+            "median": 7,
+            "min": 6,
+            "max": 7
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 17,
+            "by_substance": 18,
+            "median_turn": 3.806
+          },
+          "planning": []
+        },
+        "t06_bulk_ended_contractors": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.006050666666666667,
+            "median": 0.006143,
+            "min": 0.005757,
+            "max": 0.006252
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 10136.333333333334,
+            "median": 10569,
+            "min": 9090,
+            "max": 10750
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 10691,
+            "median": 10750,
+            "min": 10569,
+            "max": 10754
+          },
+          "turns": {
+            "n": 3,
+            "mean": 13.718,
+            "median": 13.386,
+            "min": 13.383,
+            "max": 14.385
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 9,
+            "median": 9,
+            "min": 9,
+            "max": 9
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 17,
+            "by_substance": 18,
+            "median_turn": 3.806
+          },
+          "planning": [
+            {
+              "run_id": "pass1-before-t06_bulk_ended_contractors-s01-54b6d8",
+              "sweep": 1,
+              "calls": 2,
+              "seconds": 10.225,
+              "plan_seconds": 4.946,
+              "revise_seconds": 5.279,
+              "tokens": 5709,
+              "cost": 0.003798,
+              "run_tokens": 10750
+            },
+            {
+              "run_id": "pass1-before-t06_bulk_ended_contractors-s02-55d492",
+              "sweep": 2,
+              "calls": 2,
+              "seconds": 9.679,
+              "plan_seconds": 4.513,
+              "revise_seconds": 5.166,
+              "tokens": 5563,
+              "cost": 0.0037444000000000006,
+              "run_tokens": 10569
+            },
+            {
+              "run_id": "pass1-before-t06_bulk_ended_contractors-s03-e31b79",
+              "sweep": 3,
+              "calls": 2,
+              "seconds": 9.001999999999999,
+              "plan_seconds": 4.003,
+              "revise_seconds": 4.999,
+              "tokens": 5725,
+              "cost": 0.0033196000000000002,
+              "run_tokens": 10754
+            }
+          ]
+        },
+        "t07_unusual_review": {
+          "runs": 3,
+          "passed": 2,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.005389333333333334,
+            "median": 0.004237,
+            "min": 0.004096,
+            "max": 0.007835
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 5349.666666666667,
+            "median": 4641,
+            "min": 4559,
+            "max": 6849
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 27323,
+            "median": 17615,
+            "min": 17185,
+            "max": 47169
+          },
+          "turns": {
+            "n": 3,
+            "mean": 10.824666666666667,
+            "median": 9.338,
+            "min": 8.694,
+            "max": 14.442
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 20,
+            "median": 21,
+            "min": 18,
+            "max": 21
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 18,
+            "by_substance": 18,
+            "median_turn": 3.806
+          },
+          "planning": []
+        }
+      },
+      "gate4": {
+        "c": 0.00017866666666666668,
+        "f": 1.0,
+        "u4_runs": 6,
+        "u4_passed": 6,
+        "cautious_f": 0.5,
+        "wrong_case": 11.915,
+        "r": 0.2,
+        "a1": {
+          "m": 9.7,
+          "extra_per_case": 0.0015544,
+          "per_extra_correct": 0.0015544,
+          "per_extra_correct_cautious": 0.0031088,
+          "break_even_f": 0.00013045740663029796,
+          "one_in": 7665.33710756562,
+          "blended": 0.0004895466666666667,
+          "agent_every_case": 0.0017330666666666667
+        },
+        "own": {
+          "m": 33.18703358208955,
+          "extra_per_case": 0.00575075,
+          "per_extra_correct": 0.00575075,
+          "per_extra_correct_cautious": 0.0115015,
+          "break_even_f": 0.0004826479227864037,
+          "one_in": 2071.903664739382,
+          "blended": 0.0013288166666666668,
+          "agent_every_case": 0.005929416666666666
+        }
+      },
+      "bound_headroom": {
+        "bound": {
+          "max_steps": 14,
+          "token_budget": 90000,
+          "wall_clock_s": 120.0
+        },
+        "loops": 15,
+        "agent_loops": 12,
+        "most_calls": {
+          "value": 12,
+          "run_id": "pass1-before-t07_unusual_review-s01-606369",
+          "use_case": "operator_review",
+          "path": "loop"
+        },
+        "most_tokens": {
+          "value": 46900,
+          "run_id": "pass1-before-t07_unusual_review-s01-606369",
+          "use_case": "operator_review",
+          "path": "loop"
+        },
+        "longest": {
+          "value": 13.806,
+          "run_id": "pass1-before-t07_unusual_review-s01-606369",
+          "use_case": "operator_review",
+          "path": "loop"
+        },
+        "first_prompt": {
+          "n": 12,
+          "mean": 2114.8333333333335,
+          "median": 2182.0,
+          "min": 1352,
+          "max": 2781
+        },
+        "added_per_step": {
+          "n": 12,
+          "mean": 684.4493506493507,
+          "median": 566.6,
+          "min": 121.0,
+          "max": 1475.0
+        },
+        "at_step_limit": {
+          "medians": 82108.6,
+          "maxima": 173159.0
+        },
+        "call_latency": {
+          "n": 81,
+          "p95": 4.513,
+          "max": 5.279
+        }
+      },
+      "per_run": [
+        {
+          "run_id": "pass1-before-t01_standard_jira-s01-baa6b1",
+          "task": "t01_standard_jira",
+          "sweep": 1,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 613,
+          "uncached": 613,
+          "cost": 0.00029,
+          "model_calls": 2,
+          "tool_calls": 6,
+          "turns": [
+            4.215
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "standard_grant": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t01_standard_jira-s02-00572c",
+          "task": "t01_standard_jira",
+          "sweep": 2,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 613,
+          "uncached": 613,
+          "cost": 0.00029,
+          "model_calls": 2,
+          "tool_calls": 6,
+          "turns": [
+            1.344
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "standard_grant": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t01_standard_jira-s03-f0c58b",
+          "task": "t01_standard_jira",
+          "sweep": 3,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 613,
+          "uncached": 613,
+          "cost": 0.00029,
+          "model_calls": 2,
+          "tool_calls": 6,
+          "turns": [
+            1.42
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "standard_grant": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t02_new_starter-s01-0df8e0",
+          "task": "t02_new_starter",
+          "sweep": 1,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 269,
+          "uncached": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "tool_calls": 11,
+          "turns": [
+            1.109
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "onboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t02_new_starter-s02-a4b0a9",
+          "task": "t02_new_starter",
+          "sweep": 2,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 269,
+          "uncached": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "tool_calls": 11,
+          "turns": [
+            0.729
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "onboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t02_new_starter-s03-c9f83f",
+          "task": "t02_new_starter",
+          "sweep": 3,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 269,
+          "uncached": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "tool_calls": 11,
+          "turns": [
+            0.581
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "onboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t03_contractor_left-s01-59ee7e",
+          "task": "t03_contractor_left",
+          "sweep": 1,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 269,
+          "uncached": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "tool_calls": 5,
+          "turns": [
+            0.639
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "offboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t03_contractor_left-s02-c5dc2c",
+          "task": "t03_contractor_left",
+          "sweep": 2,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 269,
+          "uncached": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "tool_calls": 5,
+          "turns": [
+            0.577
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "offboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t03_contractor_left-s03-76b57c",
+          "task": "t03_contractor_left",
+          "sweep": 3,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 269,
+          "uncached": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "tool_calls": 5,
+          "turns": [
+            0.589
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "offboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t04_same_access_as-s01-1c34d4",
+          "task": "t04_same_access_as",
+          "sweep": 1,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 34650,
+          "uncached": 10586,
+          "cost": 0.007756,
+          "model_calls": 11,
+          "tool_calls": 11,
+          "turns": [
+            10.837,
+            3.806
+          ],
+          "end_reasons": [
+            "done",
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "diff": null,
+          "cases": {
+            "nonstandard_request": 1,
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t04_same_access_as-s02-44590f",
+          "task": "t04_same_access_as",
+          "sweep": 2,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 35156,
+          "uncached": 11604,
+          "cost": 0.00828,
+          "model_calls": 11,
+          "tool_calls": 11,
+          "turns": [
+            10.149,
+            2.688
+          ],
+          "end_reasons": [
+            "done",
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "diff": null,
+          "cases": {
+            "nonstandard_request": 1,
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t04_same_access_as-s03-6476b4",
+          "task": "t04_same_access_as",
+          "sweep": 3,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 35091,
+          "uncached": 11027,
+          "cost": 0.008087,
+          "model_calls": 11,
+          "tool_calls": 12,
+          "turns": [
+            10.85,
+            2.962
+          ],
+          "end_reasons": [
+            "done",
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "diff": null,
+          "cases": {
+            "nonstandard_request": 1,
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t05_on_behalf-s01-6c6bce",
+          "task": "t05_on_behalf",
+          "sweep": 1,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 23013,
+          "uncached": 3173,
+          "cost": 0.003743,
+          "model_calls": 9,
+          "tool_calls": 6,
+          "turns": [
+            7.989
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "diff": null,
+          "cases": {
+            "nonstandard_request": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t05_on_behalf-s02-9793c0",
+          "task": "t05_on_behalf",
+          "sweep": 2,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 26700,
+          "uncached": 3660,
+          "cost": 0.004374,
+          "model_calls": 10,
+          "tool_calls": 7,
+          "turns": [
+            8.715
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "diff": null,
+          "cases": {
+            "nonstandard_request": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t05_on_behalf-s03-1167e0",
+          "task": "t05_on_behalf",
+          "sweep": 3,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 26674,
+          "uncached": 4530,
+          "cost": 0.004593,
+          "model_calls": 10,
+          "tool_calls": 7,
+          "turns": [
+            8.699
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "diff": null,
+          "cases": {
+            "nonstandard_request": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t06_bulk_ended_contractors-s01-54b6d8",
+          "task": "t06_bulk_ended_contractors",
+          "sweep": 1,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 10750,
+          "uncached": 10750,
+          "cost": 0.006252,
+          "model_calls": 5,
+          "tool_calls": 9,
+          "turns": [
+            14.385
+          ],
+          "end_reasons": [
+            "plan_done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 2,
+          "diff": {
+            "diffs": 1,
+            "executed": 9,
+            "skipped": 0,
+            "out_of_order": 0,
+            "failed": 0,
+            "extra": 0
+          },
+          "cases": {
+            "bulk_change": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t06_bulk_ended_contractors-s02-55d492",
+          "task": "t06_bulk_ended_contractors",
+          "sweep": 2,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 10569,
+          "uncached": 10569,
+          "cost": 0.006143,
+          "model_calls": 5,
+          "tool_calls": 9,
+          "turns": [
+            13.383
+          ],
+          "end_reasons": [
+            "plan_done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 2,
+          "diff": {
+            "diffs": 1,
+            "executed": 9,
+            "skipped": 0,
+            "out_of_order": 0,
+            "failed": 0,
+            "extra": 0
+          },
+          "cases": {
+            "bulk_change": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t06_bulk_ended_contractors-s03-e31b79",
+          "task": "t06_bulk_ended_contractors",
+          "sweep": 3,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 10754,
+          "uncached": 9090,
+          "cost": 0.005757,
+          "model_calls": 5,
+          "tool_calls": 9,
+          "turns": [
+            13.386
+          ],
+          "end_reasons": [
+            "plan_done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 2,
+          "diff": {
+            "diffs": 1,
+            "executed": 9,
+            "skipped": 0,
+            "out_of_order": 0,
+            "failed": 0,
+            "extra": 0
+          },
+          "cases": {
+            "bulk_change": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t07_unusual_review-s01-606369",
+          "task": "t07_unusual_review",
+          "sweep": 1,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 47169,
+          "uncached": 6849,
+          "cost": 0.007835,
+          "model_calls": 13,
+          "tool_calls": 21,
+          "turns": [
+            14.442
+          ],
+          "end_reasons": [
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t07_unusual_review-s02-b4b6a4",
+          "task": "t07_unusual_review",
+          "sweep": 2,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 17185,
+          "uncached": 4641,
+          "cost": 0.004096,
+          "model_calls": 6,
+          "tool_calls": 18,
+          "turns": [
+            8.694
+          ],
+          "end_reasons": [
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-before-t07_unusual_review-s03-2cfcaa",
+          "task": "t07_unusual_review",
+          "sweep": 3,
+          "passed": false,
+          "by_substance": true,
+          "tokens": 17615,
+          "uncached": 4559,
+          "cost": 0.004237,
+          "model_calls": 6,
+          "tool_calls": 21,
+          "turns": [
+            9.338
+          ],
+          "end_reasons": [
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": true,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "operator_review": 1
+          }
+        }
+      ]
+    },
+    {
+      "arm": "pass1-after",
+      "folder": "results/pass1-after",
+      "free": false,
+      "runs": 21,
+      "passes": 18,
+      "passes_by_substance": 19,
+      "tasks": [
+        "t01_standard_jira",
+        "t02_new_starter",
+        "t03_contractor_left",
+        "t04_same_access_as",
+        "t05_on_behalf",
+        "t06_bulk_ended_contractors",
+        "t07_unusual_review"
+      ],
+      "sweeps": [
+        1,
+        2,
+        3
+      ],
+      "models": [
+        "gpt-4.1-mini"
+      ],
+      "switches": {
+        "control.bulk_change": "agent",
+        "control.nonstandard_request": "agent",
+        "control.offboarding": "workflow",
+        "control.onboarding": "workflow",
+        "control.operator_review": "agent",
+        "control.standard_grant": "workflow",
+        "critique.requester_reply": "external",
+        "examples.access_grant": "on",
+        "examples.policy_check_access": "on",
+        "notes": "off",
+        "plan.bulk_change": "off",
+        "strict.directory_get_employee": "on"
+      },
+      "per_task": {
+        "t01_standard_jira": [
+          3,
+          3
+        ],
+        "t02_new_starter": [
+          3,
+          3
+        ],
+        "t03_contractor_left": [
+          3,
+          3
+        ],
+        "t04_same_access_as": [
+          3,
+          3
+        ],
+        "t05_on_behalf": [
+          3,
+          3
+        ],
+        "t06_bulk_ended_contractors": [
+          1,
+          3
+        ],
+        "t07_unusual_review": [
+          2,
+          3
+        ]
+      },
+      "per_sweep": {
+        "1": [
+          5,
+          7
+        ],
+        "2": [
+          6,
+          7
+        ],
+        "3": [
+          7,
+          7
+        ]
+      },
+      "task_use_cases": {
+        "t01_standard_jira": [
+          "standard_grant"
+        ],
+        "t02_new_starter": [
+          "onboarding"
+        ],
+        "t03_contractor_left": [
+          "offboarding"
+        ],
+        "t04_same_access_as": [
+          "nonstandard_request",
+          "operator_review"
+        ],
+        "t05_on_behalf": [
+          "nonstandard_request"
+        ],
+        "t06_bulk_ended_contractors": [
+          "bulk_change"
+        ],
+        "t07_unusual_review": [
+          "operator_review"
+        ]
+      },
+      "tokens_per_run": {
+        "n": 21,
+        "mean": 14319.809523809523,
+        "median": 12082
+      },
+      "cost_per_run": {
+        "n": 21,
+        "mean": 0.0026666190476190474,
+        "median": 0.003118
+      },
+      "turns": {
+        "n": 24,
+        "mean": 5.2709166666666665,
+        "median": 3.0145,
+        "slowest": 12.845,
+        "slowest_run": "pass1-after-t04_same_access_as-s02-0076ef"
+      },
+      "longest_run": {
+        "run_id": "pass1-after-t04_same_access_as-s02-0076ef",
+        "model_calls": 12
+      },
+      "model_calls": {
+        "n": 21,
+        "mean": 5.285714285714286,
+        "median": 5
+      },
+      "end_reasons": {
+        "workflow_done": 9,
+        "done": 8,
+        "answered": 6,
+        "critique_held": 1
+      },
+      "last_end_reasons": {
+        "workflow_done": 9,
+        "answered": 6,
+        "done": 5,
+        "critique_held": 1
+      },
+      "ended_at_our_bound": [],
+      "false_finishes": [
+        "pass1-after-t06_bulk_ended_contractors-s01-22e631",
+        "pass1-after-t07_unusual_review-s01-812ffb"
+      ],
+      "repeat_calls": {
+        "events": 0,
+        "runs": []
+      },
+      "boundary": {
+        "rejected": {
+          "calls": 0,
+          "runs": []
+        },
+        "denied": {
+          "calls": 0,
+          "runs": []
+        },
+        "protocol_errors": {
+          "calls": 0,
+          "runs": []
+        }
+      },
+      "distinct_sequences": {
+        "per_task": {
+          "t01_standard_jira": 1,
+          "t02_new_starter": 1,
+          "t03_contractor_left": 1,
+          "t04_same_access_as": 2,
+          "t05_on_behalf": 2,
+          "t06_bulk_ended_contractors": 3,
+          "t07_unusual_review": 3
+        },
+        "total": 13
+      },
+      "plan": {
+        "plans": 0,
+        "invalid_plans": 0,
+        "revisions": 0,
+        "failed_checkpoints": 0,
+        "off_plan": 0,
+        "orphan_flags": 0,
+        "runs_planned": 0,
+        "ended": {
+          "plan_rejected": [],
+          "revision_bound": [],
+          "step_halted": []
+        },
+        "diff": {
+          "runs": 0,
+          "executed": 0,
+          "skipped": 0,
+          "out_of_order": 0,
+          "failed": 0,
+          "extra": 0,
+          "runs_with": {
+            "skipped": [],
+            "out_of_order": [],
+            "failed": [],
+            "extra": []
+          }
+        }
+      },
+      "critique": {
+        "rounds": 10,
+        "failed_rounds": 2,
+        "passed_drafts": 8,
+        "runs_with_critique": 8,
+        "rounds_per_critiqued_run": {
+          "n": 8,
+          "mean": 1.25,
+          "median": 1.0
+        },
+        "held": [
+          "pass1-after-t06_bulk_ended_contractors-s02-9c1d9f"
+        ],
+        "misses": {
+          "drafts": 0,
+          "runs": []
+        }
+      },
+      "misroutes": {
+        "count": 0,
+        "runs": []
+      },
+      "components": {
+        "routing (operator turn)": {
+          "calls": 24,
+          "tokens": 7103,
+          "cost": 0.0032083999999999997
+        },
+        "routing (request)": {
+          "calls": 9,
+          "tokens": 3111,
+          "cost": 0.0014892
+        },
+        "loop: nonstandard_request": {
+          "calls": 43,
+          "tokens": 170565,
+          "cost": 0.026952000000000004
+        },
+        "loop: operator_review": {
+          "calls": 20,
+          "tokens": 60823,
+          "cost": 0.015107200000000001
+        },
+        "loop: bulk_change": {
+          "calls": 15,
+          "tokens": 59114,
+          "cost": 0.009242
+        },
+        "critique check (code, no model call)": {
+          "calls": 0,
+          "tokens": 0,
+          "cost": 0.0
+        }
+      },
+      "after_failed_round": {
+        "calls": 1,
+        "tokens": 4515,
+        "cost": 0.0005664000000000001
+      },
+      "use_cases": {
+        "standard_grant": {
+          "calls": 3,
+          "tokens": 1032,
+          "cost": 0.0004992,
+          "path": "workflow",
+          "cases": 3,
+          "cost_per_case": 0.0001664
+        },
+        "onboarding": {
+          "calls": 0,
+          "tokens": 0,
+          "cost": 0.0,
+          "path": "workflow",
+          "cases": 3,
+          "cost_per_case": 0.0
+        },
+        "offboarding": {
+          "calls": 0,
+          "tokens": 0,
+          "cost": 0.0,
+          "path": "workflow",
+          "cases": 3,
+          "cost_per_case": 0.0
+        },
+        "nonstandard_request": {
+          "calls": 49,
+          "tokens": 172644,
+          "cost": 0.027942,
+          "path": "agent",
+          "cases": 6,
+          "cost_per_case": 0.0046570000000000005
+        },
+        "operator_review": {
+          "calls": 26,
+          "tokens": 63045,
+          "cost": 0.016082399999999997,
+          "path": "agent",
+          "cases": 6,
+          "cost_per_case": 0.0026803999999999994
+        },
+        "bulk_change": {
+          "calls": 18,
+          "tokens": 59960,
+          "cost": 0.0096272,
+          "path": "agent",
+          "cases": 3,
+          "cost_per_case": 0.0032090666666666668
+        },
+        "routing of request turns (shared)": {
+          "calls": 15,
+          "tokens": 4035,
+          "cost": 0.0018479999999999996,
+          "path": "-",
+          "cases": 0,
+          "cost_per_case": null
+        }
+      },
+      "by_path": {
+        "agent": {
+          "runs": 12,
+          "tasks": [
+            "t04_same_access_as",
+            "t05_on_behalf",
+            "t06_bulk_ended_contractors",
+            "t07_unusual_review"
+          ],
+          "tokens": {
+            "n": 12,
+            "mean": 24771.916666666668,
+            "median": 26660.5
+          },
+          "cost": {
+            "n": 12,
+            "mean": 0.004532583333333334,
+            "median": 0.004088
+          },
+          "turns": {
+            "n": 15,
+            "mean": 7.7985999999999995,
+            "median": 8.646,
+            "slowest": 12.845,
+            "over_slow": 5
+          }
+        },
+        "workflow": {
+          "runs": 9,
+          "tasks": [
+            "t01_standard_jira",
+            "t02_new_starter",
+            "t03_contractor_left"
+          ],
+          "tokens": {
+            "n": 9,
+            "mean": 383.6666666666667,
+            "median": 269
+          },
+          "cost": {
+            "n": 9,
+            "mean": 0.00017866666666666668,
+            "median": 0.000123
+          },
+          "turns": {
+            "n": 9,
+            "mean": 1.058111111111111,
+            "median": 0.704,
+            "slowest": 2.723,
+            "over_slow": 0
+          }
+        }
+      },
+      "m": 25.36893656716418,
+      "per_task_detail": {
+        "t01_standard_jira": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.00029,
+            "median": 0.00029,
+            "min": 0.00029,
+            "max": 0.00029
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 613,
+            "median": 613,
+            "min": 613,
+            "max": 613
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 613,
+            "median": 613,
+            "min": 613,
+            "max": 613
+          },
+          "turns": {
+            "n": 3,
+            "mean": 1.914,
+            "median": 1.617,
+            "min": 1.402,
+            "max": 2.723
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 6,
+            "median": 6,
+            "min": 6,
+            "max": 6
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 15,
+            "by_substance": 16,
+            "median_turn": 6.77
+          },
+          "planning": []
+        },
+        "t02_new_starter": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.000123,
+            "median": 0.000123,
+            "min": 0.000123,
+            "max": 0.000123
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 269,
+            "median": 269,
+            "min": 269,
+            "max": 269
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 269,
+            "median": 269,
+            "min": 269,
+            "max": 269
+          },
+          "turns": {
+            "n": 3,
+            "mean": 0.656,
+            "median": 0.643,
+            "min": 0.561,
+            "max": 0.764
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 11,
+            "median": 11,
+            "min": 11,
+            "max": 11
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 15,
+            "by_substance": 16,
+            "median_turn": 6.77
+          },
+          "planning": []
+        },
+        "t03_contractor_left": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.000123,
+            "median": 0.000123,
+            "min": 0.000123,
+            "max": 0.000123
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 269,
+            "median": 269,
+            "min": 269,
+            "max": 269
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 269,
+            "median": 269,
+            "min": 269,
+            "max": 269
+          },
+          "turns": {
+            "n": 3,
+            "mean": 0.6043333333333334,
+            "median": 0.555,
+            "min": 0.554,
+            "max": 0.704
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 5,
+            "median": 5,
+            "min": 5,
+            "max": 5
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 15,
+            "by_substance": 16,
+            "median_turn": 6.77
+          },
+          "planning": []
+        },
+        "t04_same_access_as": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.007132,
+            "median": 0.007016,
+            "min": 0.007,
+            "max": 0.00738
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 7186.333333333333,
+            "median": 6959,
+            "min": 6851,
+            "max": 7749
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 36711.666666666664,
+            "median": 35887,
+            "min": 35523,
+            "max": 38725
+          },
+          "turns": {
+            "n": 6,
+            "mean": 7.069500000000001,
+            "median": 6.6805,
+            "min": 2.845,
+            "max": 12.845
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 12.333333333333334,
+            "median": 12,
+            "min": 12,
+            "max": 13
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 15,
+            "by_substance": 16,
+            "median_turn": 2.652
+          },
+          "planning": []
+        },
+        "t05_on_behalf": {
+          "runs": 3,
+          "passed": 3,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.0039766666666666665,
+            "median": 0.004015,
+            "min": 0.003847,
+            "max": 0.004068
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 2447,
+            "median": 2532,
+            "min": 2174,
+            "max": 2635
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 26681.666666666668,
+            "median": 26699,
+            "min": 26622,
+            "max": 26724
+          },
+          "turns": {
+            "n": 3,
+            "mean": 8.858333333333333,
+            "median": 9.011,
+            "min": 8.162,
+            "max": 9.402
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 7,
+            "median": 7,
+            "min": 7,
+            "max": 7
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 15,
+            "by_substance": 16,
+            "median_turn": 2.845
+          },
+          "planning": []
+        },
+        "t06_bulk_ended_contractors": {
+          "runs": 3,
+          "passed": 1,
+          "by_substance": 1,
+          "cost": {
+            "n": 3,
+            "mean": 0.003209333333333333,
+            "median": 0.004108,
+            "min": 0.000884,
+            "max": 0.004636
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 1768,
+            "median": 2207,
+            "min": 630,
+            "max": 2467
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 19986.666666666668,
+            "median": 24483,
+            "min": 6262,
+            "max": 29215
+          },
+          "turns": {
+            "n": 3,
+            "mean": 8.067,
+            "median": 10.542,
+            "min": 2.581,
+            "max": 11.078
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 6,
+            "median": 8,
+            "min": 1,
+            "max": 9
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 17,
+            "by_substance": 18,
+            "median_turn": 2.899
+          },
+          "planning": []
+        },
+        "t07_unusual_review": {
+          "runs": 3,
+          "passed": 2,
+          "by_substance": 3,
+          "cost": {
+            "n": 3,
+            "mean": 0.0038123333333333334,
+            "median": 0.004018,
+            "min": 0.003118,
+            "max": 0.004301
+          },
+          "uncached": {
+            "n": 3,
+            "mean": 4443.666666666667,
+            "median": 4484,
+            "min": 3762,
+            "max": 5085
+          },
+          "tokens": {
+            "n": 3,
+            "mean": 15707.666666666666,
+            "median": 17412,
+            "min": 12082,
+            "max": 17629
+          },
+          "turns": {
+            "n": 3,
+            "mean": 7.9286666666666665,
+            "median": 8.37,
+            "min": 6.77,
+            "max": 8.646
+          },
+          "tool_calls": {
+            "n": 3,
+            "mean": 16.333333333333332,
+            "median": 18,
+            "min": 12,
+            "max": 19
+          },
+          "rest": {
+            "runs": 18,
+            "passed": 16,
+            "by_substance": 16,
+            "median_turn": 2.845
+          },
+          "planning": []
+        }
+      },
+      "gate4": {
+        "c": 0.00017866666666666668,
+        "f": 1.0,
+        "u4_runs": 6,
+        "u4_passed": 6,
+        "cautious_f": 0.5,
+        "wrong_case": 11.915,
+        "r": 0.2,
+        "a1": {
+          "m": 9.7,
+          "extra_per_case": 0.0015544,
+          "per_extra_correct": 0.0015544,
+          "per_extra_correct_cautious": 0.0031088,
+          "break_even_f": 0.00013045740663029796,
+          "one_in": 7665.33710756562,
+          "blended": 0.0004895466666666667,
+          "agent_every_case": 0.0017330666666666667
+        },
+        "own": {
+          "m": 25.36893656716418,
+          "extra_per_case": 0.004353916666666667,
+          "per_extra_correct": 0.004353916666666667,
+          "per_extra_correct_cautious": 0.008707833333333335,
+          "break_even_f": 0.00036541474332074425,
+          "one_in": 2736.6164564472597,
+          "blended": 0.0010494500000000002,
+          "agent_every_case": 0.004532583333333334
+        }
+      },
+      "bound_headroom": {
+        "bound": {
+          "max_steps": 14,
+          "token_budget": 90000,
+          "wall_clock_s": 120.0
+        },
+        "loops": 15,
+        "agent_loops": 15,
+        "most_calls": {
+          "value": 8,
+          "run_id": "pass1-after-t05_on_behalf-s01-35a9bf",
+          "use_case": "nonstandard_request",
+          "path": "loop"
+        },
+        "most_tokens": {
+          "value": 32968,
+          "run_id": "pass1-after-t04_same_access_as-s02-0076ef",
+          "use_case": "nonstandard_request",
+          "path": "loop"
+        },
+        "longest": {
+          "value": 11.56,
+          "run_id": "pass1-after-t04_same_access_as-s02-0076ef",
+          "use_case": "nonstandard_request",
+          "path": "loop"
+        },
+        "first_prompt": {
+          "n": 15,
+          "mean": 2278.733333333333,
+          "median": 2762,
+          "min": 1352,
+          "max": 2931
+        },
+        "added_per_step": {
+          "n": 15,
+          "mean": 653.0452380952381,
+          "median": 572.6,
+          "min": 74.0,
+          "max": 1533.0
+        },
+        "at_step_limit": {
+          "medians": 90774.6,
+          "maxima": 180537.0
+        },
+        "call_latency": {
+          "n": 78,
+          "p95": 2.5856,
+          "max": 3.341
+        }
+      },
+      "per_run": [
+        {
+          "run_id": "pass1-after-t01_standard_jira-s01-385b60",
+          "task": "t01_standard_jira",
+          "sweep": 1,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 613,
+          "uncached": 613,
+          "cost": 0.00029,
+          "model_calls": 2,
+          "tool_calls": 6,
+          "turns": [
+            2.723
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "standard_grant": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t01_standard_jira-s02-8989a0",
+          "task": "t01_standard_jira",
+          "sweep": 2,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 613,
+          "uncached": 613,
+          "cost": 0.00029,
+          "model_calls": 2,
+          "tool_calls": 6,
+          "turns": [
+            1.402
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "standard_grant": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t01_standard_jira-s03-f732a9",
+          "task": "t01_standard_jira",
+          "sweep": 3,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 613,
+          "uncached": 613,
+          "cost": 0.00029,
+          "model_calls": 2,
+          "tool_calls": 6,
+          "turns": [
+            1.617
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "standard_grant": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t02_new_starter-s01-10fb1e",
+          "task": "t02_new_starter",
+          "sweep": 1,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 269,
+          "uncached": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "tool_calls": 11,
+          "turns": [
+            0.643
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "onboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t02_new_starter-s02-a3068e",
+          "task": "t02_new_starter",
+          "sweep": 2,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 269,
+          "uncached": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "tool_calls": 11,
+          "turns": [
+            0.561
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "onboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t02_new_starter-s03-00cdea",
+          "task": "t02_new_starter",
+          "sweep": 3,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 269,
+          "uncached": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "tool_calls": 11,
+          "turns": [
+            0.764
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "onboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t03_contractor_left-s01-747bca",
+          "task": "t03_contractor_left",
+          "sweep": 1,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 269,
+          "uncached": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "tool_calls": 5,
+          "turns": [
+            0.554
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "offboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t03_contractor_left-s02-5c3230",
+          "task": "t03_contractor_left",
+          "sweep": 2,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 269,
+          "uncached": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "tool_calls": 5,
+          "turns": [
+            0.704
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "offboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t03_contractor_left-s03-42f076",
+          "task": "t03_contractor_left",
+          "sweep": 3,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 269,
+          "uncached": 269,
+          "cost": 0.000123,
+          "model_calls": 1,
+          "tool_calls": 5,
+          "turns": [
+            0.555
+          ],
+          "end_reasons": [
+            "workflow_done"
+          ],
+          "path": "workflow",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "offboarding": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t04_same_access_as-s01-de965e",
+          "task": "t04_same_access_as",
+          "sweep": 1,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 35887,
+          "uncached": 6959,
+          "cost": 0.007,
+          "model_calls": 11,
+          "tool_calls": 13,
+          "turns": [
+            10.467,
+            3.13
+          ],
+          "end_reasons": [
+            "done",
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "diff": null,
+          "cases": {
+            "nonstandard_request": 1,
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t04_same_access_as-s02-0076ef",
+          "task": "t04_same_access_as",
+          "sweep": 2,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 38725,
+          "uncached": 7749,
+          "cost": 0.00738,
+          "model_calls": 12,
+          "tool_calls": 12,
+          "turns": [
+            12.845,
+            2.845
+          ],
+          "end_reasons": [
+            "done",
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "diff": null,
+          "cases": {
+            "nonstandard_request": 1,
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t04_same_access_as-s03-86b29d",
+          "task": "t04_same_access_as",
+          "sweep": 3,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 35523,
+          "uncached": 6851,
+          "cost": 0.007016,
+          "model_calls": 11,
+          "tool_calls": 12,
+          "turns": [
+            10.231,
+            2.899
+          ],
+          "end_reasons": [
+            "done",
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "diff": null,
+          "cases": {
+            "nonstandard_request": 1,
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t05_on_behalf-s01-35a9bf",
+          "task": "t05_on_behalf",
+          "sweep": 1,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 26724,
+          "uncached": 2532,
+          "cost": 0.004015,
+          "model_calls": 10,
+          "tool_calls": 7,
+          "turns": [
+            9.011
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "diff": null,
+          "cases": {
+            "nonstandard_request": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t05_on_behalf-s02-632d2e",
+          "task": "t05_on_behalf",
+          "sweep": 2,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 26699,
+          "uncached": 2635,
+          "cost": 0.004068,
+          "model_calls": 10,
+          "tool_calls": 7,
+          "turns": [
+            9.402
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "diff": null,
+          "cases": {
+            "nonstandard_request": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t05_on_behalf-s03-712db1",
+          "task": "t05_on_behalf",
+          "sweep": 3,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 26622,
+          "uncached": 2174,
+          "cost": 0.003847,
+          "model_calls": 10,
+          "tool_calls": 7,
+          "turns": [
+            8.162
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 1,
+          "diff": null,
+          "cases": {
+            "nonstandard_request": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t06_bulk_ended_contractors-s01-22e631",
+          "task": "t06_bulk_ended_contractors",
+          "sweep": 1,
+          "passed": false,
+          "by_substance": false,
+          "tokens": 6262,
+          "uncached": 630,
+          "cost": 0.000884,
+          "model_calls": 3,
+          "tool_calls": 1,
+          "turns": [
+            2.581
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": true,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "bulk_change": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t06_bulk_ended_contractors-s02-9c1d9f",
+          "task": "t06_bulk_ended_contractors",
+          "sweep": 2,
+          "passed": false,
+          "by_substance": false,
+          "tokens": 24483,
+          "uncached": 2467,
+          "cost": 0.004108,
+          "model_calls": 7,
+          "tool_calls": 8,
+          "turns": [
+            10.542
+          ],
+          "end_reasons": [
+            "critique_held"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 2,
+          "diff": null,
+          "cases": {
+            "bulk_change": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t06_bulk_ended_contractors-s03-b445bb",
+          "task": "t06_bulk_ended_contractors",
+          "sweep": 3,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 29215,
+          "uncached": 2207,
+          "cost": 0.004636,
+          "model_calls": 8,
+          "tool_calls": 9,
+          "turns": [
+            11.078
+          ],
+          "end_reasons": [
+            "done"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 2,
+          "diff": null,
+          "cases": {
+            "bulk_change": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t07_unusual_review-s01-812ffb",
+          "task": "t07_unusual_review",
+          "sweep": 1,
+          "passed": false,
+          "by_substance": true,
+          "tokens": 17412,
+          "uncached": 4484,
+          "cost": 0.004018,
+          "model_calls": 6,
+          "tool_calls": 18,
+          "turns": [
+            8.37
+          ],
+          "end_reasons": [
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": true,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t07_unusual_review-s02-ed2310",
+          "task": "t07_unusual_review",
+          "sweep": 2,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 12082,
+          "uncached": 3762,
+          "cost": 0.003118,
+          "model_calls": 5,
+          "tool_calls": 12,
+          "turns": [
+            6.77
+          ],
+          "end_reasons": [
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "operator_review": 1
+          }
+        },
+        {
+          "run_id": "pass1-after-t07_unusual_review-s03-b3c26e",
+          "task": "t07_unusual_review",
+          "sweep": 3,
+          "passed": true,
+          "by_substance": true,
+          "tokens": 17629,
+          "uncached": 5085,
+          "cost": 0.004301,
+          "model_calls": 6,
+          "tool_calls": 19,
+          "turns": [
+            8.646
+          ],
+          "end_reasons": [
+            "answered"
+          ],
+          "path": "agent",
+          "false_finish": false,
+          "repeat_calls": 0,
+          "critique_rounds": 0,
+          "diff": null,
+          "cases": {
+            "operator_review": 1
+          }
+        }
+      ]
+    }
+  ],
+  "f": []
+}

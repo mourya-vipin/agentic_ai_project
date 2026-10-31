@@ -16,7 +16,17 @@ test task's check or its expected answer, and fails a draft that
        (and, for a group it says was kept, one no one in the case still holds)
     4. leaves out a group the case granted, removed or proposed, or, on an
        operator's bulk change, a person whose access changed;
-    5. names a request other than the one it answers, or a person outside the case.
+    5. names a request other than the one it answers, or a person outside the case;
+    6. says a manager, the operator or a named person approved a change, when no
+       proposal or confirmation of the case has been approved; or asks the recipient
+       to approve, when nothing in the case waits for the recipient's approval (a
+       proposal waits for the operator; only a manager confirmation waits for that
+       employee's manager).
+
+Rule 6 reads a whole clause and lets a hedged one pass ("once your manager has
+approved", "no group is waiting for your approval"). "Sent" is no claim here: for an
+action below the approval line, the brief counts "sent" as written as its pending
+record.
 
 A group is recognised by its ID (SYN-GRP-...) or its full catalog name; the claim
 about it is the nearest claim word in its sentence (granted, removed, waiting, kept),
@@ -49,14 +59,24 @@ CLAIMS = (
 )
 # A claim word right after a negation ("not", "cannot", "can't", "never", "no") is no
 # claim: "cannot be granted" says it was not. "cannot" is one word, so \bnot alone
-# missed it (baseline-t05_on_behalf-s02-3d3af4, trace lines 19 and 22).
-NEGATED = re.compile(r"(\b(?:can)?not|n't|\bnever|\bno)\s+(?:(?:yet|then|only|be|been|have|once)\s+)*$", re.I)
+# missed it (baseline-t05_on_behalf-s02-3d3af4, trace lines 19 and 22); an adverb between
+# them ("cannot be directly granted") is no claim either (a dev run, 2026-10-30).
+NEGATED = re.compile(r"(\b(?:can)?not|n't|\bnever|\bno)\s+(?:(?:yet|then|only|be|been|have|once|\w+ly)\s+)*$", re.I)
 # After a modal or future ("will be", "can only be", "to be"), "granted" or "removed" is
 # a promise: a claim that the change is waiting, so it passes only when an open proposal
 # or confirmation backs it (rule 3), and a promise nothing backs fails.
 PROMISED = re.compile(r"(\bcan|\bcould|\bwill|\bwould|\bmay|\bmight|\bto)"
-                      r"\s+(?:(?:yet|then|only|be|been|have|once)\s+)*$", re.I)
+                      r"\s+(?:(?:yet|then|only|be|been|have|once|\w+ly)\s+)*$", re.I)
 WAITING_KINDS = ("proposed_change", "manager_confirmation")
+# Rule 6. An approval said to have happened, by someone the clause names; and a request
+# that the recipient approve. A clause is hedged when a condition or a negation comes
+# before the claim, or a modal right before it ("will be approved").
+APPROVED = re.compile(r"(?<!-)\b(approved|signed off|okayed|authori[sz]ed|gave (?:the |their |his |her )?"
+                      r"(?:approval|go-ahead))\b", re.I)
+APPROVER = re.compile(r"\b(manager|operator|approver|administrator|admin|it team|security team)\b", re.I)
+YOUR_APPROVAL = re.compile(r"\b(?:your|you to) (?:approval|approve|confirmation|confirm|sign-off|go-ahead)\b", re.I)
+HEDGED = re.compile(r"\b(once|when|whenever|if|after|until|unless|before|no|not|never|nothing|none|cannot)\b|n't\b",
+                    re.I)
 
 
 @dataclass
@@ -102,6 +122,8 @@ def _case(recipient: str, request_id: str | None, stamp: str) -> dict:
         people |= {(directory.manager_of(p) or {}).get("id") for p in list(people) if p}
         affected = sorted({c["employee_id"] for c in changes} | {p["employee_id"] for p in waiting})
         text = req.get("text") or ""
+        approved = [p["id"] for p in pending.by_request(request_id)
+                    if p["stamp"] == stamp and p["kind"] in WAITING_KINDS and p["status"] == "done"]
     else:
         # An operator's bulk change: what this run did to the recipient's own reports.
         def reports(employee_id):
@@ -111,13 +133,27 @@ def _case(recipient: str, request_id: str | None, stamp: str) -> dict:
                    if p["stamp"] == stamp and p["request_id"] is None and reports(p["employee_id"])]
         affected = sorted({c["employee_id"] for c in changes} | {p["employee_id"] for p in waiting})
         people, text = {recipient}, ""
+        approved = []                      # a bulk change's proposals are approved after its run
     people = {p for p in people | set(affected) if p}
     active = {m["group_id"] for person in affected or [recipient] for m in access.memberships(person)}
+    # Who may approve what waits: a manager confirmation waits for that employee's manager.
+    approvers = {(directory.manager_of(p["employee_id"]) or {}).get("id") for p in waiting
+                 if p["kind"] == "manager_confirmation" and p["employee_id"]}
     return {"granted": {c["group_id"] for c in changes if c["change"] == "granted"},
             "removed": {c["group_id"] for c in changes if c["change"] == "removed"},
             "waiting": {p["group_id"]: p["id"] for p in waiting if p["group_id"]},
+            "waits_for": [(p["id"], _approver(p)) for p in sorted(waiting, key=lambda p: p["id"])],
+            "approved": approved, "approvers": approvers,
             "active": active, "affected": affected, "people": people, "request_text": text.lower(),
             "bulk": request_id is None}
+
+
+def _approver(record: dict) -> str:
+    """Who approves an open record: the operator a proposal, the manager a confirmation."""
+    if record["kind"] == "manager_confirmation":
+        manager = directory.manager_of(record["employee_id"]) if record["employee_id"] else None
+        return manager["name"] if manager else "the manager"
+    return "the operator"
 
 
 # -- the draft: which groups it names, and what it says about each ---------------------------
@@ -141,7 +177,7 @@ def _claim(body: str, start: int, end: int) -> str | None:
     best, distance = None, None
     for kind, pattern in CLAIMS:
         for m in pattern.finditer(body, left, right):
-            before = body[max(left, m.start() - 20):m.start()]
+            before = body[max(left, m.start() - 40):m.start()]
             if NEGATED.search(before):
                 continue
             said = "waiting" if kind in ("granted", "removed") and PROMISED.search(before) else kind
@@ -200,4 +236,34 @@ def check_draft(*, recipient_employee_id: str, request_id: str | None, body: str
         if person and person["name"].lower() in case["request_text"]:
             continue                       # named in the request itself: the requester knows them
         wrong.append(f"The draft names {pid}, who is not part of this case; leave them out.")
+    wrong += _approval_claims(body, recipient_employee_id, case)
+    return wrong
+
+
+def _approval_claims(body: str, recipient: str, case: dict) -> list[str]:
+    """Rule 6: an approval no record shows, and a request to approve aimed at the wrong
+    person. One sentence for each kind, however many clauses make it."""
+    names = [(directory.get_employee(p) or {}).get("name", "").lower() for p in case["people"]]
+    waits = ("; ".join(f"{pid} still waits for {who}" for pid, who in case["waits_for"])
+             or "nothing in this case waits for approval")
+    approved_said = asked_wrongly = False
+    start = 0
+    for end in [m.start() for m in CLAUSE_END.finditer(body)] + [len(body)]:
+        clause, start = body[start:end], end + 1
+        lower = clause.lower()
+        said = APPROVED.search(clause)
+        if (said and not HEDGED.search(clause[:said.start()]) and not PROMISED.search(clause[:said.start()])
+                and (APPROVER.search(clause) or any(n and n in lower for n in names))):
+            approved_said = True
+        asked = YOUR_APPROVAL.search(clause)
+        if asked and not HEDGED.search(clause[:asked.start()]) and recipient not in case["approvers"]:
+            asked_wrongly = True
+    wrong = []
+    if approved_said and not case["approved"]:
+        wrong.append(f"The draft says a change was approved, but no approval is on record: {waits}. Say it is "
+                     "waiting, and keep the rest of the draft as it was.")
+    if asked_wrongly:
+        person = directory.get_employee(recipient) or {}
+        wrong.append(f"The draft asks {person.get('name') or recipient} to approve, but nothing waits for their "
+                     f"approval: {waits}. Say who it waits for, and keep the rest of the draft as it was.")
     return wrong

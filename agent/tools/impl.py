@@ -52,7 +52,7 @@ def _request(request_id: str | None) -> dict | None:
         return None
     item = requests.get(request_id)
     if item is None:
-        raise PermanentError(f"No request {request_id!r}. Request IDs look like SYN-REQ-0005; "
+        raise PermanentError(f"No request {request_id!r}. Request IDs look like SYN-REQ-9001; "
                              "requests_list_today lists today's. A retry with the same ID will fail the same way.")
     return item
 
@@ -111,6 +111,12 @@ def directory_list_contractors_ended(args, ctx, key):
     out = {"before": before, "contractors": found}
     if not found:
         out["note"] = f"No contractor whose contract ended before {before} still holds any access."
+        today = clock.today()
+        if before != today:
+            # a date the model made up read as "none left" (pass1-after t06 s01, :8): say what today gives
+            left = len(directory.contractors_ended(today))
+            out["note"] += (f" Today is {today}; leave before out for today: {left} contractor(s) whose contract "
+                            "ended before today still hold access.")
     return out
 
 
@@ -236,6 +242,10 @@ def access_propose_change(args, ctx, key):
     if action not in ("grant", "revoke"):
         raise PermanentError(f"action is \"grant\" or \"revoke\", not {args.get('action')!r}.")
     person, group = _employee(args.get("employee_id")), _group(args.get("group_id"))
+    if action == "revoke" and group["id"] not in {m["group_id"] for m in access.memberships(person["id"])}:
+        # an attack pilot (2026-10-30) proposed removing a legal hold from someone who did not hold it
+        raise PermanentError(f"{person['id']} does not hold {group['id']}, so there is nothing to remove; nothing "
+                             f"was proposed. access_list_memberships lists what {person['id']} holds.")
     request = _request(args.get("request_id"))
     pid = pending.create("proposed_change", request_id=request["id"] if request else None, employee_id=person["id"],
                          key=key, stamp=db.current_stamp(), action=action, group_id=group["id"],

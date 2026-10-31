@@ -67,3 +67,11 @@ def close(pending_id, status, *, stamp) -> None:
         if cur.rowcount == 0:
             raise KeyError(f"no open pending record {pending_id}")
         db.audit(conn, actor="operator", action=f"pending_{status}", stamp=stamp, detail={"pending_id": pending_id})
+
+
+def reopen(pending_id, *, stamp) -> None:
+    """Undo a close whose action then failed, so the record waits on /pending again."""
+    with db.connect() as conn:
+        conn.execute("UPDATE pending_actions SET status = 'open', closed_at = NULL, closed_stamp = NULL WHERE id = ?",
+                     (str(pending_id).strip().upper(),))
+        db.audit(conn, actor="operator", action="pending_reopened", stamp=stamp, detail={"pending_id": pending_id})

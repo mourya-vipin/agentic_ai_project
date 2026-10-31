@@ -3,7 +3,10 @@ with and without them, the difference in the input tokens the API reports.
 Owner: Vipin Mourya.
 
     python scripts/definition_cost.py                 # prints, and writes docs/milestones/m1_definition_cost.json
+                                                      # and a dated copy, m1_definition_cost_<date>.json
     python scripts/definition_cost.py --calls 6.2     # also prices a run that carries them on 6.2 model calls
+    python scripts/definition_cost.py --per-run results/baseline \
+        --measured docs/milestones/m1_definition_cost_2026-10-25.json   # no model call: per run, from the traces
 
 It builds the model client exactly as harness/ping.py does and sends the
 definitions as our registry sends them (its fixed order; strict and examples as
@@ -55,13 +58,87 @@ def prompt_tokens(client: ModelClient, tools: list[dict] | None) -> tuple[int, f
     return response.usage.prompt_tokens, response.cost_usd
 
 
+def per_run(arms: list[str], measured: Path, settings, prices) -> int:
+    """What the definitions cost per run in recorded arms, priced by what each loop call carried:
+    a loop call carries its use case's tools (agent/router.py: TOOLS), each at its own measured cost
+    plus the fixed overhead once; routing calls carry none, and the planned path's calls only the
+    plan tool. Reads the run records and traces and a saved measurement; no model call."""
+    from agent.router import TOOLS
+    from agent.tools import definitions_v1
+    report = json.loads(measured.read_text())
+    first_draft_name = {canon: name for name, canon in definitions_v1.ALIASES.items()}
+    carried = {}            # set -> use case -> tokens one loop call carries
+    for name, entry in report["sets"].items():
+        own, overhead = entry["per_tool_without_overhead"], entry["fixed_overhead_tokens"]
+        named = (lambda t: first_draft_name.get(t, t)) if name == "first_draft" else (lambda t: t)
+        carried[name] = {uc: round(overhead + sum(own[named(t)] for t in tools)) for uc, tools in TOOLS.items()}
+    price = prices.find(settings.model)
+    print(f"priced from {measured.relative_to(ROOT)} ({report['date']}); a loop call carries, in tokens: "
+          + "; ".join(f"{name} " + ", ".join(f"{uc} {n:,}" for uc, n in sets.items()) for name, sets in carried.items()))
+    for arm in arms:
+        latest = {}
+        for f in sorted(Path(arm).glob("*.json")):
+            record = json.loads(f.read_text())
+            if record.get("finished"):
+                slot = (record["task"], record["sweep"])
+                if slot not in latest or record["started"] > latest[slot][0]["started"]:
+                    latest[slot] = (record, f.with_name(f.stem + ".trace.jsonl"))
+        loops, prompt, cached, by_task = {}, 0, 0, {}
+        for record, trace in latest.values():
+            task = by_task.setdefault(record["task"], {"runs": 0, "prompt": 0, "loops": {}})
+            task["runs"] += 1
+            for line in trace.read_text().splitlines():
+                call = json.loads(line)
+                if call.get("type") != "model_call":
+                    continue
+                usage = call.get("usage") or {}
+                prompt += usage.get("prompt_tokens", 0)
+                cached += usage.get("cache_read_input_tokens", 0)
+                task["prompt"] += usage.get("prompt_tokens", 0)
+                if call.get("purpose") in TOOLS:
+                    loops[call["purpose"]] = loops.get(call["purpose"], 0) + 1
+                    task["loops"][call["purpose"]] = task["loops"].get(call["purpose"], 0) + 1
+        runs = len(latest)
+        if not runs:
+            print(f"{arm}: no finished runs")
+            continue
+        calls = sum(r["model_calls"] for r, _ in latest.values())
+        cost = sum(r["cost_usd"] for r, _ in latest.values()) / runs
+        print(f"\n{arm}: {runs} runs, {calls} model calls, {sum(loops.values())} loop calls carried definitions ("
+              + ", ".join(f"{uc} {n}" for uc, n in sorted(loops.items())) + f"); mean run cost ${cost:.4f}; "
+              f"{cached / prompt:.1%} of its prompt tokens were cache reads")
+        for name, sets in carried.items():
+            total = sum(sets[uc] * n for uc, n in loops.items())
+            each = total / runs
+            print(f"  {name}: {each:,.1f} tokens per run, {total / prompt:.1%} of the arm's prompt tokens; "
+                  f"${each * price.cache_read / 1e6:.4f} if all read from the cache, "
+                  f"${each * price.input / 1e6:.4f} if none")
+            print("    per task: " + "; ".join(
+                f"{t} {sum(sets[uc] * n for uc, n in d['loops'].items()) / d['runs']:,.0f}"
+                f" ({sum(sets[uc] * n for uc, n in d['loops'].items()) / d['prompt']:.1%})"
+                for t, d in sorted(by_task.items()) if d["loops"]))
+        if {"first_draft", "rewrite"} <= set(carried):
+            extra = sum((carried["rewrite"][uc] - carried["first_draft"][uc]) * n for uc, n in loops.items()) / runs
+            print(f"  rewrite minus first_draft on the same calls: {extra:,.1f} tokens per run, "
+                  f"${extra * price.cache_read / 1e6:.4f} to ${extra * price.input / 1e6:.4f}")
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--calls", type=float, default=None,
                    help="mean model calls per run that carry the definitions (from the baseline's traces)")
+    p.add_argument("--per-run", nargs="+", metavar="ARM", default=None,
+                   help="results/<arm> folders: price their runs' loop calls from --measured, with no model call")
+    p.add_argument("--measured", type=Path, default=None,
+                   help="the dated measurement to price with, such as docs/milestones/m1_definition_cost_2026-10-25.json")
     a = p.parse_args(argv)
     settings = load_settings(ROOT / "settings.yaml")
     prices = PriceSheet(ROOT / "pricing.yaml")
+    if a.per_run:
+        if a.measured is None:
+            p.error("--per-run needs --measured: the definitions the runs carried")
+        return per_run(a.per_run, a.measured.resolve(), settings, prices)
     client = ModelClient(make_backend(settings.provider, settings), prices)
     price = prices.find(settings.model)
 
@@ -89,6 +166,8 @@ def main(argv=None) -> int:
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(report, indent=2) + "\n")
+    # each measurement keeps a file of its own, so every figure the write-up cites can be read again
+    OUT.with_name(f"{OUT.stem}_{report['date']}.json").write_text(json.dumps(report, indent=2) + "\n")
     for name, entry in report["sets"].items():
         line = f"{name}: {entry['tools']} tools, {entry['definition_tokens']} tokens of definitions per call"
         if "per_run_tokens" in entry:

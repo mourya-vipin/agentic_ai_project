@@ -3,10 +3,11 @@ to its use case's path (Lecture 1, slide 19).
 
 Owner: Aman Panigrahi. Trusted data first (the thread, the requester's directory
 record); a model call, traced as a step of its own, only where code cannot tell.
-The switches control.<use_case> say which path each use case takes.
+The switches control.<use_case> say which path each use case takes; U5 and U6 have only
+the agent path, so their switches must say agent, and any other setting stops the turn.
 
 An operator message. One model call (purpose "route_operator", no tools) answers
-{"intent", "request_ids"}, seeing the session's last three turns. A message is a
+{"intent", "request_ids"}, seeing the session's last three messages. A message is a
 new task when it asks us to act on requests or on the directory; it is a question
 when it asks about work done or about the records. Code decides from the answer:
 
@@ -54,7 +55,7 @@ NONSTANDARD, OPERATOR_REVIEW, BULK_CHANGE = "nonstandard_request", "operator_rev
 INTENTS = ("process_requests", "bulk_change", "question")
 PROMPTS = Path(__file__).parent / "prompts"
 BOUND = Bound()
-HISTORY_TURNS = 3                       # earlier turns the operator router sees
+HISTORY_TURNS = 3                       # earlier messages the operator router sees; U5's loop sees this many turns
 
 READS = ["directory_get_employee", "directory_search_employees", "access_list_memberships", "catalog_search_groups",
          "policy_check_access", "requests_get", "requests_list_today"]
@@ -100,11 +101,21 @@ def handle_operator(session_id: str, text: str) -> Reply:
     elif intent == "bulk_change":
         reply = _as_reply(bulk_change(session_id, text))
     else:
+        _agent_path(OPERATOR_REVIEW)
         reply = _as_reply(loop.run_loop(session_id, use_case=OPERATOR_REVIEW, system=_prompt(OPERATOR_REVIEW),
                                         user_content=_with_history(session_id, text), tools=TOOLS[OPERATOR_REVIEW],
                                         bound=BOUND))
     session.add(session_id, "agent", reply.text)
     return reply
+
+
+def _agent_path(use_case: str) -> None:
+    """Read control.<use_case> for a use case that has only the agent path, and refuse
+    any other setting rather than run a path the switch does not name."""
+    path = runtime.switch(f"control.{use_case}")
+    if path != "agent":
+        raise ValueError(f"control.{use_case} is {path!r}, but {use_case} has only the agent path: "
+                         "set it to agent in switches.yaml")
 
 
 def route_operator(session_id: str, text: str, earlier: list[dict]) -> tuple[str, list[str], str]:
@@ -126,6 +137,7 @@ def route_operator(session_id: str, text: str, earlier: list[dict]) -> tuple[str
 
 def bulk_change(session_id: str, text: str) -> LoopResult:
     """U6: planned if plan.bulk_change is on, else the bounded loop."""
+    _agent_path(BULK_CHANGE)
     if runtime.switch("plan.bulk_change") == "on":
         return executor.run_planned(session_id, text, bound=BOUND)
     return loop.run_loop(session_id, use_case=BULK_CHANGE, system=_prompt(BULK_CHANGE),
@@ -145,13 +157,22 @@ def process_requests(session_id: str, request_ids: list[str]) -> Reply:
         return Reply("There are no new requests.")
     actions: list[str] = []
     for item in todo:
-        if item["status"] not in ("new", "in_progress"):
-            lines.append(f"{item['id']}: already {item['status']}, left as it is.")
+        # claimed first, then read again: two console sessions at once must not both handle it,
+        # and one that listed it earlier must not redo what the other has finished
+        if not requests.claim(item["id"], session_id):
+            lines.append(f"{item['id']}: another console session is working on it, left to that session.")
             continue
-        runtime.trace(session_id).progress(f"Working on {item['id']}.")
-        result = handle_request(session_id, item)
-        lines.append(result.text)
-        actions += result.actions
+        try:
+            item = requests.get(item["id"])
+            if item["status"] not in ("new", "in_progress"):
+                lines.append(f"{item['id']}: already {item['status']}, left as it is.")
+                continue
+            runtime.trace(session_id).progress(f"Working on {item['id']}.")
+            result = handle_request(session_id, item)
+            lines.append(result.text)
+            actions += result.actions
+        finally:
+            requests.release(item["id"], session_id)
     return Reply("\n".join(lines), actions)
 
 

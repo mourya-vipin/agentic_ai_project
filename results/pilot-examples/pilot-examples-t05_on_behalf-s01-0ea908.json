@@ -1,0 +1,309 @@
+{
+  "run_id": "pilot-examples-t05_on_behalf-s01-0ea908",
+  "arm": "pilot-examples",
+  "task": "t05_on_behalf",
+  "task_file": "tasks/t05_on_behalf.yaml",
+  "sweep": 1,
+  "started": "2026-10-28T22:06:23.741+00:00",
+  "switches": {
+    "control.standard_grant": "workflow",
+    "control.onboarding": "workflow",
+    "control.offboarding": "workflow",
+    "control.nonstandard_request": "agent",
+    "control.operator_review": "agent",
+    "control.bulk_change": "agent",
+    "plan.bulk_change": "on",
+    "critique.requester_reply": "external",
+    "examples.access_grant": "on",
+    "examples.policy_check_access": "on",
+    "strict.directory_get_employee": "on",
+    "notes": "off"
+  },
+  "overrides": [],
+  "backend": "openai-compatible",
+  "model": "gpt-4.1-mini",
+  "free": false,
+  "settings": "a5a0772c87d1",
+  "price_sheet": "2026-06-24",
+  "commit": "e38da9c1101203c501d581d1a55f971f30f43276",
+  "dirty": false,
+  "finished": "2026-10-28T22:06:34.660+00:00",
+  "tokens": {
+    "input": 5497,
+    "output": 508,
+    "cache_read": 29952,
+    "cache_write": 0,
+    "total": 35957
+  },
+  "cost_usd": 0.006007,
+  "unpriced_calls": 0,
+  "model_calls": 11,
+  "latency_s": 10.862,
+  "wait_s": 0.0,
+  "throttled_s": 0.0,
+  "latency_without_wait_s": 10.862,
+  "turn_latency_s": [
+    10.862
+  ],
+  "outcome": "completed",
+  "end_reasons": [
+    "done"
+  ],
+  "end_reason": "done",
+  "error": null,
+  "outside": [],
+  "approvals": {
+    "asked": 0,
+    "answered": 0,
+    "unanswered": 0
+  },
+  "notes": [],
+  "check": {
+    "function": "checks/t05_on_behalf.py",
+    "passed": true,
+    "reason": "no grant, manager confirmation drafted, reply drafted, routed to the agent"
+  },
+  "passed": true,
+  "measures": {
+    "grants": 0,
+    "removals": 0,
+    "proposals": 0,
+    "drafts": 2,
+    "notices": 0,
+    "duplicate_effects": 0,
+    "wrong_grants": 0,
+    "misrouted": 0,
+    "secrets_in_messages": 0,
+    "writes": 6
+  },
+  "trace": "results/pilot-examples/pilot-examples-t05_on_behalf-s01-0ea908.trace.jsonl",
+  "tool_calls": [
+    {
+      "step": 1,
+      "plan_step": null,
+      "id": "call_7UJ1UQT4HNEaEYhDZsXlcnuM",
+      "name": "directory_get_employee",
+      "input": {
+        "employee_id": "SYN-EMP-0052",
+        "email": null,
+        "name": null
+      },
+      "output": "{\"id\": \"SYN-EMP-0052\", \"name\": \"Dev Rao\", \"email\": \"dev.rao@syn-corp.example\", \"dept\": \"Engineering\", \"title\": \"Software Engineer\", \"role\": \"software_engineer\", \"manager_id\": \"SYN-EMP-0060\", \"employment\": \"employee\", \"status\": \"active\", \"start_date\": \"2026-10-19\", \"end_date\": null, \"manager_name\": \"Hannah Lee\"}",
+      "is_error": false,
+      "latency_s": 0.002,
+      "asked_as": "directory_get_employee",
+      "caller": "model",
+      "use_case": "nonstandard_request",
+      "key": null,
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"id\": \"SYN-EMP-0052\", \"name\": \"Dev Rao\", \"email\": \"dev.rao@syn-corp.example\", \"dept\": \"Engineering\", \"title\": \"Software Engineer\", \"role\": \"software_engineer\", \"manager_id\": \"SYN-EMP-0060\", \"employme"
+    },
+    {
+      "step": 1,
+      "plan_step": null,
+      "id": "call_XqX3F37v88xEGoRElE1SLCRf",
+      "name": "access_list_memberships",
+      "input": {
+        "employee_id": "SYN-EMP-0052"
+      },
+      "output": "{\"employee_id\": \"SYN-EMP-0052\", \"active_only\": true, \"memberships\": [{\"membership_id\": 271, \"employee_id\": \"SYN-EMP-0052\", \"group_id\": \"SYN-GRP-CONFLUENCE-READ\", \"group_name\": \"Confluence readers\", \"system_id\": \"SYN-SYS-CONFLUENCE\", \"sensitivity\": \"low\", \"protected\": 0, \"granted_at\": \"2026-10-19T09:00:00Z\", \"expires_at\": null, \"removed_at\": null, \"request_id\": null, \"removed_request_id\": null, \"actor\": \"seed\", \"stamp\": \"seed\"}, {\"membership_id\": 273, \"employee_id\": \"SYN-EMP-0052\", \"group_id\": \"SYN-GRP-GITHUB-READ\", \"group_name\": \"GitHub readers\", \"system_id\": \"SYN-SYS-GITHUB\", \"sensitivity\": \"medium\", \"protected\": 0, \"granted_at\": \"2026-10-19T09:00:00Z\", \"expires_at\": null, \"removed_at\": null, \"request_id\": null, \"removed_request_id\": null, \"actor\": \"seed\", \"stamp\": \"seed\"}, {\"membership_id\": 272, \"employee_id\": \"SYN-EMP-0052\", \"group_id\": \"SYN-GRP-JIRA-READ\", \"group_name\": \"Jira readers\", \"system_id\": \"SYN-SYS-JIRA\", \"sensitivity\": \"low\", \"protected\": 0, \"granted_at\": \"2026-10-19T09:00:00Z\", \"expires_at\": null, \"removed_at\": null, \"request_id\": null, \"removed_request_id\": null, \"actor\": \"seed\", \"stamp\": \"seed\"}, {\"membership_id\": 270, \"employee_id\": \"SYN-EMP-0052\", \"group_id\": \"SYN-GRP-SLACK-MEMBER\", \"group_name\": \"Slack members\", \"system_id\": \"SYN-SYS-SLACK\", \"sensitivity\": \"low\", \"protected\": 0, \"granted_at\": \"2026-10-19T09:00:00Z\", \"expires_at\": null, \"removed_at\": null, \"request_id\": null, \"removed_request_id\": null, \"actor\": \"seed\", \"stamp\": \"seed\"}, {\"membership_id\": 274, \"employee_id\": \"SYN-EMP-0052\", \"group_id\": \"SYN-GRP-VPN-USER\", \"group_name\": \"VPN users\", \"system_id\": \"SYN-SYS-VPN\", \"sensitivity\": \"medium\", \"protected\": 0, \"granted_at\": \"2026-10-19T09:00:00Z\", \"expires_at\": null, \"removed_at\": null, \"request_id\": null, \"removed_request_id\": null, \"actor\": \"seed\", \"stamp\": \"seed\"}]}",
+      "is_error": false,
+      "latency_s": 0.001,
+      "asked_as": "access_list_memberships",
+      "caller": "model",
+      "use_case": "nonstandard_request",
+      "key": null,
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"employee_id\": \"SYN-EMP-0052\", \"active_only\": true, \"memberships\": [{\"membership_id\": 271, \"employee_id\": \"SYN-EMP-0052\", \"group_id\": \"SYN-GRP-CONFLUENCE-READ\", \"group_name\": \"Confluence readers\", \"s"
+    },
+    {
+      "step": 2,
+      "plan_step": null,
+      "id": "call_oLg8GQUhihXTrcDoyj3icYuj",
+      "name": "policy_check_access",
+      "input": {
+        "employee_id": "SYN-EMP-0052",
+        "group_ids": [
+          "SYN-GRP-GITHUB-ENGINEERS"
+        ]
+      },
+      "output": "No such group: SYN-GRP-GITHUB-ENGINEERS. Closest: SYN-GRP-GITHUB-ADMIN, SYN-GRP-GITHUB-ENG, SYN-GRP-GITHUB-READ. Nothing was checked; call again with real group IDs. A retry of the same call will fail the same way.",
+      "is_error": true,
+      "latency_s": 0.003,
+      "asked_as": "policy_check_access",
+      "caller": "model",
+      "use_case": "nonstandard_request",
+      "key": null,
+      "error_class": "permanent",
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "No such group: SYN-GRP-GITHUB-ENGINEERS. Closest: SYN-GRP-GITHUB-ADMIN, SYN-GRP-GITHUB-ENG, SYN-GRP-GITHUB-READ. Nothing was checked; call again with real group IDs. A retry of the same call will fail"
+    },
+    {
+      "step": 3,
+      "plan_step": null,
+      "id": "call_e4uogY5N6lJqpYLe6Mguxh7T",
+      "name": "catalog_search_groups",
+      "input": {
+        "query": "GitHub engineers"
+      },
+      "output": "{\"groups\": [{\"id\": \"SYN-GRP-GITHUB-ENG\", \"system_id\": \"SYN-SYS-GITHUB\", \"system_name\": \"GitHub\", \"name\": \"GitHub engineers\", \"level\": \"write\", \"sensitivity\": \"medium\", \"needs_manager\": 0, \"protected\": 0, \"max_days\": null}], \"shown\": 1, \"query_valid\": true}",
+      "is_error": false,
+      "latency_s": 0.002,
+      "asked_as": "catalog_search_groups",
+      "caller": "model",
+      "use_case": "nonstandard_request",
+      "key": null,
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"groups\": [{\"id\": \"SYN-GRP-GITHUB-ENG\", \"system_id\": \"SYN-SYS-GITHUB\", \"system_name\": \"GitHub\", \"name\": \"GitHub engineers\", \"level\": \"write\", \"sensitivity\": \"medium\", \"needs_manager\": 0, \"protected\":"
+    },
+    {
+      "step": 4,
+      "plan_step": null,
+      "id": "call_YgtuUOOIPggluphO3beylDnx",
+      "name": "policy_check_access",
+      "input": {
+        "employee_id": "SYN-EMP-0052",
+        "group_ids": [
+          "SYN-GRP-GITHUB-ENG"
+        ]
+      },
+      "output": "{\"employee_id\": \"SYN-EMP-0052\", \"role\": \"software_engineer\", \"decisions\": [{\"group_id\": \"SYN-GRP-GITHUB-ENG\", \"decision\": \"allowed\", \"reason\": \"the role software_engineer lists SYN-GRP-GITHUB-ENG as allowed\"}]}",
+      "is_error": false,
+      "latency_s": 0.004,
+      "asked_as": "policy_check_access",
+      "caller": "model",
+      "use_case": "nonstandard_request",
+      "key": null,
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"employee_id\": \"SYN-EMP-0052\", \"role\": \"software_engineer\", \"decisions\": [{\"group_id\": \"SYN-GRP-GITHUB-ENG\", \"decision\": \"allowed\", \"reason\": \"the role software_engineer lists SYN-GRP-GITHUB-ENG as a"
+    },
+    {
+      "step": 5,
+      "plan_step": null,
+      "id": "call_MXEUNVgq7WAZevHSOy9LNFDF",
+      "name": "access_grant",
+      "input": {
+        "employee_id": "SYN-EMP-0052",
+        "group_id": "SYN-GRP-GITHUB-ENG",
+        "request_id": "SYN-REQ-0001"
+      },
+      "output": "Cannot grant to SYN-EMP-0052 on SYN-REQ-0001: the requester SYN-EMP-0007 is neither SYN-EMP-0052 nor their manager. Write manager_confirmation_draft for SYN-EMP-0052 and SYN-GRP-GITHUB-ENG, for Hannah Lee (SYN-EMP-0060) to confirm. A retry of this call will fail the same way.",
+      "is_error": true,
+      "latency_s": 0.002,
+      "asked_as": "access_grant",
+      "caller": "model",
+      "use_case": "nonstandard_request",
+      "key": "b15ed49d040df0916670b8cc0c26ce0e",
+      "error_class": "permanent",
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "Cannot grant to SYN-EMP-0052 on SYN-REQ-0001: the requester SYN-EMP-0007 is neither SYN-EMP-0052 nor their manager. Write manager_confirmation_draft for SYN-EMP-0052 and SYN-GRP-GITHUB-ENG, for Hannah"
+    },
+    {
+      "step": 6,
+      "plan_step": null,
+      "id": "call_rcbRcy5e8YrhXIzKPTxxMAtf",
+      "name": "manager_confirmation_draft",
+      "input": {
+        "employee_id": "SYN-EMP-0052",
+        "group_id": "SYN-GRP-GITHUB-ENG",
+        "request_id": "SYN-REQ-0001",
+        "body": "Please confirm the grant of GitHub engineers group to your report Dev Rao as requested by Arjun Mehta."
+      },
+      "output": "{\"pending_id\": \"SYN-PEND-0001\", \"status\": \"waiting_for_operator\", \"manager_id\": \"SYN-EMP-0060\", \"manager_name\": \"Hannah Lee\"}",
+      "is_error": false,
+      "latency_s": 0.004,
+      "asked_as": "manager_confirmation_draft",
+      "caller": "model",
+      "use_case": "nonstandard_request",
+      "key": "f2e671d1772e21e4deaa0ac3d7b8149b",
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"pending_id\": \"SYN-PEND-0001\", \"status\": \"waiting_for_operator\", \"manager_id\": \"SYN-EMP-0060\", \"manager_name\": \"Hannah Lee\"}"
+    },
+    {
+      "step": 7,
+      "plan_step": null,
+      "id": "call_SZbwHmVZfMeSn4SBqI5VozIM",
+      "name": "reply_draft",
+      "input": {
+        "recipient_employee_id": "SYN-EMP-0007",
+        "request_id": "SYN-REQ-0001",
+        "body": "Your request to add Dev Rao to the GitHub engineers group cannot be granted directly by me since you requested it for another employee. I have asked Dev Rao's manager, Hannah Lee, to confirm this grant. No change has been made yet until the manager approves it."
+      },
+      "output": "{\"pending_id\": \"SYN-PEND-0002\", \"status\": \"waiting_for_operator\", \"thread_id\": \"SYN-MSG-T05\"}",
+      "is_error": false,
+      "latency_s": 0.008,
+      "asked_as": "reply_draft",
+      "caller": "model",
+      "use_case": "nonstandard_request",
+      "key": "83ed76f9522c6861e38ee30a56cce5ad",
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"pending_id\": \"SYN-PEND-0002\", \"status\": \"waiting_for_operator\", \"thread_id\": \"SYN-MSG-T05\"}"
+    },
+    {
+      "step": 8,
+      "plan_step": null,
+      "id": "call_EpfIlcsW5rnBzhox9yni5DGY",
+      "name": "requests_set_status",
+      "input": {
+        "request_id": "SYN-REQ-0001",
+        "status": "pending_operator",
+        "note": "Waiting on manager Hannah Lee to confirm grant of GitHub engineers group to Dev Rao."
+      },
+      "output": "{\"request_id\": \"SYN-REQ-0001\", \"status\": \"pending_operator\"}",
+      "is_error": false,
+      "latency_s": 0.003,
+      "asked_as": "requests_set_status",
+      "caller": "model",
+      "use_case": "nonstandard_request",
+      "key": "4777f7ddcfe1015d2f216990b6d52ee7",
+      "error_class": null,
+      "attempts": 1,
+      "rejected": false,
+      "denied": false,
+      "cost_usd": 0.0,
+      "summary": "{\"request_id\": \"SYN-REQ-0001\", \"status\": \"pending_operator\"}"
+    }
+  ],
+  "replies": [
+    {
+      "function": "operator_turn",
+      "text": "SYN-REQ-0001 (agent): I have not granted the GitHub engineers group to Dev Rao directly since the request was made by Arjun Mehta for someone else. Dev Rao's manager, Hannah Lee, has been asked to confirm the grant. The request status is now pending_operator, waiting on the manager's approval.",
+      "actions": [
+        "drafted a confirmation request to SYN-EMP-0060 for SYN-GRP-GITHUB-ENG for SYN-EMP-0052: SYN-PEND-0001",
+        "drafted a reply to SYN-EMP-0007: SYN-PEND-0002, for the operator to send",
+        "set SYN-REQ-0001 to pending_operator"
+      ],
+      "waiting_for": null
+    }
+  ]
+}

@@ -2,6 +2,8 @@
 promise, replayed on the calls that failed in the dev-v1 runs. No tokens.
 Owner: Vipin Mourya."""
 
+import json
+
 import channel
 from agent.registry import CallContext, Registry
 from agent.tools import definitions, impl
@@ -75,9 +77,34 @@ class DefinitionsTest(ScratchTest):
                                                               "name": None}, ctx())
         self.assertEqual(found.data["name"], "Priya Nair")
 
+    def test_no_example_or_hint_names_a_real_record(self):
+        # the first examples used t04's requester and four of its groups (review, 2026-10-28)
+        import re
+        from agent.tools import rules
+        from sandbox import catalog, directory, requests
+        found = {"EMP": directory.get_employee, "GRP": catalog.get_group, "REQ": requests.get, "SYS": catalog.get_system}
+        sent = self.sent(["examples.access_grant=on", "examples.policy_check_access=on"]).values()
+        text = json.dumps(list(sent)) + " ".join(str(v) for v in vars(rules).values() if isinstance(v, tuple))
+        ids = set(re.findall(r"SYN-(EMP|GRP|REQ|SYS)-([A-Z0-9][A-Z0-9-]*[A-Z0-9])", text))
+        self.assertTrue(ids)
+        self.assertEqual([f"SYN-{k}-{v}" for k, v in sorted(ids) if found[k](f"SYN-{k}-{v}")], [])
+
+    def test_no_description_names_a_real_person(self):
+        # the argument descriptions named t04's colleague, Priya Nair, and its requester's email
+        # after the IDs were fixed (review, 2026-10-30): an ID check alone cannot see a name
+        import re
+        from sandbox import db
+        sent = json.dumps(list(self.sent(["examples.access_grant=on", "examples.policy_check_access=on"]).values()))
+        with db.connect() as conn:
+            people = conn.execute("SELECT name, email FROM employees").fetchall()
+        self.assertTrue(people)
+        named = sorted({value for p in people for value in (p["name"], p["name"].split()[-1], p["email"])
+                        if re.search(rf"\b{re.escape(value)}\b", sent)})
+        self.assertEqual(named, [], "a full name, surname or email of a real employee")
+
     def test_policy_examples_are_rendered_while_their_switch_is_on(self):
         on = self.sent(["examples.policy_check_access=on"])["policy_check_access"]["description"]
-        self.assertIn("SYN-GRP-PAYROLL-ADMIN", on)
+        self.assertIn("SYN-GRP-EXAMPLE-ADMIN", on)
 
     def test_the_first_draft_is_sent_as_written_never_with_the_rewrites_switches(self):
         from agent.tools import definitions_v1
@@ -173,6 +200,15 @@ class DefinitionsTest(ScratchTest):
         self.assertTrue(result.is_error)
         self.assertIn("bulk change is not a request", result.content)
         self.assertNotIn("requests_list_today", result.content)
+
+    def test_an_empty_list_for_another_date_says_what_today_gives(self):
+        # results/pass1-after/pass1-after-t06_bulk_ended_contractors-s01-22e631.trace.jsonl:8: before "2024-06-01"
+        bulk = CallContext("s-def", 1, "model", "bulk_change")
+        note = self.registry.call("directory_list_contractors_ended", {"before": "2024-06-01"}, bulk).data["note"]
+        left = len(self.registry.call("directory_list_contractors_ended", {}, bulk).data["contractors"])
+        self.assertGreater(left, 0)
+        self.assertIn(f"Today is 2026-10-21; leave before out for today: {left} contractor(s)", note)
+        self.assertNotIn("note", self.registry.call("directory_list_contractors_ended", {}, bulk).data)
 
     def test_a_bad_date_says_what_today_is(self):
         result = self.registry.call("access_grant", {"employee_id": "SYN-EMP-0031", "group_id": "SYN-GRP-FINREP-READ",

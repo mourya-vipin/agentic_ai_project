@@ -1,0 +1,88 @@
+{
+  "model": "gpt-4.1-mini",
+  "date": "2026-10-26",
+  "no_tools_prompt_tokens": 39,
+  "sets": {
+    "first_draft": {
+      "tools": 15,
+      "definition_tokens": 526,
+      "per_tool": {
+        "check_policy": 46,
+        "draft_manager_confirmation": 56,
+        "draft_reply": 47,
+        "find_group": 39,
+        "get_access": 52,
+        "get_request": 40,
+        "grant_access": 59,
+        "list_ended_contractors": 42,
+        "list_requests": 24,
+        "lookup_employee": 45,
+        "propose_access": 59,
+        "remove_access": 52,
+        "remove_all_access": 49,
+        "search_employees": 39,
+        "update_request": 45
+      },
+      "fixed_overhead_tokens": 12.0,
+      "per_tool_without_overhead": {
+        "check_policy": 34.0,
+        "draft_manager_confirmation": 44.0,
+        "draft_reply": 35.0,
+        "find_group": 27.0,
+        "get_access": 40.0,
+        "get_request": 28.0,
+        "grant_access": 47.0,
+        "list_ended_contractors": 30.0,
+        "list_requests": 12.0,
+        "lookup_employee": 33.0,
+        "propose_access": 47.0,
+        "remove_access": 40.0,
+        "remove_all_access": 37.0,
+        "search_employees": 27.0,
+        "update_request": 33.0
+      }
+    },
+    "rewrite": {
+      "tools": 15,
+      "definition_tokens": 2473,
+      "per_tool": {
+        "access_grant": 331,
+        "access_list_memberships": 142,
+        "access_propose_change": 202,
+        "access_revoke": 187,
+        "access_revoke_all": 165,
+        "catalog_search_groups": 153,
+        "directory_get_employee": 219,
+        "directory_list_contractors_ended": 107,
+        "directory_search_employees": 150,
+        "manager_confirmation_draft": 187,
+        "policy_check_access": 251,
+        "reply_draft": 207,
+        "requests_get": 103,
+        "requests_list_today": 80,
+        "requests_set_status": 157
+      },
+      "fixed_overhead_tokens": 12.0,
+      "per_tool_without_overhead": {
+        "access_grant": 319.0,
+        "access_list_memberships": 130.0,
+        "access_propose_change": 190.0,
+        "access_revoke": 175.0,
+        "access_revoke_all": 153.0,
+        "catalog_search_groups": 141.0,
+        "directory_get_employee": 207.0,
+        "directory_list_contractors_ended": 95.0,
+        "directory_search_employees": 138.0,
+        "manager_confirmation_draft": 175.0,
+        "policy_check_access": 239.0,
+        "reply_draft": 195.0,
+        "requests_get": 91.0,
+        "requests_list_today": 68.0,
+        "requests_set_status": 145.0
+      }
+    }
+  },
+  "method": "one-message call with and without the definitions; difference in prompt tokens",
+  "spent_usd": 0.003152,
+  "input_price_per_million": 0.4
+}

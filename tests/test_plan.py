@@ -179,6 +179,32 @@ class CheckpointTest(PlannedTest):
         self.assertEqual(result.end_reason, executor.REVISION_BOUND)
 
 
+class UnsupportedInstructionTest(PlannedTest):
+    """A bulk instruction the plan's tools do not support: the planner was always handed
+    the ended contractors, and once planned their removal for "Give everyone in Finance
+    read access to payroll" (a live console session, 2026-10-30)."""
+
+    def test_a_plan_with_no_steps_ends_the_run_with_nothing_run_or_stamped(self):
+        run_id = f"plan-{uuid.uuid4().hex[:8]}"
+        text = "Give everyone in Finance read access to payroll."
+        with fixed_run(T06, run_id, backend="tests.fakes:DecliningPlanner") as run:
+            result = executor.run_planned(run_id, text, bound=Bound())
+        lines = read_trace(run.trace_path)
+        self.assertEqual(result.end_reason, executor.UNSUPPORTED)
+        self.assertEqual([x["terminal_reason"] for x in lines if x["type"] == "end"], [executor.UNSUPPORTED])
+        self.assertEqual(len([x for x in lines if x["type"] == "model_call" and x["purpose"] == "plan"]), 1)
+        self.assertEqual([x for x in lines if x["type"] in ("plan", "tool_call", "plan_diff")], [])
+        self.assertEqual([x["supported"] for x in lines if x["type"] == "plan_check"], [False])
+        self.assertEqual(set(stamped_rows(run_id).values()), {0})
+        self.assertTrue(access.memberships(fakes.ANA))         # the ended contractors keep their access
+        self.assertIn("changed nothing", result.text)
+
+    def test_a_reply_with_no_plan_call_is_still_rejected_and_re_planned(self):
+        result = self.run_planned("NoPlanCall")
+        self.assertEqual(result.end_reason, executor.PLAN_REJECTED)
+        self.assertEqual(len(self.of("plan_check")), executor.MAX_REPLANS + 1)
+
+
 class DiffTest(PlannedTest):
     def test_the_diff_labels_the_steps_a_halted_run_never_reached_as_skipped(self):
         result = self.run_planned("EmptyNoteFiller")

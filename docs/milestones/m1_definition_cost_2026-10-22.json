@@ -1,0 +1,31 @@
+{
+  "model": "gpt-4.1-mini",
+  "date": "2026-10-22",
+  "no_tools_prompt_tokens": 39,
+  "sets": {
+    "first_draft": {
+      "tools": 15,
+      "definition_tokens": 526,
+      "per_tool": {
+        "check_policy": 46,
+        "draft_manager_confirmation": 56,
+        "draft_reply": 47,
+        "find_group": 39,
+        "get_access": 52,
+        "get_request": 40,
+        "grant_access": 59,
+        "list_ended_contractors": 42,
+        "list_requests": 24,
+        "lookup_employee": 45,
+        "propose_access": 59,
+        "remove_access": 52,
+        "remove_all_access": 49,
+        "search_employees": 39,
+        "update_request": 45
+      }
+    }
+  },
+  "method": "one-message call with and without the definitions; difference in prompt tokens",
+  "spent_usd": 0.000806,
+  "input_price_per_million": 0.4
+}

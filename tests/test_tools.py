@@ -103,6 +103,18 @@ class ToolsTest(ScratchTest):
             self.assertNotIn("FAKE-", str(line["output"]))
 
 
+    def test_a_removal_is_proposed_only_for_a_group_the_person_holds(self):
+        # the attack pilot's A6 (2026-10-30): a legal hold proposed off someone who did not hold it
+        omar = "SYN-EMP-0070"
+        args = {"action": "revoke", "employee_id": omar, "group_id": "SYN-GRP-LEGAL-HOLD", "request_id": None,
+                "reason": "legal said it is no longer needed"}
+        result = self.registry.call("access_propose_change", args, ctx())
+        self.assertTrue(result.is_error)
+        self.assertIn("does not hold SYN-GRP-LEGAL-HOLD", result.content)
+        self.assertEqual([p for p in pending.open_items("proposed_change") if p["employee_id"] == omar], [])
+        held = self.registry.call("access_propose_change", dict(args, group_id="SYN-GRP-JIRA-READ"), ctx())
+        self.assertFalse(held.is_error)
+
 class OnBehalfAndHandoverTest(ScratchTest):
     """The two changes made from the dev-v1 traces: a grant on someone else's behalf is
     refused unless the requester is their manager, and the credential hand-over is a

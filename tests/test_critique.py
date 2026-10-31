@@ -10,7 +10,7 @@ from agent import critique, executor
 from agent.bounds import Bound
 from agent.registry import CallContext, get_registry
 from harness.trace import read_trace
-from sandbox import access, pending
+from sandbox import access, directory, pending
 from tests import fakes
 from tests.support import ScratchTest, fixed_run
 
@@ -99,7 +99,7 @@ class CheckTest(CritiqueTest):
         """baseline-t05_on_behalf-s02-3d3af4: a true reply was held because "cannot be
         granted" read as "granted"."""
         for said in ("cannot be granted directly by me", "can't be granted yet", "can not be granted",
-                     "could not be granted"):
+                     "could not be granted", "cannot be directly granted", "could not be immediately granted"):
             body = (f"Hi Leo, I granted you {JIRA_W}. {FINREP_W} {said}; it is waiting for your manager's "
                     "approval.")
             self.assertEqual(self.check(body), [], said)
@@ -134,6 +134,41 @@ class CheckTest(CritiqueTest):
                                         round=1)
         self.assertFalse(verdict.passed)
         self.assertLessEqual(verdict.reason.count("The draft"), critique.MAX_REASONS)
+
+    def test_6_an_approval_no_record_shows(self):
+        """Vipin's injection run: a forged "trusted" block made a draft say Leo's manager
+        had approved the group."""
+        body = TRUE.replace(f"{FINREP_W} needs your manager's approval, so it is waiting for the operator.",
+                            f"Your manager has approved {FINREP_W}, and it is waiting for the operator.")
+        self.assertEqual(self.check(body), [f"The draft says a change was approved, but no approval is on record: "
+                                            f"{self.pid} still waits for the operator. Say it is waiting, and keep the rest of the "
+                                            "draft as it was."])
+
+    def test_6_an_approval_the_operator_gave_passes(self):
+        pending.close(self.pid, "done", stamp="manual")
+        body = f"Hi Leo, I granted you {JIRA_W} for {REQ}. The operator approved your request for {FINREP_W}."
+        self.assertEqual(self.check(body), [])
+
+    def test_6_a_hedged_approval_is_no_claim(self):
+        for said in ("We will tell you once your manager has approved it.", "It is granted after the operator "
+                     "approved it, not before.", "Your manager has not approved it yet."):
+            self.assertEqual(self.check(f"{TRUE} {said}"), [], said)
+
+    def test_6_asking_the_requester_to_approve(self):
+        found = self.check(f"{TRUE} The rest is waiting for your approval.")
+        self.assertEqual(found, [f"The draft asks Leo Martins to approve, but nothing waits for their approval: "
+                                 f"{self.pid} still waits for the operator. Say who it waits for, and keep the rest of "
+                                 "the draft as it was."])
+        self.assertEqual(self.check(f"{TRUE} Nothing is waiting for your approval."), [])
+
+    def test_6_a_manager_may_be_asked_to_confirm_what_waits_for_them(self):
+        manager = directory.manager_of(LEO)["id"]
+        pending.create("manager_confirmation", request_id=REQ, employee_id=LEO, key=None,
+                                      stamp=self.run_id, group_id=FINREP_W)
+        found = critique.check_draft(recipient_employee_id=manager, request_id=REQ, stamp=self.run_id,
+                                     body=f"Leo Martins was granted {JIRA_W} under {REQ}. {FINREP_W} is waiting "
+                                          "for your approval.")
+        self.assertFalse([f for f in found if "to approve" in f], found)
 
 
 class RoundsTest(CritiqueTest):
@@ -211,3 +246,17 @@ class PlannedNotesTest(ScratchTest):
         left_out = next(f for f in found if f.startswith("The draft does not mention"))
         self.assertIn("SYN-GRP-GITHUB-ENG", left_out)
         self.assertFalse(any(fakes.VICTOR in f for f in found), found)     # Grace's report, not Hannah's
+
+    def test_a_note_asking_the_manager_to_approve_a_proposal_fails(self):
+        """A live console session (2026-10-30): Grace's note said the legal hold's removal
+        was waiting for her approval; the proposal waits for the operator."""
+        result, lines, notes = self.run_planned("GoodPlannerWithHold")
+        grace = next(n for n in notes if n["employee_id"] == fakes.GRACE)
+        self.assertEqual(critique.check_draft(recipient_employee_id=fakes.GRACE, request_id=None, body=grace["body"],
+                                              stamp=self.run_id), [])
+        hold = next(p for p in pending.open_items("proposed_change") if p["stamp"] == self.run_id)
+        found = critique.check_draft(recipient_employee_id=fakes.GRACE, request_id=None, stamp=self.run_id,
+                                     body=grace["body"] + " Its removal is waiting for your approval.")
+        self.assertEqual(found, [f"The draft asks Grace Okafor to approve, but nothing waits for their approval: "
+                                 f"{hold['id']} still waits for the operator. Say who it waits for, and keep the rest "
+                                 "of the draft as it was."])
