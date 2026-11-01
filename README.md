@@ -1,6 +1,6 @@
 # IT access desk
 
-Team 9 (Vipin Mourya, Aman Panigrahi, Shruti Tewaney), Agentic AI Engineering, Milestone 1.
+Team 10 (Vipin Mourya, Aman Panigrahi, Shruti Tewaney), Agentic AI Engineering, Milestone 1.
 
 A local web application for the IT administrator of a 250-person company. Access requests arrive all day on
 the help desk's channel: from employees ("I need write access to Jira") and from the HR system's feed (a new
