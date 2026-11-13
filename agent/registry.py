@@ -32,12 +32,15 @@ import importlib
 import json
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
+import channel
+from agent import mcp_client
 from agent.errors import EndRun, ToolError
 from agent.tools import definitions as _rewrite
 from agent.tools import impl, rules
 from harness import runtime
+from harness.paths import RESULTS_ENV, STATE_ENV, TRACES_ENV, results_dir, state_dir, traces_dir
 from harness.schema import errors as schema_errors
 from policy.hook import AskApproval, Denied, policy_hook
 from sandbox import access, db
@@ -53,6 +56,7 @@ REPAIR_CHARS = 400        # the most an error's repair fact takes
 
 
 AWAITING_APPROVAL = "awaiting_approval"      # the end reason of a turn whose call waits for the operator
+TRANSPORTS = ("mcp", "local")                # local: in this process, for tests that replace a sandbox function
 ORIGINS = ("agent", "workflow", "operator_command", "program")
 
 
@@ -111,7 +115,12 @@ def derive_key(tool: str, args: dict, ctx: CallContext) -> str:
 
 class Registry:
     def __init__(self, definitions: list[dict] | None = None, aliases: dict[str, str] | None = None,
-                 apply_switches: bool = True):
+                 apply_switches: bool = True, transport: str = "mcp"):
+        if transport not in TRANSPORTS:
+            raise ValueError(f"transport is one of {TRANSPORTS}, not {transport!r}")
+        self.transport = transport
+        self._tool_state: dict = {}      # what a tool counts across calls (the critique's rounds), kept here
+        self.served_by: int | None = None
         self._definitions = definitions if definitions is not None else _rewrite.DEFINITIONS
         self._aliases = aliases if aliases is not None else _rewrite.ALIASES
         self._by_canonical = {self._aliases.get(d["name"], d["name"]): d for d in self._definitions}
@@ -137,6 +146,7 @@ class Registry:
 
     def call(self, name: str, args: dict, ctx: CallContext) -> ToolResult:
         start = time.monotonic()
+        self.served_by = None
         canon = self.resolve(name)
         # 1. protocol: for us, not the model (slide 34)
         if canon is None or ctx.caller not in impl.TOOLS[canon][1] or not isinstance(args, dict):
@@ -191,8 +201,12 @@ class Registry:
         while True:
             attempts += 1
             try:
-                data = run(fixed, ctx, key)
+                data = self._run(canon, run, fixed, ctx, key)
                 break
+            except mcp_client.ServerError as exc:
+                runtime.trace(ctx.session_id).event("mcp_error", tool=canon, error=str(exc)[:300])
+                result = ToolResult(GENERIC_PROTOCOL, is_error=True, error_class="protocol", key=key)
+                return self._record(name, canon, args, ctx, result, start, attempts=attempts)
             except access.TransientError as exc:
                 if attempts < MAX_ATTEMPTS:
                     time.sleep(BACKOFF_S * 2 ** (attempts - 1))
@@ -225,6 +239,47 @@ class Registry:
         result = ToolResult(_cap(json.dumps(data, default=str), MAX_CHARS), data=data, key=key)
         return self._record(name, canon, args, ctx, result, start, attempts=attempts)
 
+    def _run(self, canon: str, run, fixed: dict, ctx: CallContext, key: str | None):
+        """Run the tool: on the MCP server (the app and run.py), or in this process for a
+        test that replaces a sandbox function (transport="local"). Either way it returns the
+        data or raises the error the tool raised, so the steps around it are the same."""
+        if self.transport == "local":
+            return run(fixed, ctx, key)
+        reply = mcp_client.shared().call(canon, fixed, self._context(ctx, key))
+        self._tool_state = reply.get("state") or {}
+        trace = runtime.trace(ctx.session_id)
+        for line in reply.get("trace") or []:
+            kind = line.pop("type", "tool_event")
+            trace.event(kind, **{k: v for k, v in line.items() if k not in ("at", "session_id", "run_id")})
+        self.served_by = reply.get("pid")
+        if reply["ok"]:
+            _tell_script(canon, fixed, reply["data"])
+            return reply["data"]
+        error = reply["error"]
+        if error["type"] == "transient":
+            raise access.TransientError(error["message"])
+        if error["type"] == "end_run":
+            raise EndRun(error["message"], error["end_reason"])
+        if error["type"] == "tool":
+            exc = ToolError(error["message"])
+            exc.error_class, exc.retryable = error.get("error_class") or "permanent", bool(error.get("retryable"))
+            raise exc
+        raise ValueError(error["message"])
+
+    def _context(self, ctx: CallContext, key: str | None) -> dict:
+        """Everything the call needs, carried with it: the server keeps nothing between calls."""
+        run = runtime.current_run()
+        return {
+            "key": key,
+            "ctx": asdict(ctx),
+            "run": {"run_id": run.run_id, "arm": run.arm, "task_id": run.task_id, "sweep": run.sweep,
+                    "backend": run.backend} if run else None,
+            "session": runtime.current_session(),
+            "paths": {STATE_ENV: str(state_dir()), RESULTS_ENV: str(results_dir()), TRACES_ENV: str(traces_dir())},
+            "switches": runtime.switches(),
+            "state": self._tool_state,
+        }
+
     def _record(self, asked: str, canon: str | None, args: dict, ctx: CallContext, result: ToolResult,
                 start: float, attempts: int = 0, rejected: bool = False, denied: bool = False,
                 awaiting: str | None = None) -> ToolResult:
@@ -235,7 +290,7 @@ class Registry:
             result, plan_step=ctx.plan_step, asked_as=asked, caller=ctx.caller, use_case=ctx.use_case,
             key=result.key, error_class=result.error_class, attempts=attempts, rejected=rejected, denied=denied,
             action_class=ctx.action_class, origin=ctx.origin, run_key=ctx.run_key, approved=ctx.approved,
-            awaiting_approval=awaiting, cost_usd=0.0, summary=result.content[:200])
+            awaiting_approval=awaiting, transport=self.transport, server_pid=self.served_by, cost_usd=0.0, summary=result.content[:200])
         return result
 
 
@@ -253,6 +308,19 @@ def _as_sent(definition: dict, canonical_name: str) -> dict:
     if runtime.switch(f"strict.{canonical_name}", "off") == "on":
         sent["strict"] = True
     return sent
+
+
+def _tell_script(tool: str, args: dict, data) -> None:
+    """A send ran in the server's process, so tell this process's scripted strangers
+    (run.py's channel script) that the agent wrote on the thread, as channel.send would."""
+    if not isinstance(data, dict) or data.get("status") != "sent" or not args.get("thread_id"):
+        return
+    script = getattr(channel, "_script", None)
+    if script is None or not script.people:
+        return
+    for message in channel.messages(str(args["thread_id"])):
+        if message.id == data.get("message_id"):
+            script.sent(message)
 
 
 def _approvals():

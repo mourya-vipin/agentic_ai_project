@@ -26,3 +26,23 @@ def stamp(text: str) -> str:
     if body.endswith(LINE):
         return body
     return f"{body}\n\n{LINE}" if body else LINE
+
+
+def without_line(text: str | None) -> str:
+    """The text as its writer wrote it, for a check that reads the message's own claims."""
+    body = str(text or "").rstrip()
+    return body[: -len(LINE)].rstrip() if body.endswith(LINE) else body
+
+
+# the argument that carries a send's text, per tool whose text the model writes
+TEXT_OF_SEND = {"reply_send": "body"}
+
+
+def stamp_call(tool: str, args: dict) -> dict:
+    """The call's arguments with its message stamped: what the loop, the executor and a
+    code-call program pass to the registry for a send whose text the model wrote. Any other
+    call comes back as it was. Template sends are stamped where our code renders them."""
+    name = TEXT_OF_SEND.get(tool)
+    if name is None or not isinstance(args, dict) or args.get(name) is None:
+        return args
+    return {**args, name: stamp(args[name])}

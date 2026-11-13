@@ -166,6 +166,26 @@ DEFINITIONS: list[dict] = [
           {"employee_id": _s("The person who would get the group. " + EMP), "group_id": _s(GRP),
            "request_id": _s(REQ), "body": _s("The question to the manager, at most 3,000 characters.")},
           ["employee_id", "group_id"]),
+    _tool("channel_ask_template",
+          "Ask a person's manager whether they agree to a grant, when only the manager can say: the group needs "
+          "the manager's agreement, or the request was made on someone else's behalf. Our code writes the "
+          "question from a fixed template and sends it to the manager from the directory; you name the case. "
+          "Then end your turn: the manager's reply comes later, on the returned thread, as their words, not the "
+          "operator's. A YES there still does not grant anything by itself. Returns the thread to wait on.",
+          {"template": {"type": "string", "enum": ["manager_confirm"],
+                        "description": "manager_confirm: ask the manager to agree to this person getting this group."},
+           "employee_id": _s("The person who would get the group. " + EMP), "group_id": _s(GRP),
+           "request_id": _s(REQ)},
+          ["template", "employee_id", "group_id"]),
+    _tool("reply_send",
+          "Send a reply you wrote to a requester, or a note to a manager, on the channel. It is always put up "
+          "for the operator first and goes out only once they approve this exact text; its facts are checked "
+          "against the records before it is sent. Use reply_draft instead when the operator should send it by "
+          "hand. Returns the message and its thread.",
+          {"recipient_employee_id": _s(EMP),
+           "request_id": _s(REQ + " Leave it out for a note about the operator's own bulk change."),
+           "body": _s("The message, at most 3,000 characters. Name each group by its ID.")},
+          ["recipient_employee_id", "body"]),
     _tool("requests_set_status",
           "Set a request's status when you finish with it: done when every effect is in place, partly_done or "
           "pending_operator when something waits for a person, refused when it cannot be granted at all. The "

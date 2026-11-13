@@ -135,7 +135,8 @@ def outgoing_text(tool: str, args: dict) -> str | None:
     if tool == "reply_send":
         return str(args.get("body") or "")
     if tool == "channel_ask_template":
-        return args.get("_text")      # the registry renders the template before the hook (C3.9)
+        _, facts, _ = impl.ask_message(args)
+        return notices.render("manager_confirm", facts)
     return None
 
 

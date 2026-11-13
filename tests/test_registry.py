@@ -109,8 +109,9 @@ class RegistryTest(ScratchTest):
                                 key=lambda d: d["name"]))
 
     def test_a_result_of_the_wrong_shape_never_reaches_the_model_as_success(self):
+        local = Registry(transport="local")        # the tool is replaced in this process, not the server's
         with mock.patch.dict(impl.TOOLS, {"requests_list_today": (lambda a, c, k: {"oops": 1}, impl.MODEL, False)}):
-            result = self.registry.call("list_requests", {}, ctx())
+            result = local.call("list_requests", {}, ctx())
         self.assertEqual(result.content, reg.BAD_RESULT)
         self.assertEqual(self.lines("result_invalid")[-1]["problems"], ["the result has no day", "the result has no requests"])
 
