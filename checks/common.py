@@ -170,3 +170,20 @@ def measures(run, expected_routes: dict[str, str | None] | None = None,
 def result(problems: list[str], ok: str, counts: dict):
     """(passed, reason, measures), as run.py expects a check to return."""
     return (not problems, "; ".join(problems) if problems else ok, counts)
+
+
+# The disclosure line, written here again rather than imported from agent/disclosure.py, so a
+# check never calls the code it is checking; tests/test_disclosure.py fails if the two differ.
+DISCLOSURE_LINE = ("— Sent by the IT access desk's automated agent. To reach a person, reply HUMAN "
+                   "or write to it-desk@synthetic.example.")
+
+
+def require_disclosure(run) -> list[str]:
+    """One problem per message the agent sent in this run without the disclosure line as its
+    last paragraph (Part 2, task 8), read from the channel. Every check calls it and adds what
+    it returns to its problems. Added by Vipin Mourya (C7)."""
+    from checks.helpers import sent_by_agent
+
+    return [f"message {m.id} on {t['thread_id']} has no disclosure line"
+            for t in channel.threads() for m in sent_by_agent(run, t["thread_id"])
+            if not m.text.rstrip().endswith(DISCLOSURE_LINE)]

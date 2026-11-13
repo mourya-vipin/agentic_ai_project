@@ -12,6 +12,7 @@ another process could send the same notice; only one process writes per run.
 from __future__ import annotations
 
 import channel
+from agent import disclosure
 from harness import runtime
 from harness.trace import now as wall_now
 from sandbox import db, pending
@@ -30,10 +31,12 @@ TEMPLATES = {
 
 
 def render(template_id: str, facts: dict) -> str:
+    """The notice exactly as sent, with the disclosure line our code adds (agent/disclosure.py):
+    the hook renders it too, and refuses a send whose text lacks the line."""
     if template_id not in TEMPLATES:
         raise ValueError(f"no notice template {template_id!r}; templates: {', '.join(sorted(TEMPLATES))}")
     try:
-        return TEMPLATES[template_id].format(**facts) + SIGN_OFF
+        return disclosure.stamp(TEMPLATES[template_id].format(**facts) + SIGN_OFF)
     except KeyError as exc:
         raise ValueError(f"the {template_id} notice needs the fact {exc.args[0]!r}") from None
 
