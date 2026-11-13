@@ -20,6 +20,7 @@ wrong, what would be right, and whether a retry can work.
 from __future__ import annotations
 
 import hashlib
+from datetime import date, timedelta
 
 from agent import critique
 from agent.errors import EndRun, PermanentError
@@ -186,14 +187,36 @@ def access_grant(args, ctx, key):
             f"{group['id']}" + (f", for {manager['name']} ({manager['id']}) to confirm" if manager else "")
             + ". A retry of this call will fail the same way.")
     decision = catalog.policy_for(person["id"], group["id"])
-    if decision["decision"] not in ("birthright", "allowed"):
+    # a needs-manager grant runs only when the hook found an approval covering this exact call
+    approved = decision["decision"] == "needs_manager" and getattr(ctx, "approved", False)
+    if decision["decision"] not in ("birthright", "allowed") and not approved:
         raise PermanentError(f"Cannot grant {group['id']} to {person['id']}: {decision['reason']}. "
                              + ("Use access_propose_change with action \"grant\" instead, for the operator to approve. "
                                 if decision["decision"] == "needs_manager" else "It cannot be granted on request. ")
                              + "A retry of this call will fail the same way.")
+    expires_at = _time_box(group, args.get("expires_at"))
     result = access.grant(person["id"], group["id"], request_id=request["id"] if request else None, key=key,
-                          stamp=db.current_stamp(), actor=_actor(ctx), expires_at=args.get("expires_at"))
+                          stamp=db.current_stamp(), actor=_actor(ctx), expires_at=expires_at)
     return {**result, "employee_id": person["id"], "group_id": group["id"], "group_name": group["name"]}
+
+
+def _time_box(group: dict, expires_at: str | None) -> str | None:
+    """A time-boxed group's end day: at most max_days from today, and the longest allowed
+    if none is given; any other group keeps the date as given (M1 CHANGES, "Limited")."""
+    if not group.get("max_days"):
+        return expires_at
+    today = date.fromisoformat(clock.today())
+    latest = (today + timedelta(days=int(group["max_days"]))).isoformat()
+    if expires_at is None:
+        return latest
+    if str(expires_at)[:10] < today.isoformat():
+        raise PermanentError(f"expires_at {expires_at} is before today, {today.isoformat()}: give a day from today "
+                             f"to {latest}. A retry with the same date will fail the same way.")
+    if str(expires_at)[:10] > latest:
+        raise PermanentError(f"{group['id']} is time-boxed to {group['max_days']} days, so expires_at is at most "
+                             f"{latest}, not {expires_at}. Leave it out for the longest allowed. A retry with the "
+                             "same date will fail the same way.")
+    return expires_at
 
 
 def access_revoke(args, ctx, key):
@@ -247,6 +270,16 @@ def access_propose_change(args, ctx, key):
         raise PermanentError(f"{person['id']} does not hold {group['id']}, so there is nothing to remove; nothing "
                              f"was proposed. access_list_memberships lists what {person['id']} holds.")
     request = _request(args.get("request_id"))
+    case = _case(args, ctx)
+    if action == "revoke" and ctx.use_case == "nonstandard_request" and case and case["requester_id"] \
+            and person["id"] != case["requester_id"] and person["manager_id"] != case["requester_id"] \
+            and person["status"] != "leaver" and not (person["end_date"] and person["end_date"] < clock.today()):
+        # an attack pilot (2026-10-30): an employee's word that his manager had left queued six
+        # removal proposals for her, though the directory has her active (M1 CHANGES, "Limited")
+        raise PermanentError(f"Cannot propose removing access from {person['id']} on {case['id']}: the directory "
+                             f"has {person['id']} active, and the requester {case['requester_id']} is neither "
+                             f"{person['id']} nor their manager. Nothing was proposed; tell the operator what the "
+                             "requester asked. A retry of this call will fail the same way.")
     pid = pending.create("proposed_change", request_id=request["id"] if request else None, employee_id=person["id"],
                          key=key, stamp=db.current_stamp(), action=action, group_id=group["id"],
                          reason=str(args.get("reason") or ""))

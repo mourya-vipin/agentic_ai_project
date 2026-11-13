@@ -1,5 +1,25 @@
 # Changes
 
+## Milestone 2
+
+### Added
+
+- The autonomy policy (`policy/autonomy.yaml`) in three columns of action classes, and its hook (`policy/hook.py`), which the registry now runs before every call: the stop first, then the call's action class from its arguments and the sandbox's records, the prohibited column, the operator's stated limits, the disclosure line on every send, and approval for the classes that require it. It fails closed: a class in no column, or any failure but a request for approval, denies the call. The action class, origin, run and approval are on every `tool_call` line. Tests in `tests/test_policy.py`. (Vipin Mourya)
+- `CallContext.run_key`, `origin`, `action_class` and `approved` (`agent/registry.py`); a gated call is handed to `agent/approvals.py` and ends the turn `awaiting_approval`. (Vipin Mourya)
+- The disclosure line (`agent/disclosure.py`), added by our code: template notices carry it (`sandbox/notices.py`), the hook refuses a send without it, and `checks/common.py: require_disclosure` reads every message the agent sent in a run. Tests in `tests/test_disclosure.py`. (Vipin Mourya)
+- `agent/context.py: assemble`, which every model call is to be built with: tokens counted as characters / 4 with the definitions included, a stranger's words labelled as theirs, nothing from outside in a planner's call, and what was left out in the trace. Tests in `tests/test_context.py`. (Vipin Mourya)
+- Switches `notes.console` (replacing the starter's flat `notes`), `tools.loading`, `code_calls.operator_review`, `context_budget` and `compaction_threshold`, each with `added:`. (Vipin Mourya)
+
+### Limited
+
+- A time-boxed group's end day (`max_days`) is now enforced on `access_grant`: at most that many days from today, and the longest allowed when none is given (Milestone 1, "Limited"). (Vipin Mourya)
+- On an employee's request, `access_propose_change` no longer proposes removing access from an active colleague who is neither the requester nor one of their reports (Milestone 1's attack pilot, "Limited"). (Vipin Mourya)
+- Until `agent/approvals.py` lands, a call whose class requires approval runs unapproved, and its tool refuses it as in Milestone 1 (the trace's `approval_unavailable` line). `policy/limits.py` is a stub: it parses no limit yet. (Vipin Mourya)
+
+### Fixes from Milestone 1's list
+
+- A write's key now carries its run (`run_key`) once the callers set it, so a later run in the same console session that makes the same change gets a new key, and a replay of the run gets the same one (Milestone 1, "Limited": "A write's key holds no turn"). (Vipin Mourya)
+
 ## Milestone 1
 
 ### Added

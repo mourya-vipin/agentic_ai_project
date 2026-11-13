@@ -1,0 +1,29 @@
+# The autonomy policy: each action class in one of three columns (Lecture 5, slides 13, 14 and 51).
+# Owner: Vipin Mourya.
+#
+# A policy governs a tool in a circumstance, not the tool: policy/hook.py classifies every call,
+# with its arguments and circumstance in hand, into one of these classes, and the same names
+# appear on the trace's tool_call line, in the decision table and in the ledger.
+# The model never sees this file. No answer from the app turns a prohibition into a yes.
+# A class missing from every column is denied: the hook fails closed.
+
+independent:
+  - read/*                            # every read tool: changes nothing
+  - requests_set_status/any           # reverted by setting it back
+  - pending_record/any                # a proposal, a draft or a handover record: the operator dismisses it
+  - access_grant/policy_allowed       # one person, a group their role allows, revoked by access.revoke
+  - access_revoke/unprotected         # regranted by access.grant; U6's revocations are covered at the plan once approval.bulk_change is built
+  - ask_stranger/template             # our code writes the question from a fixed template
+  - notices_send_template/requester   # template text only, to one person
+  - credentials_issue/new_starter     # workflow only; rotatable
+
+requires_approval:
+  - access_grant/manager_confirmed    # a group that needs the manager's agreement
+  - access_grant/high_sensitivity     # wide reach: what they do with the access cannot be undone
+  - reply_send/model_text             # the model wrote the text, and a sent message cannot be recalled
+  - manager_note/plan_listed          # U6's note to a manager, approved at the plan with its recipient and text
+
+prohibited:
+  - access_revoke/protected_group     # a legal hold: only the operator removes it, never the agent
+  - access_grant/forbidden            # a leaver, an ended contract or a protected group: never a yes
+  - credential_in_message/any         # a secret in a message or record leaves the building

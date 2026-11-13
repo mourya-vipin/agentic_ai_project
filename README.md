@@ -62,6 +62,7 @@ runs it has finished, so repeat one under a new name.
 | `sandbox/` | the company's data, the mock identity API, notices, the seed (`sandbox/seed.py` documents the test task inputs) |
 | `app/product.py` | the product's own pages: requests, people, pending records |
 | `agent/` | the agent: `service.py` (the one entry point), the router, workflows, the bounded loop, the planner and executor, the critique, the tool registry and tools |
+| `policy/` | the autonomy policy in three columns (`autonomy.yaml`), the hook that enforces it before every tool call (`hook.py`), and the operator's stated limits (`limits.py`) |
 | `tasks/`, `checks/` | the test tasks and their checks |
 | `docs/milestones/M1.md` | the Milestone 1 write-up |
 | `docs/milestones/m1_*.json` | the numbers M1.md cites: the baseline, Pass 1, and each definition-cost measurement by date |

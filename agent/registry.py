@@ -12,7 +12,10 @@ call() does, in order (Lecture 3, slides 22 to 42):
                    are not an object: logged, and the model gets a short generic answer
     2. boundary    the arguments against the tool's rules (agent/tools/rules.py) and its
                    definition's schema; a rejection is an execution error with its repair fact
-    3. hook        each pre-call hook may deny the call; a hook that raises denies it
+    3. hook        policy/hook.py's policy_hook: the stop, the action class, the policy's
+                   columns, stated limits and the disclosure line; a hook that raises
+                   denies the call, except AskApproval, which hands it to agent/approvals.py
+                   and ends the turn awaiting_approval
     4. key         derived for every write from the intended action, never from the model
     5. run         a transient failure is retried in code, with backoff, up to MAX_ATTEMPTS
     6. result      checked against the tool's declared shape before the model sees it
@@ -25,6 +28,7 @@ Callers never write a tool_call line of their own: call() traces each call.
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import time
 import uuid
@@ -35,6 +39,7 @@ from agent.tools import definitions as _rewrite
 from agent.tools import impl, rules
 from harness import runtime
 from harness.schema import errors as schema_errors
+from policy.hook import AskApproval, Denied, policy_hook
 from sandbox import access, db
 
 CALLERS = ("model", "workflow", "executor")
@@ -47,8 +52,13 @@ MAX_CHARS = 4000          # the most one call returns to the model
 REPAIR_CHARS = 400        # the most an error's repair fact takes
 
 
+AWAITING_APPROVAL = "awaiting_approval"      # the end reason of a turn whose call waits for the operator
+ORIGINS = ("agent", "workflow", "operator_command", "program")
+
+
 def allow_all(tool: str, args: dict, ctx) -> None:
-    """Milestone 1's pre-call hook: it allows every call. Milestone 2 gives it a policy."""
+    """Milestone 1's pre-call hook: it allows every call. Tests that measure the registry
+    alone use it; every other registry runs policy/hook.py's policy_hook."""
 
 
 @dataclass
@@ -60,6 +70,10 @@ class CallContext:
     plan_step: int | None = None  # set by the executor only
     request_id: str | None = None
     call_id: str | None = None    # the model's tool_use id, when the model made the call
+    run_key: str | None = None    # f"{session_id}#{run_no}" (agent/checkpoints.py); set by every caller
+    origin: str = "agent"         # one of ORIGINS: who asked for the call
+    action_class: str | None = None   # filled in by the hook; logged on the tool_call line
+    approved: bool = False        # set by the hook only, when an approval covers this exact call
 
 
 @dataclass
@@ -88,6 +102,10 @@ def derive_key(tool: str, args: dict, ctx: CallContext) -> str:
     model writes, so a reworded retry gets the same key."""
     effect = {name: canonical(args.get(name)) for name in impl.EFFECT_ARGS[tool]}
     material = [db.current_stamp(), "-" if ctx.plan_step is None else str(ctx.plan_step), tool, effect]
+    if ctx.run_key is not None:
+        # one run's writes, not the whole console session's: a later run that makes the same
+        # change again gets a new key, and a replay of this run gets the same one (M1 CHANGES)
+        material.append(ctx.run_key)
     return hashlib.sha256(json.dumps(material, sort_keys=True).encode()).hexdigest()[:32]
 
 
@@ -97,7 +115,7 @@ class Registry:
         self._definitions = definitions if definitions is not None else _rewrite.DEFINITIONS
         self._aliases = aliases if aliases is not None else _rewrite.ALIASES
         self._by_canonical = {self._aliases.get(d["name"], d["name"]): d for d in self._definitions}
-        self.hooks = [allow_all]
+        self.hooks = [policy_hook]
         # False sends the definitions exactly as written: the first draft is measured as it was,
         # never with the rewrite's strict mode or examples on it.
         self.apply_switches = apply_switches
@@ -140,14 +158,31 @@ class Registry:
                        "call again; the same arguments will fail the same way.")
             result = ToolResult(_cap(message, REPAIR_CHARS), is_error=True, error_class="permanent")
             return self._record(name, canon, args, ctx, result, start, rejected=True)
-        # 3. the pre-call hook, failing closed
+        # 3. the pre-call hooks, failing closed: any exception but AskApproval denies the call
         for hook in self.hooks:
             try:
                 hook(canon, fixed, ctx)
-            except Exception as exc:  # any failure of the hook denies the call
+            except AskApproval as ask:
+                approvals = _approvals()
+                if approvals is None:
+                    # until the gate is built, the call runs unapproved: every gated effect's
+                    # tool refuses without ctx.approved, as in Milestone 1 (C3.2)
+                    runtime.trace(ctx.session_id).event("approval_unavailable", tool=canon,
+                                                        action_class=ask.action_class, run_key=ctx.run_key)
+                    continue
+                approval_id = approvals.request(ctx, canon, fixed, ask.action_class, ask.facts)
+                result = ToolResult(f"Waiting for the operator's approval {approval_id}. Nothing has run; end the "
+                                    "turn here.", end_reason=AWAITING_APPROVAL)
+                return self._record(name, canon, args, ctx, result, start, awaiting=approval_id)
+            except Exception as exc:  # any other failure of the hook denies the call
                 runtime.trace(ctx.session_id).event("hook_denied", tool=canon, hook=getattr(hook, "__name__", "hook"),
+                                                    action_class=ctx.action_class, run_key=ctx.run_key,
                                                     error=f"{type(exc).__name__}: {exc}"[:300])
-                return self._record(name, canon, args, ctx, ToolResult(DENIED, is_error=True, error_class="permanent"),
+                # a denial with a next step says it; a hook that broke gets the generic answer
+                message = exc.repair if isinstance(exc, Denied) and exc.repair else \
+                    exc.message if isinstance(exc, ToolError) else DENIED
+                return self._record(name, canon, args, ctx,
+                                    ToolResult(_cap(message, REPAIR_CHARS), is_error=True, error_class="permanent"),
                                     start, denied=True)
         # 4. the key, derived here for every write
         key = derive_key(canon, fixed, ctx) if writes else None
@@ -191,14 +226,16 @@ class Registry:
         return self._record(name, canon, args, ctx, result, start, attempts=attempts)
 
     def _record(self, asked: str, canon: str | None, args: dict, ctx: CallContext, result: ToolResult,
-                start: float, attempts: int = 0, rejected: bool = False, denied: bool = False) -> ToolResult:
+                start: float, attempts: int = 0, rejected: bool = False, denied: bool = False,
+                awaiting: str | None = None) -> ToolResult:
         """The call record (Lecture 3, slide 42), as the trace's tool_call line."""
         result.latency_s = time.monotonic() - start
         runtime.trace(ctx.session_id).tool_call(
             ctx.step, {"id": ctx.call_id or f"call_{uuid.uuid4().hex[:12]}", "name": canon or asked, "input": args},
             result, plan_step=ctx.plan_step, asked_as=asked, caller=ctx.caller, use_case=ctx.use_case,
             key=result.key, error_class=result.error_class, attempts=attempts, rejected=rejected, denied=denied,
-            cost_usd=0.0, summary=result.content[:200])
+            action_class=ctx.action_class, origin=ctx.origin, run_key=ctx.run_key, approved=ctx.approved,
+            awaiting_approval=awaiting, cost_usd=0.0, summary=result.content[:200])
         return result
 
 
@@ -216,6 +253,16 @@ def _as_sent(definition: dict, canonical_name: str) -> dict:
     if runtime.switch(f"strict.{canonical_name}", "off") == "on":
         sent["strict"] = True
     return sent
+
+
+def _approvals():
+    """Shruti Tewaney's agent/approvals.py, or None until it lands (C3.2)."""
+    try:
+        return importlib.import_module("agent.approvals")
+    except ModuleNotFoundError as exc:
+        if exc.name != "agent.approvals":
+            raise
+        return None
 
 
 def _cap(text: str, limit: int) -> str:
