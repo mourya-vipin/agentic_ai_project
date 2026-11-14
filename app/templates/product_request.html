@@ -18,7 +18,7 @@
 {% for p in pending_items %}<tr><td>{{ p.id }}</td><td>{{ p.kind }}</td><td>{{ p.action or '' }} {{ p.group_id or '' }} {{ (p.body or p.reason or '')[:140] }}</td><td>{{ p.status }}</td></tr>{% endfor %}
 </table>{% else %}<p class="muted">None.</p>{% endif %}
 <h2>Set the status by hand</h2>
-<form method="post" action="/requests/{{ item.id }}/status">
+<form method="post" action="/requests/{{ item.id }}/status"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
   <select name="status">{% for s in statuses %}<option {{ 'selected' if s == item.status }}>{{ s }}</option>{% endfor %}</select>
   <input type="text" name="note" placeholder="note (optional)" style="max-width: 420px">
   <button>Save</button>

@@ -1,7 +1,7 @@
 """The product's own pages: the access desk by hand, with no agent. No tokens.
 Owner: Vipin Mourya."""
 
-from fastapi.testclient import TestClient
+from tests.support_app import FormClient
 
 import channel
 from app.main import app
@@ -18,7 +18,7 @@ class ProductPagesTest(ScratchTest):
         with channel.seeding():
             seed.reset()
             seed.seed(None)
-        self.client = TestClient(app)
+        self.client = FormClient(app)
         self.client.__enter__()
 
     def tearDown(self):

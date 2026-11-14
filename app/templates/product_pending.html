@@ -9,9 +9,9 @@
   <td>{% if p.request_id %}<a href="/requests/{{ p.request_id }}">{{ p.request_id }}</a>{% endif %}</td>
   <td>{% if p.employee_id %}<a href="/people/{{ p.employee_id }}">{{ p.employee_id }}</a>{% endif %}</td>
   <td>{% if p.action %}{{ p.action }} {{ p.group_id }}. {% endif %}{{ p.reason or '' }}{% if p.body %}<div class="line">{{ p.body }}</div>{% endif %}</td>
-  <td>{% if p.kind == 'proposed_change' %}<form method="post" action="/pending/{{ p.id }}/apply"><button>Apply</button></form>
-      {% elif p.kind == 'reply_draft' %}<form method="post" action="/pending/{{ p.id }}/send"><button>Send as operator</button></form>
-      {% else %}<form method="post" action="/pending/{{ p.id }}/close"><input type="hidden" name="status" value="done"><button>Mark done</button></form>{% endif %}
-      <form method="post" action="/pending/{{ p.id }}/close"><input type="hidden" name="status" value="dismissed"><button>Dismiss</button></form></td></tr>{% endfor %}
+  <td>{% if p.kind == 'proposed_change' %}<form method="post" action="/pending/{{ p.id }}/apply"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button>Apply</button></form>
+      {% elif p.kind == 'reply_draft' %}<form method="post" action="/pending/{{ p.id }}/send"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button>Send as operator</button></form>
+      {% else %}<form method="post" action="/pending/{{ p.id }}/close"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="status" value="done"><button>Mark done</button></form>{% endif %}
+      <form method="post" action="/pending/{{ p.id }}/close"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="status" value="dismissed"><button>Dismiss</button></form></td></tr>{% endfor %}
 </table></div>{% else %}<p class="muted">Nothing waits for you.</p>{% endif %}
 {% endblock %}

@@ -32,7 +32,7 @@ from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 import channel
-from app import product, templates
+from app import product, security, templates
 from harness import records, runtime, turns
 from harness.paths import results_dir, traces_dir
 from harness.trace import SessionTrace, read_trace
@@ -48,6 +48,7 @@ async def lifespan(_app):
 
 
 app = FastAPI(title="Project", lifespan=lifespan)
+security.install(app)            # Host and Origin checks before any page (app/security.py, Vipin Mourya)
 app.include_router(product.router)
 
 
