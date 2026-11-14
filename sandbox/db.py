@@ -88,6 +88,11 @@ CREATE TABLE IF NOT EXISTS stated_limits (
     stated_at TEXT NOT NULL, lifted_at TEXT, lifted_by TEXT, stamp TEXT NOT NULL,
     synthetic INTEGER NOT NULL DEFAULT 1);
 
+-- notes per console session, kept by our code outside the conversation (agent/notes.py)
+CREATE TABLE IF NOT EXISTS session_notes (
+    session_id TEXT PRIMARY KEY, kind TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL,
+    synthetic INTEGER NOT NULL DEFAULT 1);
+
 CREATE TABLE IF NOT EXISTS request_claims (
     request_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, at TEXT NOT NULL,
     synthetic INTEGER NOT NULL DEFAULT 1);
@@ -101,7 +106,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS memberships_one_active ON memberships (employe
 
 TABLES = ("clock", "employees", "systems", "groups", "role_policy", "memberships", "credentials", "requests",
           "pending_actions", "identity_keys", "notices_sent", "audit_log", "faults", "request_claims",
-          "stated_limits")
+          "stated_limits", "session_notes")
 
 
 def remove() -> None:

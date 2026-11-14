@@ -35,7 +35,7 @@ import uuid
 from dataclasses import asdict, dataclass
 
 import channel
-from agent import mcp_client
+from agent import mcp_client, notes
 from agent.errors import EndRun, ToolError
 from agent.tools import definitions as _rewrite
 from agent.tools import impl, rules
@@ -247,8 +247,13 @@ class Registry:
             runtime.trace(ctx.session_id).event("result_invalid", tool=canon, problems=bad)
             result = ToolResult(BAD_RESULT, is_error=True, error_class="permanent", key=key)
             return self._record(name, canon, args, ctx, result, start, attempts=attempts)
-        # 7. the cap
+        # 7. the cap; then the session's notes, outside the conversation (agent/notes.py)
         result = ToolResult(_cap(json.dumps(data, default=str), MAX_CHARS), data=data, key=key)
+        if writes:
+            try:
+                notes.after_call(ctx, canon, fixed, data)
+            except Exception as exc:           # the notes never fail the call they record
+                runtime.trace(ctx.session_id).event("notes_error", tool=canon, error=f"{type(exc).__name__}: {exc}"[:200])
         return self._record(name, canon, args, ctx, result, start, attempts=attempts)
 
     def _run(self, canon: str, run, fixed: dict, ctx: CallContext, key: str | None):
