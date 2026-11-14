@@ -41,12 +41,12 @@ notes:
 
 # How tool definitions reach the model (Lecture 3, slides 23 to 25). Owner: Vipin Mourya.
 tools:
-  loading: {setting: all, values: [all], added: 2026-11-13, about: "all sends every definition a use case is offered; deferred (a search tool) is built in phase 2."}
+  loading: {setting: all, values: [all, deferred], added: 2026-11-13, about: "all sends every definition a use case is offered. deferred sends a use case with more than 10 tools (U4 13, U6 loop 15) its core tools and tools_search, and what the search finds. all by the count: U4 is near the line and its calls mostly hit the cache; Pass 3 can measure deferred."}
 
 # The model writes a short program that calls the tools, per use case (Lecture 3, slides 26, 27).
 # Owner: Vipin Mourya.
 code_calls:
-  operator_review: {setting: "off", values: ["off"], added: 2026-11-13, about: "U5 filters today's requests down to a few. on is built in phase 2 (agent/codecalls.py)."}
+  operator_review: {setting: "off", values: ["off", "on"], added: 2026-11-13, about: "U5 filters today's requests down to a few: the case that comes closest to looping over many results, so on offers code_run (agent/codecalls.py). off until a pass measures it; U4 calls its tools one at a time."}
 
 # The most input tokens one model call may carry, characters / 4, definitions included
 # (Lecture 2, slides 23, 24). Owner: Vipin Mourya.

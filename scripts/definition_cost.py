@@ -132,7 +132,11 @@ def main(argv=None) -> int:
                    help="results/<arm> folders: price their runs' loop calls from --measured, with no model call")
     p.add_argument("--measured", type=Path, default=None,
                    help="the dated measurement to price with, such as docs/milestones/m1_definition_cost_2026-10-25.json")
+    p.add_argument("--out", type=Path, default=OUT,
+                   help="where to write the measurement (and its dated copy beside it), such as "
+                        "docs/milestones/m2_definition_cost.json; Milestone 1's file by default")
     a = p.parse_args(argv)
+    out = a.out.resolve()
     settings = load_settings(ROOT / "settings.yaml")
     prices = PriceSheet(ROOT / "pricing.yaml")
     if a.per_run:
@@ -164,16 +168,16 @@ def main(argv=None) -> int:
     report["spent_usd"] = round(client.cost_usd, 6)
     report["input_price_per_million"] = getattr(price, "input", None)
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(report, indent=2) + "\n")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=2) + "\n")
     # each measurement keeps a file of its own, so every figure the write-up cites can be read again
-    OUT.with_name(f"{OUT.stem}_{report['date']}.json").write_text(json.dumps(report, indent=2) + "\n")
+    out.with_name(f"{out.stem}_{report['date']}.json").write_text(json.dumps(report, indent=2) + "\n")
     for name, entry in report["sets"].items():
         line = f"{name}: {entry['tools']} tools, {entry['definition_tokens']} tokens of definitions per call"
         if "per_run_tokens" in entry:
             line += f", {entry['per_run_tokens']} per run at {a.calls} calls"
         print(line)
-    print(f"(no-tools call: {base} prompt tokens; measuring spent ${report['spent_usd']:.6f}; written to {OUT})")
+    print(f"(no-tools call: {base} prompt tokens; measuring spent ${report['spent_usd']:.6f}; written to {out})")
     return 0
 
 

@@ -120,6 +120,8 @@ class Registry:
             raise ValueError(f"transport is one of {TRANSPORTS}, not {transport!r}")
         self.transport = transport
         self._tool_state: dict = {}      # what a tool counts across calls (the critique's rounds), kept here
+        self._offered: dict[str, list[str]] = {}   # run -> the tools its use case is offered (deferred loading)
+        self._found: dict[str, list[str]] = {}     # run -> the tools its searches found, in order
         self.served_by: int | None = None
         self._definitions = definitions if definitions is not None else _rewrite.DEFINITIONS
         self._aliases = aliases if aliases is not None else _rewrite.ALIASES
@@ -128,6 +130,16 @@ class Registry:
         # False sends the definitions exactly as written: the first draft is measured as it was,
         # never with the rewrite's strict mode or examples on it.
         self.apply_switches = apply_switches
+
+    # -- deferred loading (Lecture 3, slides 24 and 25) ---------------------------------------------
+
+    def offer(self, scope: str, tool_names: list[str]) -> None:
+        """The tools a run's use case is offered: all a search may find for it."""
+        self._offered[scope] = [self.resolve(n) or n for n in tool_names]
+
+    def found(self, scope: str) -> list[str]:
+        """The tools this run's searches have found so far, in the order found."""
+        return list(self._found.get(scope, []))
 
     def resolve(self, name: str) -> str | None:
         """The canonical name for a first-draft or canonical name, or None."""
@@ -243,8 +255,13 @@ class Registry:
         """Run the tool: on the MCP server (the app and run.py), or in this process for a
         test that replaces a sandbox function (transport="local"). Either way it returns the
         data or raises the error the tool raised, so the steps around it are the same."""
+        if canon in impl.REGISTRY_TOOLS:
+            from agent import codecalls
+            return codecalls.run(fixed.get("program"), ctx, self, self._offered.get(_scope(ctx), []))
+        if canon == "tools_search":
+            fixed = {**fixed, "_offered": self._offered.get(_scope(ctx), [])}   # never seen by the model
         if self.transport == "local":
-            return run(fixed, ctx, key)
+            return self._searched(canon, ctx, run(fixed, ctx, key))
         reply = mcp_client.shared().call(canon, fixed, self._context(ctx, key))
         self._tool_state = reply.get("state") or {}
         trace = runtime.trace(ctx.session_id)
@@ -254,7 +271,7 @@ class Registry:
         self.served_by = reply.get("pid")
         if reply["ok"]:
             _tell_script(canon, fixed, reply["data"])
-            return reply["data"]
+            return self._searched(canon, ctx, reply["data"])
         error = reply["error"]
         if error["type"] == "transient":
             raise access.TransientError(error["message"])
@@ -265,6 +282,18 @@ class Registry:
             exc.error_class, exc.retryable = error.get("error_class") or "permanent", bool(error.get("retryable"))
             raise exc
         raise ValueError(error["message"])
+
+    def _searched(self, canon: str, ctx: CallContext, data):
+        """After a search, remember what it found for this run, and log it so misses can be counted."""
+        if canon == "tools_search" and isinstance(data, dict):
+            scope = _scope(ctx)
+            names = [f["name"] for f in data.get("found") or []]
+            known = self._found.setdefault(scope, [])
+            known += [n for n in names if n not in known]
+            runtime.trace(ctx.session_id).event("tool_search", query=data.get("query"), found=names,
+                                                matched=bool(names), offered=len(self._offered.get(scope, [])),
+                                                run_key=ctx.run_key)
+        return data
 
     def _context(self, ctx: CallContext, key: str | None) -> dict:
         """Everything the call needs, carried with it: the server keeps nothing between calls."""
@@ -308,6 +337,11 @@ def _as_sent(definition: dict, canonical_name: str) -> dict:
     if runtime.switch(f"strict.{canonical_name}", "off") == "on":
         sent["strict"] = True
     return sent
+
+
+def _scope(ctx: CallContext) -> str:
+    """The run a call belongs to: its run key, or its session until callers set one."""
+    return ctx.run_key or ctx.session_id
 
 
 def _tell_script(tool: str, args: dict, data) -> None:

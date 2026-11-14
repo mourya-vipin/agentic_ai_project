@@ -166,6 +166,23 @@ DEFINITIONS: list[dict] = [
           {"employee_id": _s("The person who would get the group. " + EMP), "group_id": _s(GRP),
            "request_id": _s(REQ), "body": _s("The question to the manager, at most 3,000 characters.")},
           ["employee_id", "group_id"]),
+    _tool("tools_search",
+          "Find the tool for what you need to do next, when it is not among your tools: say the action and "
+          "its object, such as \"propose a change\" or \"list a person's memberships\". Up to three tools come "
+          "back, each with what it does, and their definitions are in your next request. It finds only tools "
+          "this case may use, and says so when nothing matches.",
+          {"query": _s("The action and its object, at most 120 characters, such as \"draft a reply\".")},
+          ["query"]),
+    _tool("code_run",
+          "Run a short Python program that calls your other tools, when a question means going through many "
+          "records to find a few, such as every request today. Inside it, call(\"tool_name\", arg=value) "
+          "returns that tool's result as a dict and raises ToolFailed if the tool refuses; set result to what "
+          "you want back. Only result comes back to you, so return the few records that matter, each with its "
+          "ID. No imports, files or network. For one or two records, call the tools directly instead.",
+          {"program": _s("The program, at most 4,000 characters, for example: "
+                         "rows = call(\"requests_list_today\")[\"requests\"]; "
+                         "result = [r[\"id\"] for r in rows if r[\"requester_status\"] != \"active\"]")},
+          ["program"]),
     _tool("channel_ask_template",
           "Ask a person's manager whether they agree to a grant, when only the manager can say: the group needs "
           "the manager's agreement, or the request was made on someone else's behalf. Our code writes the "

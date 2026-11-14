@@ -57,6 +57,8 @@ BAD_ARGS = {
     "channel_ask_template": {"template": "please_confirm", "employee_id": "SYN-EMP-0031",
                              "group_id": "SYN-GRP-FINREP-WRITE"},
     "reply_send": {"recipient_employee_id": "Leo Martins", "body": "Hi Leo."},
+    "tools_search": {"query": ""},
+    "code_run": {"program": ""},
 }
 
 
