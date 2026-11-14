@@ -226,6 +226,27 @@ def rules(plan, limit=13, known=None):
     return {rule for _, rule, _ in validator.validate(plan, list(U6_TOOLS), limit, known)}
 
 
+
+class AssembledCallsTest(PlannedTest):
+    def test_every_call_is_assembled_and_the_planner_gets_no_notes(self):
+        self.run_planned("GoodPlanner")                    # a plan, a revision and two fills
+        built = self.of("context")
+        purposes = [x["purpose"] for x in self.of("model_call")]
+        self.assertEqual(len(built), len(purposes))
+        self.assertEqual([x["call_kind"] for x in built],
+                         ["executor" if p == "fill" else "planner" for p in purposes])
+        self.assertEqual(sorted(set(purposes)), ["fill", "plan", "revise"])
+        for line in built:
+            if line["call_kind"] == "planner":
+                self.assertFalse([o for o in line["left_out"] if o["what"] != "notes"])
+
+    def test_a_call_over_the_budget_ends_the_run_budget_unfit(self):
+        self.run_planned("GoodPlanner", overrides=["context_budget=50"])
+        self.assertEqual(self.end_reasons(), ["budget_unfit"])
+        self.assertFalse(self.of("model_call"))
+        self.assertFalse(self.of("tool_call"))
+
+
 class ValidatorTest(unittest.TestCase):
     def test_a_good_plan_is_valid(self):
         self.assertEqual(rules(good_plan()), set())

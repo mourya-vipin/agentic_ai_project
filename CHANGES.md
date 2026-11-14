@@ -21,6 +21,10 @@
 - Notes outside the conversation (`agent/notes.py`, `notes.console: on`): written by our code from each write's IDs and status, never a stranger's or the model's words, stored in the sandbox (`session_notes`), and placed in loop, executor and answer calls, never the planner's. Tests in `tests/test_notes.py`. (Vipin Mourya)
 - The long session `tasks/sessions/s01_operator_day.yaml` and its check, which counts `late_action_right` and `answers_right`. (Vipin Mourya)
 - Switches `notes.console` (replacing the starter's flat `notes`), `tools.loading`, `code_calls.operator_review`, `context_budget` and `compaction_threshold`, each with `added:`. (Vipin Mourya)
+- The stop (`agent/control.py`): a flag in `state_dir()/control.sqlite3`, outside the agent and the sandbox, which the hook reads before every call, so every later call of a stopped run is refused, a read included; `/stop` without a run number flags the whole session until `agent/checkpoints.py` lists its live runs. `cancel` ends a run for good, `resume` lifts the flag with its time in the command log, and `compensations` plans each journaled write's undo, newest first, with "none" for a send, a status and a pending record. Tests in `tests/test_stop.py`. (Shruti Tewaney)
+- The operator's commands (`agent/commands.py`): `/stop [n]`, `/cancel n`, `/resume n` and `/rollback n`, parsed by code before any model sees the message; a malformed one gets its usage back and does nothing. Tests in `tests/test_stop.py`. (Shruti Tewaney)
+- The executor takes the run's key (`run_planned(..., run_key=)`) and sets `run_key` and `origin="agent"` on every call. (Shruti Tewaney)
+- The planned path builds every model call with `context.assemble`: the planner's and the reviser's as kind `planner` (no notes, memory or stranger text), each fill call as kind `executor` with the notes; a call that cannot fit ends the run `budget_unfit` before the model is called. Tests in `tests/test_plan.py`. (Shruti Tewaney)
 
 ### Limited
 
@@ -29,12 +33,15 @@
 - A time-boxed group's end day (`max_days`) is now enforced on `access_grant`: at most that many days from today, and the longest allowed when none is given (Milestone 1, "Limited"). (Vipin Mourya)
 - On an employee's request, `access_propose_change` no longer proposes removing access from an active colleague who is neither the requester nor one of their reports (Milestone 1's attack pilot, "Limited"). (Vipin Mourya)
 - Until `agent/approvals.py` lands, a call whose class requires approval runs unapproved, and its tool refuses it as in Milestone 1 (the trace's `approval_unavailable` line). (Vipin Mourya)
+- `resume` and `rollback` have no saved run to carry on or journal to read until `agent/checkpoints.py` lands, and the rollback's compensations pass the hook, whose stop check refuses them while the run is stopped (to be settled with Vipin Mourya: an `origin="operator_command"` call of a stopped run). A status set by the run is not rolled back: the journal does not hold the status before. (Shruti Tewaney)
+- The planner's and the reviser's token count leaves out their one tool, `submit_plan`, which is not a registry tool, so `assemble` does not see its definition. (Shruti Tewaney)
 
 ### Fixes from Milestone 1's list
 
 - The app's guard against other web pages (`app/security.py`; Milestone 1, "Limited": no sign-in, no CSRF token). Every request must name this machine as its host (no DNS rebinding), and a browser's POST must come from the app's own pages (its `Origin`, or else its `Referer`), on the product's and the operator's pages alike; a request with neither, such as curl or `run.py`, passes. The product's forms also carry a token another site cannot read. Two lines in `app/main.py` install it. Tests in `tests/test_app_security.py`. (Vipin Mourya)
 
 - A write's key now carries its run (`run_key`) once the callers set it, so a later run in the same console session that makes the same change gets a new key, and a replay of the run gets the same one (Milestone 1, "Limited": "A write's key holds no turn"). (Vipin Mourya)
+- The prompts' examples no longer use real IDs: `agent/prompts/reviser.md` and `executor.md` give SYN-GRP-EXAMPLE-HOLD, SYN-EMP-9001 and SYN-GRP-EXAMPLE-WRITE, as the tool definitions do (Milestone 1, "Limited"). (Shruti Tewaney)
 
 ## Milestone 1
 

@@ -35,7 +35,7 @@ import json
 import re
 import time
 
-from agent import detectors, planner, reviser, validator
+from agent import context, detectors, planner, reviser, validator
 from agent.bounds import LOOP_TOKEN_BUDGET, STEP_LIMIT, WALL_CLOCK, Bound
 from agent.loop import LoopResult
 from agent.registry import CallContext, get_registry
@@ -102,8 +102,9 @@ def summarize(step: dict, result) -> dict:
 
 
 class PlannedRun:
-    def __init__(self, session_id: str, operator_text: str, bound: Bound):
+    def __init__(self, session_id: str, operator_text: str, bound: Bound, run_key: str | None = None):
         self.sid, self.text, self.bound = session_id, operator_text, bound
+        self.run_key = run_key                  # C3.1, from the caller's checkpoints.new_run; on every call
         self.trace = runtime.trace(session_id)
         self.client = runtime.client(session_id)
         self.registry = get_registry()
@@ -133,10 +134,28 @@ class PlannedRun:
             raise _End(WALL_CLOCK, f"{elapsed:.1f} s this turn; the wall clock is {self.bound.wall_clock_s:.0f} s")
 
     def model(self, purpose: str, system: str, messages: list[dict], tools: list[dict]):
-        """One model call, bounded and traced: the planner, reviser and filler all use it."""
+        """One model call, bounded, built by context.assemble and traced: the planner, reviser
+        and filler all use it. The planner and the reviser are assembled as kind "planner", so
+        they never get notes, memory or a stranger's words; their one tool (submit_plan) is not
+        a registry tool, so it is passed as given. A fill call is kind "executor", with the
+        notes, offered its step's one tool through the registry."""
         self._check_bound(model_call=True)
+        if purpose == "fill":
+            names = [t["name"] for t in tools]
+            built = context.assemble("executor", system=system, session_id=self.sid, run_key=self.run_key,
+                                     task=None, history=messages, tool_names=[self.registry.resolve(n) or n
+                                                                              for n in names],
+                                     registry=self.registry, use_case=USE_CASE)
+            tools = built.tools
+        else:
+            built = context.assemble("planner", system=system, session_id=self.sid, run_key=self.run_key,
+                                     task=None, history=messages, tool_names=None, registry=self.registry,
+                                     use_case=USE_CASE)
+        if built.unfit:
+            raise _End(context.BUDGET_UNFIT, f"the {purpose} call needs {built.tokens} tokens; "
+                                             f"the budget is {context.budget()}")
         self.n += 1
-        response = self.client.create(system=system, messages=messages, tools=tools)
+        response = self.client.create(system=built.system, messages=built.messages, tools=tools)
         self.trace.model_call(self.n, response, purpose=purpose)
         return response
 
@@ -226,7 +245,8 @@ class PlannedRun:
         if seen:
             self.trace.event("repeat_call", tool=step["tool"], plan_step=step["id"], first=seen["step"],
                              hash=seen["hash"])
-        ctx = CallContext(self.sid, self.n, "executor", USE_CASE, plan_step=step["id"])
+        ctx = CallContext(self.sid, self.n, "executor", USE_CASE, plan_step=step["id"], run_key=self.run_key,
+                          origin="agent")
         return self.registry.call(step["tool"], args, ctx)
 
     def _filled_call(self, step: dict, args: dict, to_fill: list[str]):
@@ -378,6 +398,7 @@ class PlannedRun:
         return "\n\n".join(lines)
 
 
-def run_planned(session_id: str, operator_text: str, *, bound: Bound) -> LoopResult:
-    """U6 as a planned agent (plan.bulk_change = "on"). Writes its own trace.end."""
-    return PlannedRun(session_id, operator_text, bound).run()
+def run_planned(session_id: str, operator_text: str, *, bound: Bound, run_key: str | None = None) -> LoopResult:
+    """U6 as a planned agent (plan.bulk_change = "on"). Writes its own trace.end. `run_key`
+    is the run's checkpoint key (C3.1): the hook's stop check and the per-run write keys read it."""
+    return PlannedRun(session_id, operator_text, bound, run_key=run_key).run()
