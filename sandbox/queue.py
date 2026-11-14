@@ -1,6 +1,6 @@
 """The work waiting, for the app's queue page: open requests and open pending
 records. The queue page adds the threads that wait for an outside reply and
-anything waiting for approval. Owner: Vipin Mourya.
+anything waiting for approval. Owner: Shruti Tewaney (from Vipin Mourya, as agreed in C2).
 """
 
 from __future__ import annotations

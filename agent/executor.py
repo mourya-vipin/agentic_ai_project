@@ -102,8 +102,9 @@ def summarize(step: dict, result) -> dict:
 
 
 class PlannedRun:
-    def __init__(self, session_id: str, operator_text: str, bound: Bound):
+    def __init__(self, session_id: str, operator_text: str, bound: Bound, run_key: str | None = None):
         self.sid, self.text, self.bound = session_id, operator_text, bound
+        self.run_key = run_key                  # C3.1, from the caller's checkpoints.new_run; on every call
         self.trace = runtime.trace(session_id)
         self.client = runtime.client(session_id)
         self.registry = get_registry()
@@ -226,7 +227,8 @@ class PlannedRun:
         if seen:
             self.trace.event("repeat_call", tool=step["tool"], plan_step=step["id"], first=seen["step"],
                              hash=seen["hash"])
-        ctx = CallContext(self.sid, self.n, "executor", USE_CASE, plan_step=step["id"])
+        ctx = CallContext(self.sid, self.n, "executor", USE_CASE, plan_step=step["id"], run_key=self.run_key,
+                          origin="agent")
         return self.registry.call(step["tool"], args, ctx)
 
     def _filled_call(self, step: dict, args: dict, to_fill: list[str]):
@@ -378,6 +380,7 @@ class PlannedRun:
         return "\n\n".join(lines)
 
 
-def run_planned(session_id: str, operator_text: str, *, bound: Bound) -> LoopResult:
-    """U6 as a planned agent (plan.bulk_change = "on"). Writes its own trace.end."""
-    return PlannedRun(session_id, operator_text, bound).run()
+def run_planned(session_id: str, operator_text: str, *, bound: Bound, run_key: str | None = None) -> LoopResult:
+    """U6 as a planned agent (plan.bulk_change = "on"). Writes its own trace.end. `run_key`
+    is the run's checkpoint key (C3.1): the hook's stop check and the per-run write keys read it."""
+    return PlannedRun(session_id, operator_text, bound, run_key=run_key).run()
