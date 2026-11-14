@@ -24,6 +24,7 @@
 - The stop (`agent/control.py`): a flag in `state_dir()/control.sqlite3`, outside the agent and the sandbox, which the hook reads before every call, so every later call of a stopped run is refused, a read included; `/stop` without a run number flags the whole session until `agent/checkpoints.py` lists its live runs. `cancel` ends a run for good, `resume` lifts the flag with its time in the command log, and `compensations` plans each journaled write's undo, newest first, with "none" for a send, a status and a pending record. Tests in `tests/test_stop.py`. (Shruti Tewaney)
 - The operator's commands (`agent/commands.py`): `/stop [n]`, `/cancel n`, `/resume n` and `/rollback n`, parsed by code before any model sees the message; a malformed one gets its usage back and does nothing. Tests in `tests/test_stop.py`. (Shruti Tewaney)
 - The executor takes the run's key (`run_planned(..., run_key=)`) and sets `run_key` and `origin="agent"` on every call. (Shruti Tewaney)
+- The planned path builds every model call with `context.assemble`: the planner's and the reviser's as kind `planner` (no notes, memory or stranger text), each fill call as kind `executor` with the notes; a call that cannot fit ends the run `budget_unfit` before the model is called. Tests in `tests/test_plan.py`. (Shruti Tewaney)
 
 ### Limited
 
@@ -33,6 +34,7 @@
 - On an employee's request, `access_propose_change` no longer proposes removing access from an active colleague who is neither the requester nor one of their reports (Milestone 1's attack pilot, "Limited"). (Vipin Mourya)
 - Until `agent/approvals.py` lands, a call whose class requires approval runs unapproved, and its tool refuses it as in Milestone 1 (the trace's `approval_unavailable` line). (Vipin Mourya)
 - `resume` and `rollback` have no saved run to carry on or journal to read until `agent/checkpoints.py` lands, and the rollback's compensations pass the hook, whose stop check refuses them while the run is stopped (to be settled with Vipin Mourya: an `origin="operator_command"` call of a stopped run). A status set by the run is not rolled back: the journal does not hold the status before. (Shruti Tewaney)
+- The planner's and the reviser's token count leaves out their one tool, `submit_plan`, which is not a registry tool, so `assemble` does not see its definition. (Shruti Tewaney)
 
 ### Fixes from Milestone 1's list
 

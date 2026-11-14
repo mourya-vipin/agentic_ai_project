@@ -35,7 +35,7 @@ import json
 import re
 import time
 
-from agent import detectors, planner, reviser, validator
+from agent import context, detectors, planner, reviser, validator
 from agent.bounds import LOOP_TOKEN_BUDGET, STEP_LIMIT, WALL_CLOCK, Bound
 from agent.loop import LoopResult
 from agent.registry import CallContext, get_registry
@@ -134,10 +134,28 @@ class PlannedRun:
             raise _End(WALL_CLOCK, f"{elapsed:.1f} s this turn; the wall clock is {self.bound.wall_clock_s:.0f} s")
 
     def model(self, purpose: str, system: str, messages: list[dict], tools: list[dict]):
-        """One model call, bounded and traced: the planner, reviser and filler all use it."""
+        """One model call, bounded, built by context.assemble and traced: the planner, reviser
+        and filler all use it. The planner and the reviser are assembled as kind "planner", so
+        they never get notes, memory or a stranger's words; their one tool (submit_plan) is not
+        a registry tool, so it is passed as given. A fill call is kind "executor", with the
+        notes, offered its step's one tool through the registry."""
         self._check_bound(model_call=True)
+        if purpose == "fill":
+            names = [t["name"] for t in tools]
+            built = context.assemble("executor", system=system, session_id=self.sid, run_key=self.run_key,
+                                     task=None, history=messages, tool_names=[self.registry.resolve(n) or n
+                                                                              for n in names],
+                                     registry=self.registry, use_case=USE_CASE)
+            tools = built.tools
+        else:
+            built = context.assemble("planner", system=system, session_id=self.sid, run_key=self.run_key,
+                                     task=None, history=messages, tool_names=None, registry=self.registry,
+                                     use_case=USE_CASE)
+        if built.unfit:
+            raise _End(context.BUDGET_UNFIT, f"the {purpose} call needs {built.tokens} tokens; "
+                                             f"the budget is {context.budget()}")
         self.n += 1
-        response = self.client.create(system=system, messages=messages, tools=tools)
+        response = self.client.create(system=built.system, messages=built.messages, tools=tools)
         self.trace.model_call(self.n, response, purpose=purpose)
         return response
 
