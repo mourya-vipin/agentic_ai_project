@@ -4,7 +4,7 @@ No tokens. Owner: Vipin Mourya."""
 
 import threading
 
-from fastapi.testclient import TestClient
+from tests.support_app import FormClient
 
 import channel
 from agent import router
@@ -41,7 +41,7 @@ class ConcurrencyTest(ScratchTest):
         with channel.seeding():
             seed.reset()
             seed.seed(None)
-        self.client = TestClient(app)
+        self.client = FormClient(app)
         self.client.__enter__()
 
     def tearDown(self):

@@ -10,10 +10,10 @@
 <table><tr><th>Group</th><th>Sensitivity</th><th>Granted</th><th>Removed</th><th>By</th><th></th></tr>
 {% for m in held %}<tr><td>{{ m.group_name }} <span class="muted">{{ m.group_id }}</span>{% if m.protected %} · protected{% endif %}</td><td>{{ m.sensitivity }}</td>
   <td>{{ m.granted_at }}</td><td>{{ m.removed_at or '' }}</td><td class="muted">{{ m.actor }} · {{ m.stamp }}</td>
-  <td>{% if not m.removed_at and not m.protected %}<form method="post" action="/people/{{ person.id }}/revoke"><input type="hidden" name="group_id" value="{{ m.group_id }}"><button>Remove</button></form>{% endif %}</td></tr>{% endfor %}
+  <td>{% if not m.removed_at and not m.protected %}<form method="post" action="/people/{{ person.id }}/revoke"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="group_id" value="{{ m.group_id }}"><button>Remove</button></form>{% endif %}</td></tr>{% endfor %}
 </table>
 <h2>Grant a group by hand</h2>
-<form method="post" action="/people/{{ person.id }}/grant">
+<form method="post" action="/people/{{ person.id }}/grant"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
   <select name="group_id">{% for g in grantable %}<option value="{{ g.id }}">{{ g.name }} ({{ g.id }}) · policy: {{ policy[g.id] }}</option>{% endfor %}</select>
   <input type="text" name="request_id" placeholder="request ID (optional)" style="max-width: 220px">
   <button>Grant</button>
@@ -21,6 +21,6 @@
 <h2>Credentials</h2>
 {% if creds %}<table><tr><th>ID</th><th>System</th><th>Kind</th><th>Created</th><th>Secret</th></tr>
 {% for c in creds %}<tr><td>{{ c.id }}</td><td>{{ c.system_id }}</td><td>{{ c.kind }}</td><td>{{ c.created_at }}</td>
-  <td>{% if revealed == c.id %}<code>{{ secret }}</code> <span class="muted">hand it over in person; never by message</span>{% else %}<form method="post" action="/credentials/{{ c.id }}/reveal"><input type="hidden" name="employee_id" value="{{ person.id }}"><button>Reveal once</button></form>{% endif %}</td></tr>{% endfor %}
+  <td>{% if revealed == c.id %}<code>{{ secret }}</code> <span class="muted">hand it over in person; never by message</span>{% else %}<form method="post" action="/credentials/{{ c.id }}/reveal"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="employee_id" value="{{ person.id }}"><button>Reveal once</button></form>{% endif %}</td></tr>{% endfor %}
 </table>{% else %}<p class="muted">None.</p>{% endif %}
 {% endblock %}

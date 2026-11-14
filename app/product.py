@@ -17,14 +17,15 @@ from __future__ import annotations
 
 import functools
 
-from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 import channel
-from app import templates
+from app import security, templates
 from sandbox import access, catalog, clock, credentials, directory, notices, pending, requests
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(security.require_token)])   # every product POST carries the form token
+templates.env.globals["csrf_token"] = security.token
 MANUAL = "manual"
 
 

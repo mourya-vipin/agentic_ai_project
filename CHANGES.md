@@ -20,11 +20,15 @@
 
 ### Limited
 
+- The app has no sign-in: it serves one operator on 127.0.0.1, so anyone who can reach its port is already on the operator's machine. The guard (below, "Fixes from Milestone 1's list") stops other web pages, not other users of that machine. (Vipin Mourya)
+
 - A time-boxed group's end day (`max_days`) is now enforced on `access_grant`: at most that many days from today, and the longest allowed when none is given (Milestone 1, "Limited"). (Vipin Mourya)
 - On an employee's request, `access_propose_change` no longer proposes removing access from an active colleague who is neither the requester nor one of their reports (Milestone 1's attack pilot, "Limited"). (Vipin Mourya)
 - Until `agent/approvals.py` lands, a call whose class requires approval runs unapproved, and its tool refuses it as in Milestone 1 (the trace's `approval_unavailable` line). (Vipin Mourya)
 
 ### Fixes from Milestone 1's list
+
+- The app's guard against other web pages (`app/security.py`; Milestone 1, "Limited": no sign-in, no CSRF token). Every request must name this machine as its host (no DNS rebinding), and a browser's POST must come from the app's own pages (its `Origin`, or else its `Referer`), on the product's and the operator's pages alike; a request with neither, such as curl or `run.py`, passes. The product's forms also carry a token another site cannot read. Two lines in `app/main.py` install it. Tests in `tests/test_app_security.py`. (Vipin Mourya)
 
 - A write's key now carries its run (`run_key`) once the callers set it, so a later run in the same console session that makes the same change gets a new key, and a replay of the run gets the same one (Milestone 1, "Limited": "A write's key holds no turn"). (Vipin Mourya)
 
