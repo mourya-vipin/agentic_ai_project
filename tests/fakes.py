@@ -54,6 +54,9 @@ BAD_ARGS = {
     "reply_draft": {"recipient_employee_id": "SYN-EMP-0031", "body": ""},
     "manager_confirmation_draft": {"employee_id": "SYN-EMP-0031", "group_id": "SYN-GRP-NO-SUCH-GROUP"},
     "requests_set_status": {"request_id": "SYN-REQ-0001", "status": "finished"},
+    "channel_ask_template": {"template": "please_confirm", "employee_id": "SYN-EMP-0031",
+                             "group_id": "SYN-GRP-FINREP-WRITE"},
+    "reply_send": {"recipient_employee_id": "Leo Martins", "body": "Hi Leo."},
 }
 
 

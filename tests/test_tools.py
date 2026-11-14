@@ -32,7 +32,7 @@ class ToolsTest(ScratchTest):
         names = [d["name"] for d in self.registry.definitions()]
         self.assertEqual(names, sorted(names))
         self.assertEqual(names, [d["name"] for d in self.registry.definitions()])
-        self.assertEqual(len(names), 15)
+        self.assertEqual(len(names), 17)           # 15 in M1, then channel_ask_template and reply_send
         self.assertNotIn("notices_send_template", names)
         self.assertNotIn("credentials_issue", names)
 

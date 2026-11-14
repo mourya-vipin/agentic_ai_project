@@ -12,7 +12,7 @@ from sandbox import seed
 from tests.support import ScratchTest
 
 MODEL_TOOLS = sorted(n for n, (_, callers, _) in impl.TOOLS.items() if "model" in callers)
-SERVICES = ("directory_", "access_", "catalog_", "policy_", "requests_", "reply_", "manager_")
+SERVICES = ("directory_", "access_", "catalog_", "policy_", "requests_", "reply_", "manager_", "channel_")
 
 
 def ctx(use_case="nonstandard_request", request_id=None):

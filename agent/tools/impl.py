@@ -22,7 +22,7 @@ from __future__ import annotations
 import hashlib
 from datetime import date, timedelta
 
-from agent import critique
+from agent import critique, disclosure
 from agent.errors import EndRun, PermanentError
 from agent.tools.rules import hint
 from harness import runtime
@@ -290,31 +290,106 @@ def access_propose_change(args, ctx, key):
 _rounds: dict[tuple, int] = {}      # (stamp, recipient, request) -> critique rounds used
 
 
+def _critique(recipient: dict, request: dict | None, body: str, ctx, tool: str) -> None:
+    """The external critique on a reply's facts (critique.requester_reply=external): a failure comes
+    back to fix, and the second is held. The rounds are counted per (run, recipient, request)."""
+    if runtime.switch("critique.requester_reply") != "external":
+        return
+    stamp = db.current_stamp()
+    slot = (stamp, recipient["id"], request["id"] if request else None)
+    _rounds[slot] = _rounds.get(slot, 0) + 1
+    verdict = critique.review_draft(recipient_employee_id=recipient["id"], request_id=slot[2], body=body,
+                                    stamp=stamp, round=_rounds[slot])
+    runtime.trace(ctx.session_id).event("critique", round=verdict.round, verdict="pass" if verdict.passed
+                                        else "fail", reason=verdict.reason, changed=verdict.changed,
+                                        recipient=recipient["id"], request_id=slot[2])
+    if not verdict.passed:
+        if verdict.round >= critique.MAX_ROUNDS:
+            raise EndRun(f"The {'draft' if tool == 'reply_draft' else 'reply'} was held and not "
+                         f"{'written' if tool == 'reply_draft' else 'sent'}: {verdict.reason}", critique.CRITIQUE_HELD)
+        raise PermanentError(f"The {'draft was not written' if tool == 'reply_draft' else 'reply was not sent'} "
+                             f"(round {verdict.round} of {critique.MAX_ROUNDS}): {verdict.reason} Revise it and call "
+                             f"{tool} again.")
+
+
+def _reply_thread(recipient: dict, request: dict | None) -> str:
+    """A requester's reply goes on their request's thread; anyone else's on their own mail thread."""
+    return request["thread_id"] if request and request["requester_id"] == recipient["id"] else \
+        f"SYN-MAIL-{recipient['id']}"
+
+
 def reply_draft(args, ctx, key):
     recipient = _employee(args.get("recipient_employee_id"))
     request = _request(args.get("request_id"))
     body = str(args.get("body") or "").strip()
     if not body:
         raise PermanentError("The draft's body is empty: write the reply to the recipient.")
-    stamp = db.current_stamp()
-    if runtime.switch("critique.requester_reply") == "external":
-        slot = (stamp, recipient["id"], request["id"] if request else None)
-        _rounds[slot] = _rounds.get(slot, 0) + 1
-        verdict = critique.review_draft(recipient_employee_id=recipient["id"], request_id=slot[2], body=body,
-                                        stamp=stamp, round=_rounds[slot])
-        runtime.trace(ctx.session_id).event("critique", round=verdict.round, verdict="pass" if verdict.passed
-                                            else "fail", reason=verdict.reason, changed=verdict.changed,
-                                            recipient=recipient["id"], request_id=slot[2])
-        if not verdict.passed:
-            if verdict.round >= critique.MAX_ROUNDS:
-                raise EndRun(f"The draft was held and not written: {verdict.reason}", critique.CRITIQUE_HELD)
-            raise PermanentError(f"The draft was not written (round {verdict.round} of {critique.MAX_ROUNDS}): "
-                                 f"{verdict.reason} Revise the draft and call reply_draft again.")
-    thread = request["thread_id"] if request and request["requester_id"] == recipient["id"] else \
-        f"SYN-MAIL-{recipient['id']}"
+    _critique(recipient, request, body, ctx, "reply_draft")
+    thread = _reply_thread(recipient, request)
     pid = pending.create("reply_draft", request_id=request["id"] if request else None, employee_id=recipient["id"],
-                         key=key, stamp=stamp, thread_id=thread, body=body)
+                         key=key, stamp=db.current_stamp(), thread_id=thread, body=body)
     return {"pending_id": pid, "status": "waiting_for_operator", "thread_id": thread}
+
+
+def reply_send(args, ctx, key):
+    """A reply the model wrote, sent on the channel. Always gated (reply_send/model_text, or
+    manager_note/plan_listed in an approved U6 plan): it runs only once an approval covers it."""
+    recipient = _employee(args.get("recipient_employee_id"))
+    request = _request(args.get("request_id"))
+    body = str(args.get("body") or "").strip()
+    if not getattr(ctx, "approved", False):
+        raise PermanentError("reply_send sends only once the operator has approved this exact message; nothing "
+                             "was sent. Use reply_draft to leave it for the operator instead.")
+    _critique(recipient, request, disclosure.without_line(body), ctx, "reply_send")
+    thread = _reply_thread(recipient, request)
+    result = notices.send_text(thread, body, kind="reply_send", request_id=request["id"] if request else None,
+                               key=key, stamp=db.current_stamp())
+    return {**result, "thread_id": thread, "recipient_employee_id": recipient["id"],
+            "request_id": request["id"] if request else None}
+
+
+ASK_TEMPLATES = ("manager_confirm",)
+
+
+def ask_message(args) -> tuple[str, dict, dict]:
+    """The question channel_ask_template sends: (thread, facts, manager). Our code writes it from
+    a fixed template and the records; the model only names the case."""
+    template = str(args.get("template") or "").lower()
+    if template not in ASK_TEMPLATES:
+        raise PermanentError(f"template is one of {', '.join(ASK_TEMPLATES)}, not {args.get('template')!r}.")
+    person, group = _employee(args.get("employee_id")), _group(args.get("group_id"))
+    request = _request(args.get("request_id"))
+    manager = directory.manager_of(person["id"])
+    if manager is None:
+        raise PermanentError(f"{person['id']} has no manager on record, so there is no one to ask; write "
+                             "access_propose_change for the operator instead.")
+    requester = directory.get_employee(request["requester_id"]) if request and request["requester_id"] else None
+    facts = {"manager_name": manager["name"], "request_id": request["id"] if request else "the IT desk's own review",
+             "requester": f"{requester['name']} ({requester['id']})" if requester else "the IT desk",
+             "employee_name": person["name"], "employee_id": person["id"], "group_name": group["name"],
+             "group_id": group["id"]}
+    return f"SYN-MAIL-{manager['id']}", facts, manager
+
+
+def channel_ask_template(args, ctx, key):
+    """Ask a person's manager, from a template, whether they agree to a grant. The trigger is a
+    check in our code: only when the group needs the manager, or the requester is neither the
+    person nor their manager, is there a fact only the manager has."""
+    thread, facts, manager = ask_message(args)
+    person, group = _employee(args.get("employee_id")), _group(args.get("group_id"))
+    request = _request(args.get("request_id"))
+    needs_manager = catalog.policy_for(person["id"], group["id"])["decision"] == "needs_manager"
+    on_behalf = bool(request and request["requester_id"] and request["requester_id"] not in
+                     (person["id"], person["manager_id"]))
+    if not (needs_manager or on_behalf):
+        raise PermanentError(f"There is nothing to ask: the policy allows {group['id']} for {person['id']} and the "
+                             "requester may ask for it. Nothing was sent. A retry will fail the same way.")
+    if request and request["requester_id"] == manager["id"]:
+        raise PermanentError(f"The requester {manager['id']} is {person['id']}'s manager, so their request is "
+                             "their answer. Nothing was sent. A retry will fail the same way.")
+    result = notices.send_template(thread, "manager_confirm", facts, key=key, stamp=db.current_stamp())
+    return {**result, "thread_id": thread, "recipient_employee_id": manager["id"], "employee_id": person["id"],
+            "group_id": group["id"], "request_id": request["id"] if request else None, "waiting_for": thread}
 
 
 def manager_confirmation_draft(args, ctx, key):
@@ -384,6 +459,8 @@ TOOLS = {
     "reply_draft": (reply_draft, MODEL, True),
     "manager_confirmation_draft": (manager_confirmation_draft, MODEL, True),
     "requests_set_status": (requests_set_status, MODEL, True),
+    "channel_ask_template": (channel_ask_template, MODEL, True),
+    "reply_send": (reply_send, MODEL, True),
     "notices_send_template": (notices_send_template, CODE, True),
     "credentials_issue": (credentials_issue, CODE, True),
     "credentials_record_handover": (credentials_record_handover, CODE, True),
@@ -399,6 +476,8 @@ EFFECT_ARGS = {
     "reply_draft": ("recipient_employee_id", "request_id"),
     "manager_confirmation_draft": ("employee_id", "group_id", "request_id"),
     "requests_set_status": ("request_id", "status"),
+    "channel_ask_template": ("template", "employee_id", "group_id", "request_id"),
+    "reply_send": ("recipient_employee_id", "request_id"),
     "notices_send_template": ("thread_id", "request_id", "template_id"),
     "credentials_issue": ("employee_id", "system_id"),
     "credentials_record_handover": ("employee_id", "credential_id"),

@@ -27,6 +27,10 @@ TEMPLATES = {
                 "{count} group(s), effective {date}."),
     "onboarded": ("SYNTHETIC. Request {request_id}: {name} ({employee_id}) is set up with {count} standard group(s) "
                   "for the {role} role, ready for {start_date}. Sign-in details will be handed over in person."),
+    # a question to a stranger, from a fixed template (channel_ask_template): above the approval line
+    "manager_confirm": ("SYNTHETIC. Hello {manager_name}, on {request_id} {requester} asked for {employee_name} "
+                        "({employee_id}) to get {group_name} ({group_id}). Do you agree? Please reply YES or NO "
+                        "on this thread."),
 }
 
 
@@ -57,6 +61,25 @@ def send_template(thread_id, template_id, facts: dict, *, key, stamp) -> dict:
                      "VALUES (?, ?, ?, ?, ?, ?)", (key, str(thread_id), message.id, template_id, stamp, wall_now()))
         db.audit(conn, actor="workflow", action="notice", stamp=stamp, request_id=facts.get("request_id"),
                  detail={"template_id": template_id, "thread_id": str(thread_id), "message_id": message.id})
+    return {"status": "sent", "message_id": message.id}
+
+
+def send_text(thread_id, text: str, *, kind: str, request_id, key, stamp) -> dict:
+    """A message whose text the model wrote, sent once its approval covers it (reply_send).
+    Keyed like a notice: {"status": "sent" | "already_sent", "message_id": int}."""
+    with db.connect() as conn:
+        row = conn.execute("SELECT message_id FROM notices_sent WHERE key = ?", (key,)).fetchone()
+    if row:
+        return {"status": "already_sent", "message_id": row["message_id"]}
+    earlier = _already_on_thread(str(thread_id), text)
+    if earlier is not None:
+        return {"status": "already_sent", "message_id": earlier}
+    message = channel.send(str(thread_id), text)
+    with db.connect() as conn:
+        conn.execute("INSERT INTO notices_sent (key, thread_id, message_id, template_id, stamp, at) "
+                     "VALUES (?, ?, ?, ?, ?, ?)", (key, str(thread_id), message.id, kind, stamp, wall_now()))
+        db.audit(conn, actor="agent", action="message", stamp=stamp, request_id=request_id,
+                 detail={"kind": kind, "thread_id": str(thread_id), "message_id": message.id})
     return {"status": "sent", "message_id": message.id}
 
 

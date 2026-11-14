@@ -1,0 +1,57 @@
+{
+  "checked": "2026-11-13",
+  "provider": "openai-compatible",
+  "model": "gpt-4.1-mini",
+  "strict_switches_on": [
+    "directory_get_employee"
+  ],
+  "tools_as_sent": [
+    {
+      "name": "directory_get_employee",
+      "description": "Read one person's directory record: name, email, department, title, role, manager (ID and name), employment, status (active, leaver or pending_start) and contract end date. Give exactly one of employee_id, email or name, and null for the other two. A name must match one person; if it matches several or none, the error lists who matched. To search more loosely, use directory_search_employees. An unknown ID is an error that names the closest people. At most 4,000 characters come back; a longer result says it was cut.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "employee_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An employee ID, SYN-EMP- and four digits, such as SYN-EMP-9001. Or null."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A work email, such as cleo.vance@syn-corp.example. Or null."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A person's full name, such as Cleo Vance. Or null."
+          }
+        },
+        "required": [
+          "employee_id",
+          "email",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    }
+  ],
+  "mcp_sdk": {
+    "package": "mcp",
+    "version": "2.3.0",
+    "revision": "2026-07-28",
+    "checked": "2026-11-13"
+  },
+  "answer": "accepted",
+  "reply": "OK",
+  "stop_reason": "end_turn",
+  "tokens": 252
+}

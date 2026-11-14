@@ -29,6 +29,19 @@ make app                        # resets the sandbox, seeds the demo day, serves
 tokens, $1.60 per million output, $0.10 per million cached input, read 2026-10-21 from
 https://developers.openai.com/api/docs/pricing.
 
+## The MCP server
+
+Every tool call goes through the registry (`agent/registry.py`) to our MCP server (`mcp_server/server.py`), which the
+registry starts itself as a child process over stdio the first time a tool runs, so `make app` and `run.py` need
+nothing more. The SDK is `mcp` 2.3.0 (`requirements.txt`), which implements the protocol's 2026-07-28 revision,
+checked 2026-11-13. The connection adopts that revision directly: no `initialize`, no session, and none of Roots,
+Sampling or Logging. The server keeps nothing between calls; each call carries its key and context in `_meta`, and
+each `tool_call` line in a trace names the process that served it (`server_pid`).
+
+```bash
+python scripts/strict_mode_check.py    # one model call: the tools our switches make strict, as the registry sends them
+```
+
 ## Running an arm, and the analysis script
 
 ```bash
@@ -64,11 +77,13 @@ runs it has finished, so repeat one under a new name.
 | `agent/` | the agent: `service.py` (the one entry point), the router, workflows, the bounded loop, the planner and executor, the critique, the tool registry and tools |
 | `policy/` | the autonomy policy in three columns (`autonomy.yaml`), the hook that enforces it before every tool call (`hook.py`), and the operator's stated limits (`limits.py`) |
 | `tasks/`, `checks/` | the test tasks and their checks |
-| `docs/milestones/M1.md` | the Milestone 1 write-up |
-| `docs/milestones/m1_*.json` | the numbers M1.md cites: the baseline, Pass 1, and each definition-cost measurement by date |
+| `docs/milestones/M1.md`, `M2.md` | the Milestone 1 and Milestone 2 write-ups |
+| `docs/milestones/m1_*.json`, `m2_*.json` | the numbers M1.md and M2.md cite: the baseline, Pass 1, each definition-cost measurement and the strict-mode answer, by date |
 | `experiments/LEDGER.md`, `experiments/analysis/` | the pass's ledger entry, and our analysis script |
 | `results/`, `traces/` | every run's record and trace, and the console sessions M1.md and CHANGES.md cite |
+| `mcp_server/`, `agent/mcp_client.py` | the MCP server that runs the tools, and the registry's client to it |
 | `scripts/definition_cost.py` | measures what the tool definitions cost |
+| `scripts/strict_mode_check.py` | sends the strict tools once and keeps the vendor's answer (`docs/milestones/m2_strict_mode_<date>.json`) |
 | `CHANGES.md` | what each milestone added, removed and limited, and what we reused |
 
 ---
