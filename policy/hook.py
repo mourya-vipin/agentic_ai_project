@@ -6,9 +6,11 @@ The registry calls policy_hook before every tool call, the model's and our code'
 the arguments already checked at the boundary. In order:
 
     1. stop          control.stopped(run_key): every call of a stopped run is refused, first
-    2. classify      the call, with its arguments and circumstance, into an action class
+    2. classify      the call, with its arguments and circumstance, into an action class; a grant
+                     that needs the manager's agreement and has no yes from the manager on record
+                     is access_grant/unconfirmed, denied with the propose repair (t04, option A)
     3. prohibited    a class in the prohibited column is refused, whatever any approval says
-    4. limits        a rule the operator stated in this session (policy/limits.py) that blocks it
+    4. limits        a rule the operator stated at the console (policy/limits.py) that blocks it
     5. disclosure    a send whose text lacks the disclosure line (agent/disclosure.py)
     6. approval      a class that requires approval, unless an approved plan or decision covers
                      this exact call, raises AskApproval for the registry to put up
@@ -28,9 +30,10 @@ from pathlib import Path
 
 import yaml
 
+import channel
 from agent import disclosure
 from agent.tools import impl
-from sandbox import access, catalog, notices
+from sandbox import access, catalog, db, directory, notices
 
 POLICY_FILE = Path(__file__).with_name("autonomy.yaml")
 COLUMNS = ("independent", "requires_approval", "prohibited")
@@ -105,10 +108,15 @@ def classify(tool: str, args: dict, ctx) -> str:
         # an unknown person or group gets the tool's own repair fact (a ToolError, which the registry returns)
         person, group = impl._employee(args.get("employee_id")), impl._group(args.get("group_id"))
         decision = catalog.policy_for(person["id"], group["id"])["decision"]
-        if decision in ("birthright", "allowed"):
-            return "access_grant/policy_allowed"
         if decision == "forbidden":
             return "access_grant/forbidden"
+        request = impl._case(args, ctx)
+        if impl.grant_refusal(person, group, request, ctx) is None:
+            return "access_grant/policy_allowed"
+        # it needs the manager's agreement (the group, or a request on someone else's behalf): with no yes
+        # from the manager on record, nothing is put up for the operator, high-sensitivity or not (t04, (A))
+        if manager_answer(person, group, request) != "yes":
+            return "access_grant/unconfirmed"
         return "access_grant/high_sensitivity" if group["sensitivity"] == "high" else "access_grant/manager_confirmed"
     if tool == "access_revoke":
         impl._employee(args.get("employee_id"))
@@ -126,6 +134,34 @@ def classify(tool: str, args: dict, ctx) -> str:
         return "manager_note/plan_listed" if ctx.use_case == "bulk_change" and ctx.caller == "executor" \
             else "reply_send/model_text"
     raise ValueError(f"no action class for the tool {tool!r}: add it to policy/hook.py and autonomy.yaml")
+
+
+YES, NO = re.compile(r"^(yes|y|approved?|agreed?)\b", re.I), re.compile(r"^(no|n|declined?|refused?)\b", re.I)
+
+
+def manager_answer(person: dict, group: dict, request: dict | None) -> str | None:
+    """The manager's answer to our manager_confirm question for this person, group and request:
+    "yes", "no", or None when we never asked or no reply has come. Read by code from the channel:
+    the first reply after the question on the manager's thread, by its first word, as the question
+    asks (YES or NO). The reply is the stranger's word: a yes only lets the grant be put up for
+    the operator, who still decides."""
+    manager = directory.manager_of(person["id"])
+    if manager is None:
+        return None
+    thread = f"SYN-MAIL-{manager['id']}"
+    with db.connect() as conn:
+        asked_ids = {r["message_id"] for r in conn.execute(
+            "SELECT message_id FROM notices_sent WHERE thread_id = ? AND template_id = 'manager_confirm'", (thread,))}
+    messages = channel.messages(thread)
+    asked = [m for m in messages if m.id in asked_ids and person["id"] in m.text and group["id"] in m.text
+             and (request is None or request["id"] in m.text)]
+    if not asked:
+        return None
+    for m in messages:
+        if m.id > asked[-1].id and m.sender not in channel.OURS:
+            words = re.sub(r"^\s*SYNTHETIC\.\s*", "", m.text).strip()
+            return "yes" if YES.match(words) else "no" if NO.match(words) else None
+    return None
 
 
 def outgoing_text(tool: str, args: dict) -> str | None:
@@ -168,7 +204,7 @@ def policy_hook(tool: str, args: dict, ctx) -> None:
         raise Denied(f"{action_class} is in no column of autonomy.yaml", action_class)
     # 3. prohibited: no approval turns it into a yes
     if where == "prohibited":
-        raise Denied(f"prohibited: {action_class}", action_class, repair=_prohibited_repair(action_class, args))
+        raise Denied(f"prohibited: {action_class}", action_class, repair=_prohibited_repair(action_class, args, ctx))
     # 4. the operator's stated limits
     limits = _limits()
     for rule in limits.active(ctx.session_id):
@@ -189,13 +225,21 @@ def policy_hook(tool: str, args: dict, ctx) -> None:
     # 7. allow
 
 
-def _prohibited_repair(action_class: str, args: dict) -> str:
+def _prohibited_repair(action_class: str, args: dict, ctx=None) -> str:
     person, group = args.get("employee_id"), args.get("group_id")
     if action_class == "access_revoke/protected_group":
         return (f"{group} is protected, so it was not removed from {person}; nothing changed. Write its removal "
                 "for the operator instead: access_propose_change with action \"revoke\", employee_id "
                 f"{person}, group_id {group}, request_id {args.get('request_id') or 'null'} and a reason. "
                 "A retry of this call will fail the same way.")
+    if action_class == "access_grant/unconfirmed":
+        person, group = impl._employee(person), impl._group(group)
+        request = impl._case(args, ctx)
+        refusal = impl.grant_refusal(person, group, request, ctx)
+        if manager_answer(person, group, request) == "no":
+            return (f"{person['id']}'s manager answered no to {group['id']} on their thread, so nothing was granted "
+                    "or proposed. Tell the requester and the operator. A retry of this call will fail the same way.")
+        return refusal
     if action_class == "access_grant/forbidden":
         reason = catalog.policy_for(str(person), str(group))["reason"]
         return (f"Cannot grant {group} to {person}: {reason}. It cannot be granted on request. "

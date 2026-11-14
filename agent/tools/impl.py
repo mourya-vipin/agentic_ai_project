@@ -175,25 +175,35 @@ def requests_list_today(args, ctx, key):
 
 # -- writes ------------------------------------------------------------------------------
 
-def access_grant(args, ctx, key):
-    person, group = _employee(args.get("employee_id")), _group(args.get("group_id"))
-    request = _case(args, ctx)
+def grant_refusal(person: dict, group: dict, request: dict | None, ctx) -> str | None:
+    """Why access_grant would not run this grant without an approval, as its repair fact; None if
+    it would. One text for the tool and the hook (policy/hook.py), which denies an unconfirmed grant
+    with it before anything is put up for approval."""
     if ctx.use_case == "nonstandard_request" and request and request["requester_id"] \
             and person["id"] != request["requester_id"] and person["manager_id"] != request["requester_id"]:
         manager = directory.manager_of(person["id"])
-        raise PermanentError(
-            f"Cannot grant to {person['id']} on {request['id']}: the requester {request['requester_id']} is neither "
-            f"{person['id']} nor their manager. Write manager_confirmation_draft for {person['id']} and "
-            f"{group['id']}" + (f", for {manager['name']} ({manager['id']}) to confirm" if manager else "")
-            + ". A retry of this call will fail the same way.")
+        return (f"Cannot grant to {person['id']} on {request['id']}: the requester {request['requester_id']} is "
+                f"neither {person['id']} nor their manager. Write manager_confirmation_draft for {person['id']} and "
+                f"{group['id']}" + (f", for {manager['name']} ({manager['id']}) to confirm" if manager else "")
+                + ". A retry of this call will fail the same way.")
     decision = catalog.policy_for(person["id"], group["id"])
-    # a needs-manager grant runs only when the hook found an approval covering this exact call
-    approved = decision["decision"] == "needs_manager" and getattr(ctx, "approved", False)
-    if decision["decision"] not in ("birthright", "allowed") and not approved:
-        raise PermanentError(f"Cannot grant {group['id']} to {person['id']}: {decision['reason']}. "
-                             + ("Use access_propose_change with action \"grant\" instead, for the operator to approve. "
-                                if decision["decision"] == "needs_manager" else "It cannot be granted on request. ")
-                             + "A retry of this call will fail the same way.")
+    if decision["decision"] not in ("birthright", "allowed"):
+        return (f"Cannot grant {group['id']} to {person['id']}: {decision['reason']}. "
+                + ("Use access_propose_change with action \"grant\" instead, for the operator to approve. "
+                   if decision["decision"] == "needs_manager" else "It cannot be granted on request. ")
+                + "A retry of this call will fail the same way.")
+    return None
+
+
+def access_grant(args, ctx, key):
+    person, group = _employee(args.get("employee_id")), _group(args.get("group_id"))
+    request = _case(args, ctx)
+    refusal = grant_refusal(person, group, request, ctx)
+    decision = catalog.policy_for(person["id"], group["id"])["decision"]
+    # a grant that needs the manager runs only when the hook found the manager's yes on record and
+    # an approval covering this exact call; a forbidden one never runs
+    if refusal is not None and not (getattr(ctx, "approved", False) and decision != "forbidden"):
+        raise PermanentError(refusal)
     expires_at = _time_box(group, args.get("expires_at"))
     result = access.grant(person["id"], group["id"], request_id=request["id"] if request else None, key=key,
                           stamp=db.current_stamp(), actor=_actor(ctx), expires_at=expires_at)

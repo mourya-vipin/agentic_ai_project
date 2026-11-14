@@ -18,7 +18,7 @@ independent:
   - credentials_issue/new_starter     # workflow only; rotatable
 
 requires_approval:
-  - access_grant/manager_confirmed    # a group that needs the manager's agreement
+  - access_grant/manager_confirmed    # the manager's yes is on record (asked by template); the operator still decides
   - access_grant/high_sensitivity     # wide reach: what they do with the access cannot be undone
   - reply_send/model_text             # the model wrote the text, and a sent message cannot be recalled
   - manager_note/plan_listed          # U6's note to a manager, approved at the plan with its recipient and text
@@ -26,4 +26,5 @@ requires_approval:
 prohibited:
   - access_revoke/protected_group     # a legal hold: only the operator removes it, never the agent
   - access_grant/forbidden            # a leaver, an ended contract or a protected group: never a yes
+  - access_grant/unconfirmed          # needs the manager's agreement and none is on record: proposed for the operator instead
   - credential_in_message/any         # a secret in a message or record leaves the building
