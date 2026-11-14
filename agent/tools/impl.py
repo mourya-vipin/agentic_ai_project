@@ -20,6 +20,7 @@ wrong, what would be right, and whether a retry can work.
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import date, timedelta
 
 from agent import critique, disclosure
@@ -171,6 +172,48 @@ def requests_list_today(args, ctx, key):
     if not rows:
         out["note"] = f"No requests arrived on {clock.today()}."
     return out
+
+
+def tools_search(args, ctx, key):
+    """Deferred loading (Lecture 3, slides 24 and 25): find the tools for a need among those this use
+    case is offered (the registry passes them as _offered; the model never sees it), so only their
+    definitions enter the next request. It never finds a tool the use case is not offered."""
+    from agent.tools.definitions import DEFINITIONS
+    query = str(args.get("query") or "").strip()
+    words = [w for w in re.split(r"[^a-z0-9]+", query.lower()) if len(w) >= 3 and w not in STOP_WORDS]
+    offered = [t for t in args.get("_offered") or [] if t != "tools_search"]
+    by_name = {d["name"]: d for d in DEFINITIONS}
+    scored = []
+    for name in offered:
+        d = by_name.get(name)
+        if d is None:
+            continue
+        text = (name.replace("_", " ") + " " + d["description"]).lower()
+        score = sum(2 if w in name else 1 for w in words if w in text)
+        if score:
+            scored.append((-score, name, d["description"].split(". ")[0] + "."))
+    found = [{"name": n, "what": what} for _, n, what in sorted(scored)[:SEARCH_LIMIT]]
+    out = {"query": query, "found": found, "shown": len(found)}
+    if not found:
+        out["note"] = (f"No tool matched {query!r}. Name the action and its object, such as \"grant access\", "
+                       "\"send reply\" or \"list memberships\"; tools outside this case cannot be found.")
+    else:
+        out["next_step"] = "Their definitions are in your next request; call the one you need."
+    return out
+
+
+SEARCH_LIMIT = 3
+STOP_WORDS = {"the", "and", "for", "with", "this", "that", "from", "into", "all", "any", "their", "its", "who",
+              "what", "when", "which", "use", "call", "tool", "tools", "need", "want", "some", "our", "his", "her"}
+
+
+def code_run(args, ctx, key):
+    """Code that calls the tools: the registry runs it itself (agent/codecalls.py), since every call
+    the program makes goes back through the registry to the server. It never runs here."""
+    raise PermanentError("code_run runs in the registry, not on the server.")
+
+
+REGISTRY_TOOLS = ("code_run",)     # run by the registry itself; the MCP server does not list them
 
 
 # -- writes ------------------------------------------------------------------------------
@@ -462,6 +505,8 @@ TOOLS = {
     "policy_check_access": (policy_check_access, MODEL, False),
     "requests_get": (requests_get, MODEL, False),
     "requests_list_today": (requests_list_today, MODEL, False),
+    "tools_search": (tools_search, MODEL, False),
+    "code_run": (code_run, {"model"}, False),
     "access_grant": (access_grant, MODEL, True),
     "access_revoke": (access_revoke, MODEL, True),
     "access_revoke_all": (access_revoke_all, MODEL, True),

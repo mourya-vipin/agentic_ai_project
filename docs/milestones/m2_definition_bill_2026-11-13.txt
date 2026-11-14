@@ -1,0 +1,16 @@
+# python scripts/definition_cost.py --per-run results/baseline results/pass1-after --measured docs/milestones/m1_definition_cost_2026-10-30.json   (run 2026-11-13, no model call)
+priced from docs/milestones/m1_definition_cost_2026-10-30.json (2026-10-30); a loop call carries, in tokens: first_draft operator_review 243, nonstandard_request 459, bulk_change 526; rewrite operator_review 1,122, nonstandard_request 2,228, bulk_change 2,476
+
+results/baseline: 21 runs, 102 model calls, 57 loop calls carried definitions (nonstandard_request 36, operator_review 21); mean run cost $0.0032; 68.5% of its prompt tokens were cache reads
+  first_draft: 1,029.9 tokens per run, 9.0% of the arm's prompt tokens; $0.0001 if all read from the cache, $0.0004 if none
+    per task: t04_same_access_as 3,240 (9.6%); t05_on_behalf 2,754 (14.0%); t07_unusual_review 1,215 (7.3%)
+  rewrite: 4,941.4 tokens per run, 43.1% of the arm's prompt tokens; $0.0005 if all read from the cache, $0.0020 if none
+    per task: t04_same_access_as 15,612 (46.3%); t05_on_behalf 13,368 (67.8%); t07_unusual_review 5,610 (33.7%)
+  rewrite minus first_draft on the same calls: 3,911.6 tokens per run, $0.0004 to $0.0016
+
+results/pass1-after: 21 runs, 111 model calls, 78 loop calls carried definitions (bulk_change 15, nonstandard_request 43, operator_review 20); mean run cost $0.0027; 85.6% of its prompt tokens were cache reads
+  first_draft: 1,547.0 tokens per run, 11.1% of the arm's prompt tokens; $0.0002 if all read from the cache, $0.0006 if none
+    per task: t04_same_access_as 3,393 (9.5%); t05_on_behalf 3,672 (14.0%); t06_bulk_ended_contractors 2,630 (13.5%); t07_unusual_review 1,134 (7.6%)
+  rewrite: 7,399.2 tokens per run, 53.2% of the arm's prompt tokens; $0.0007 if all read from the cache, $0.0030 if none
+    per task: t04_same_access_as 16,355 (45.9%); t05_on_behalf 17,824 (68.0%); t06_bulk_ended_contractors 12,380 (63.7%); t07_unusual_review 5,236 (35.0%)
+  rewrite minus first_draft on the same calls: 5,852.2 tokens per run, $0.0006 to $0.0023

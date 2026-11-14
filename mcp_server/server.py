@@ -63,7 +63,7 @@ def catalogue() -> tuple[dict, ...]:
     take an object, which the registry has already checked."""
     by_name = {d["name"]: d for d in definitions.DEFINITIONS}
     out = []
-    for name in sorted(impl.TOOLS):
+    for name in sorted(n for n in impl.TOOLS if n not in impl.REGISTRY_TOOLS):
         written = by_name.get(name)
         out.append({"name": name,
                     "description": written["description"] if written else (impl.TOOLS[name][0].__doc__ or name).strip(),
@@ -180,7 +180,7 @@ async def _call_tool(ctx, params) -> types.CallToolResult:
     context = meta.get(CONTEXT_KEY)
     if not isinstance(context, dict):
         raise MCPError(code=types.INVALID_PARAMS, message=f"a call carries its context in _meta[{CONTEXT_KEY!r}]")
-    if params.name not in impl.TOOLS:
+    if params.name not in impl.TOOLS or params.name in impl.REGISTRY_TOOLS:
         raise MCPError(code=types.INVALID_PARAMS, message=f"no tool {params.name!r}")
     async with _lock:
         out = execute(params.name, dict(params.arguments or {}), context)
