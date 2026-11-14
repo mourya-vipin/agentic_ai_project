@@ -82,6 +82,12 @@ CREATE TABLE IF NOT EXISTS faults (
     tool TEXT PRIMARY KEY, remaining INTEGER NOT NULL, kind TEXT NOT NULL DEFAULT 'transient',
     synthetic INTEGER NOT NULL DEFAULT 1);
 
+-- limits the operator stated at the console, parsed by code (policy/limits.py)
+CREATE TABLE IF NOT EXISTS stated_limits (
+    id TEXT PRIMARY KEY, session_id TEXT NOT NULL, text TEXT NOT NULL, blocks TEXT NOT NULL, until TEXT NOT NULL,
+    stated_at TEXT NOT NULL, lifted_at TEXT, lifted_by TEXT, stamp TEXT NOT NULL,
+    synthetic INTEGER NOT NULL DEFAULT 1);
+
 CREATE TABLE IF NOT EXISTS request_claims (
     request_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, at TEXT NOT NULL,
     synthetic INTEGER NOT NULL DEFAULT 1);
@@ -94,7 +100,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS memberships_one_active ON memberships (employe
 """
 
 TABLES = ("clock", "employees", "systems", "groups", "role_policy", "memberships", "credentials", "requests",
-          "pending_actions", "identity_keys", "notices_sent", "audit_log", "faults", "request_claims")
+          "pending_actions", "identity_keys", "notices_sent", "audit_log", "faults", "request_claims",
+          "stated_limits")
 
 
 def remove() -> None:

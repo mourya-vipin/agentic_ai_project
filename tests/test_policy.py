@@ -124,11 +124,32 @@ class PolicyTest(ScratchTest):
         self.assertEqual(scripted.requests, [])
         self.assertEqual(self.lines("tool_call")[-1]["action_class"], "access_grant/policy_allowed")
 
-    def test_a_grant_that_needs_the_manager_asks_and_nothing_runs_until_it_is_answered(self):
+    def confirm(self, group, answer="YES, that is fine."):
+        """Ask Leo's manager by template, and the manager answers on their thread."""
+        asked = self.registry.call("channel_ask_template", {"template": "manager_confirm", "employee_id": LEO,
+                                                            "group_id": group, "request_id": REQ}, ctx())
+        self.assertFalse(asked.is_error, asked.content)
+        channel.receive(asked.data["thread_id"], f"SYNTHETIC. {answer}", sender="Hannah Lee")
+
+    def grant(self, group):
+        return self.registry.call("access_grant", {"employee_id": LEO, "group_id": group, "request_id": REQ}, ctx())
+
+    def test_with_no_managers_yes_a_needs_manager_grant_is_denied_and_never_put_up(self):
+        for group in (NEEDS_MANAGER, HIGH):                       # high-sensitivity or not (t04, option A)
+            scripted, module = self.approvals(covers=True)
+            with self.subTest(group=group), module:
+                result = self.grant(group)
+                self.assertTrue(result.is_error)
+                self.assertIn("Use access_propose_change", result.content)       # M1's repair, unchanged for t04
+                self.assertEqual(scripted.requests, [])
+                self.assertFalse(self.holds(LEO, group))
+                self.assertEqual(self.lines("hook_denied")[-1]["action_class"], "access_grant/unconfirmed")
+
+    def test_with_the_managers_yes_the_grant_asks_and_nothing_runs_until_it_is_answered(self):
+        self.confirm(NEEDS_MANAGER)
         scripted, module = self.approvals(covers=False)
         with module:
-            result = self.registry.call("access_grant", {"employee_id": LEO, "group_id": NEEDS_MANAGER,
-                                                         "request_id": REQ}, ctx())
+            result = self.grant(NEEDS_MANAGER)
         self.assertEqual(result.end_reason, reg.AWAITING_APPROVAL)
         self.assertIn("APR-1", result.content)
         self.assertFalse(self.holds(LEO, NEEDS_MANAGER))
@@ -137,29 +158,52 @@ class PolicyTest(ScratchTest):
         self.assertEqual(facts["policy"]["decision"], "needs_manager")      # computed, not the model's word
         self.assertEqual(self.lines("tool_call")[-1]["awaiting_approval"], "APR-1")
 
-    def test_a_high_sensitivity_grant_is_its_own_class(self):
+    def test_a_confirmed_high_sensitivity_grant_is_its_own_class(self):
+        self.confirm(HIGH)
         scripted, module = self.approvals(covers=False)
         with module:
-            self.registry.call("access_grant", {"employee_id": LEO, "group_id": HIGH, "request_id": REQ}, ctx())
+            self.grant(HIGH)
         self.assertEqual(scripted.requests[0][1], "access_grant/high_sensitivity")
 
-    def test_a_grant_an_approval_covers_runs(self):
+    def test_a_managers_no_denies_the_grant(self):
+        self.confirm(NEEDS_MANAGER, answer="No, not this month.")
+        scripted, module = self.approvals(covers=True)
+        with module:
+            result = self.grant(NEEDS_MANAGER)
+        self.assertTrue(result.is_error)
+        self.assertIn("answered no", result.content)
+        self.assertEqual(scripted.requests, [])
+
+    def test_a_confirmed_grant_an_approval_covers_runs(self):
+        self.confirm(NEEDS_MANAGER)
         _, module = self.approvals(covers=True)
         with module:
-            result = self.registry.call("access_grant", {"employee_id": LEO, "group_id": NEEDS_MANAGER,
-                                                         "request_id": REQ}, ctx())
+            result = self.grant(NEEDS_MANAGER)
         self.assertFalse(result.is_error, result.content)
         self.assertTrue(self.holds(LEO, NEEDS_MANAGER))
         self.assertTrue(self.lines("tool_call")[-1]["approved"])
 
-    def test_until_the_gate_is_built_a_gated_grant_is_refused_by_its_tool_as_in_m1(self):
+    def test_until_the_gate_is_built_a_confirmed_grant_is_refused_by_its_tool_as_in_m1(self):
+        self.confirm(NEEDS_MANAGER)
         with mock.patch.object(reg, "_approvals", return_value=None):
-            result = self.registry.call("access_grant", {"employee_id": LEO, "group_id": NEEDS_MANAGER,
-                                                         "request_id": REQ}, ctx())
+            result = self.grant(NEEDS_MANAGER)
         self.assertTrue(result.is_error)
         self.assertIn("Use access_propose_change", result.content)
         self.assertFalse(self.holds(LEO, NEEDS_MANAGER))
         self.assertEqual(len(self.lines("approval_unavailable")), 1)
+
+    def test_on_someone_elses_behalf_the_managers_yes_and_the_operators_let_the_grant_run(self):
+        args = {"employee_id": PRIYA, "group_id": "SYN-GRP-JIRA-WRITE", "request_id": REQ}   # Leo asks for Priya
+        before = self.registry.call("access_grant", args, ctx())
+        self.assertIn("manager_confirmation_draft", before.content)           # M1's repair, unchanged for t05
+        asked = self.registry.call("channel_ask_template", {"template": "manager_confirm", **args}, ctx())
+        channel.receive(asked.data["thread_id"], "SYNTHETIC. Yes, please add her.", sender="Hannah Lee")
+        _, module = self.approvals(covers=True)
+        with module:
+            after = self.registry.call("access_grant", args, ctx())
+        self.assertFalse(after.is_error, after.content)
+        self.assertEqual(self.lines("tool_call")[-1]["action_class"], "access_grant/manager_confirmed")
+        self.assertTrue(self.holds(PRIYA, "SYN-GRP-JIRA-WRITE"))
 
     # -- the stop, limits, and failing closed ------------------------------------------------------
 

@@ -11,13 +11,15 @@
 - The MCP server (`mcp_server/server.py`), which runs every tool, and the registry's client to it (`agent/mcp_client.py`): the registry starts it as a child process over stdio, on the 2026-07-28 revision (`mcp` 2.3.0), and keeps the boundary, the hook, the keys, the retries and the call record; each call carries its key and context, and the server keeps nothing between calls (the critique's rounds now live in the registry). A server that dies is started again on the next call, which a write's key makes safe. Tests in `tests/test_mcp.py`. (Vipin Mourya)
 - Two sends (C3.9): `channel_ask_template`, a question to a person's manager that our code writes from a template, only when the group needs the manager or the request is on someone else's behalf; and `reply_send`, a reply the model writes, which is always put up for the operator and goes out only once an approval covers it, after the critique. `disclosure.stamp_call` stamps the model's text before the registry. Neither is offered to a use case yet. Tests in `tests/test_send_tools.py`. (Vipin Mourya)
 - `scripts/strict_mode_check.py`, which sends the tools the `strict.*` switches make strict, as the registry sends them, and keeps the vendor's answer. (Vipin Mourya)
+- Stated limits (`policy/limits.py`): a limit the operator types at the console ("send nothing until I have read it", "no grants to SYN-GRP-… today", "nobody gets AWS-Prod admin this week") is parsed by patterns in code, never a model, into a rule the hook reads before every call. It holds for the day, the week or until the operator lifts it, in every console session, and lives in the sandbox (`stated_limits`), so it survives `make serve` and `make app` clears it. A message our patterns do not recognise is not a rule. Tests in `tests/test_limits.py`. (Vipin Mourya)
+- A grant that needs the manager's agreement (the group, or a request on someone else's behalf) is put up for the operator only once the manager's YES to our `manager_confirm` question is on the manager's thread, read by code; without it the hook denies it with Milestone 1's repair (`access_grant/unconfirmed`), and a NO denies it too. The manager's word alone grants nothing. (Vipin Mourya)
 - Switches `notes.console` (replacing the starter's flat `notes`), `tools.loading`, `code_calls.operator_review`, `context_budget` and `compaction_threshold`, each with `added:`. (Vipin Mourya)
 
 ### Limited
 
 - A time-boxed group's end day (`max_days`) is now enforced on `access_grant`: at most that many days from today, and the longest allowed when none is given (Milestone 1, "Limited"). (Vipin Mourya)
 - On an employee's request, `access_propose_change` no longer proposes removing access from an active colleague who is neither the requester nor one of their reports (Milestone 1's attack pilot, "Limited"). (Vipin Mourya)
-- Until `agent/approvals.py` lands, a call whose class requires approval runs unapproved, and its tool refuses it as in Milestone 1 (the trace's `approval_unavailable` line). `policy/limits.py` is a stub: it parses no limit yet. (Vipin Mourya)
+- Until `agent/approvals.py` lands, a call whose class requires approval runs unapproved, and its tool refuses it as in Milestone 1 (the trace's `approval_unavailable` line). (Vipin Mourya)
 
 ### Fixes from Milestone 1's list
 
