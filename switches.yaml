@@ -37,7 +37,7 @@ strict:
 # Notes outside the conversation, untouched by compaction, one switch per kind of session that
 # needs them (Lecture 2, slide 28). Replaces the starter's flat notes switch. Owner: Vipin Mourya.
 notes:
-  console: {setting: "off", values: ["off"], added: 2026-11-13, about: "The operator's day at the console. on is built in phase 2 (agent/notes.py)."}
+  console: {setting: "on", values: ["off", "on"], added: 2026-11-13, about: "The operator's day at the console needs them: its longest M1 session ran 42 model calls and 100,617 prompt tokens, many times the budget. A single workflow run does not: its calls are short and far under it. Our code writes them from each write's IDs and status (agent/notes.py); they go in loop, executor and answer calls, never the planner's."}
 
 # How tool definitions reach the model (Lecture 3, slides 23 to 25). Owner: Vipin Mourya.
 tools:
@@ -50,8 +50,8 @@ code_calls:
 
 # The most input tokens one model call may carry, characters / 4, definitions included
 # (Lecture 2, slides 23, 24). Owner: Vipin Mourya.
-context_budget: {setting: 16000, added: 2026-11-13, about: "Below gpt-4.1-mini's window, with room for the output. Phase 0 counts and traces it; the rule that fits a call to it comes in phase 2."}
+context_budget: {setting: 8000, added: 2026-11-13, about: "Far below gpt-4.1-mini's 1,047,576-token window, with room for the output. The largest single M1 call was 5,830 tokens; and session_token_ceiling (400,000) over 8,000 leaves 50 calls a session, above M1's longest console session (42)."}
 
 # Past this many input tokens, compaction runs: old tool results cleared first, then older turns
 # summarized (Lecture 2, slide 31). At most the budget minus what every call carries. Owner: Vipin Mourya.
-compaction_threshold: {setting: 12000, added: 2026-11-13, about: "Built in phase 2; until then nothing compacts."}
+compaction_threshold: {setting: 4000, added: 2026-11-13, about: "Tokens of conversation, past which compaction runs: the budget (8,000) minus what every call carries, the system prompt and up to about 3,700 tokens of definitions and prompt."}
