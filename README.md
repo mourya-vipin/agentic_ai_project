@@ -84,6 +84,7 @@ runs it has finished, so repeat one under a new name.
 | `results/`, `traces/` | every run's record and trace, and the console sessions M1.md and CHANGES.md cite |
 | `mcp_server/`, `agent/mcp_client.py` | the MCP server that runs the tools, and the registry's client to it |
 | `scripts/definition_cost.py` | measures what the tool definitions cost |
+| `scripts/disclosure_refusal.py` | the hook refusing a reply without the disclosure line, on a scratch sandbox (`traces/s-m2-disclosure-refusal.jsonl`) |
 | `scripts/strict_mode_check.py` | sends the strict tools once and keeps the vendor's answer (`docs/milestones/m2_strict_mode_<date>.json`) |
 | `CHANGES.md` | what each milestone added, removed and limited, and what we reused |
 
