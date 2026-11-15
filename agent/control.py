@@ -64,6 +64,13 @@ def _connect():
         conn.close()
 
 
+def reset() -> None:
+    """Delete the control file, when the sandbox is reset (make app, run.py)."""
+    from pathlib import Path
+    for suffix in ("", "-journal", "-wal", "-shm"):
+        Path(str(state_dir() / DB_FILE) + suffix).unlink(missing_ok=True)
+
+
 def run_key(session_id: str, run_no: int | str) -> str:
     """C3.1's run key."""
     return f"{session_id}#{run_no}"

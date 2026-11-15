@@ -95,8 +95,11 @@ class SendToolsTest(ScratchTest):
         self.assertEqual(self.agent_messages(LEO_THREAD), [])
         self.assertEqual(self.lines("tool_call")[-1]["action_class"], "reply_send/model_text")
 
-    def test_until_the_gate_is_built_the_tool_itself_refuses_to_send(self):
-        result = self.reply("SYNTHETIC. Hi Leo, your request is with the IT team.")
+    def test_without_the_gate_the_tool_itself_refuses_to_send(self):
+        # the tool's own wall, behind the gate: with agent/approvals.py hidden, the call
+        # reaches the tool unapproved, and the tool sends nothing
+        with mock.patch.dict(sys.modules, {"agent.approvals": None}):
+            result = self.reply("SYNTHETIC. Hi Leo, your request is with the IT team.")
         self.assertTrue(result.is_error)
         self.assertIn("only once the operator has approved", result.content)
         self.assertEqual(self.agent_messages(LEO_THREAD), [])

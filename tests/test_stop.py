@@ -88,6 +88,12 @@ class StopTest(ScratchTest):
         thread.join(5)
         self.assertTrue(control.stopped(f"{SID}#4"))
 
+    def test_reset_clears_every_flag(self):
+        control.stop(SID, 1)
+        control.reset()
+        self.assertFalse(control.stopped(f"{SID}#1"))
+        self.assertEqual(control.history(), [])
+
     def test_a_session_id_with_a_hash_keeps_its_run_number(self):
         self.assertEqual(control.split_key("s#weird#12"), ("s#weird", "12"))
         with self.assertRaises(ValueError):
