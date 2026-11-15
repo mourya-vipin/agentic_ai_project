@@ -22,6 +22,8 @@ Every record is synthetic and marked; every write is stamped ("seed" here).
 
 from __future__ import annotations
 
+import importlib
+
 import channel
 from sandbox import access, base_data, clock, db, directory, requests
 
@@ -60,9 +62,18 @@ DEMO = [
 DEMO_FACTS = [{"kind": "fact", "table": "employees", "id": "SYN-EMP-0150", "set": {"end_date": "2026-10-20"}}]
 
 
+# The agent's own stores under state_dir(), each emptied with the sandbox, so that no saved
+# run, conversation, approval or stop points at records the reset deleted.
+AGENT_STORES = ("agent.checkpoints", "agent.session", "agent.approvals", "agent.control")
+
+
 def reset() -> None:
-    """Empty the sandbox: delete its one file (the harness empties the channel)."""
+    """Empty the sandbox: delete its one file (the harness empties the channel), and the
+    agent's stores (AGENT_STORES): the runs and their journal, the console sessions, the
+    approvals and the stops. `make serve` does not call it, so a restart keeps them all."""
     db.remove()
+    for name in AGENT_STORES:
+        importlib.import_module(name).reset()
 
 
 def seed(task: dict | None) -> None:

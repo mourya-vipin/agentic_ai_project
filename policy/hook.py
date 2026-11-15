@@ -5,7 +5,9 @@ Owner: Vipin Mourya.
 The registry calls policy_hook before every tool call, the model's and our code's, with
 the arguments already checked at the boundary. In order:
 
-    1. stop          control.stopped(run_key): every call of a stopped run is refused, first
+    1. stop          control.stopped(run_key): every call of a stopped run is refused, first,
+                     except the operator's own command on it (origin="operator_command",
+                     /rollback's undo), which passes on to the steps below like any call
     2. classify      the call, with its arguments and circumstance, into an action class; a grant
                      that needs the manager's agreement and has no yes from the manager on record
                      is access_grant/unconfirmed, denied with the propose repair (t04, option A)
@@ -193,7 +195,8 @@ def _limits():
 def policy_hook(tool: str, args: dict, ctx) -> None:
     # 1. the stop, before anything else (Part 2, task 6)
     control = _module("agent.control")
-    if control is not None and ctx.run_key is not None and control.stopped(ctx.run_key):
+    if control is not None and ctx.run_key is not None and getattr(ctx, "origin", "agent") != "operator_command" \
+            and control.stopped(ctx.run_key):
         raise Denied("stopped", repair="This run was stopped by the operator, so no tool runs. "
                                        "Wait for the operator's /resume, /cancel or /rollback.")
     # 2. classify

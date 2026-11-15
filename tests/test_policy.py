@@ -183,7 +183,7 @@ class PolicyTest(ScratchTest):
         self.assertTrue(self.holds(LEO, NEEDS_MANAGER))
         self.assertTrue(self.lines("tool_call")[-1]["approved"])
 
-    def test_until_the_gate_is_built_a_confirmed_grant_is_refused_by_its_tool_as_in_m1(self):
+    def test_without_the_gate_a_confirmed_grant_is_refused_by_its_tool_as_in_m1(self):
         self.confirm(NEEDS_MANAGER)
         with mock.patch.object(reg, "_approvals", return_value=None):
             result = self.grant(NEEDS_MANAGER)
