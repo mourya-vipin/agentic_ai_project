@@ -192,6 +192,97 @@ class RoutesToAgentThenSetsDone(RouterFake):
         return super().create(system=system, messages=messages, tools=tools)
 
 
+class FakeCheckpoints:
+    """An in-memory stand-in for agent/checkpoints.py (C3.1). It has the same functions
+    and writes no file. It also keeps each save with its mode (`saves`) and each resume
+    with its event (`resumed`), so that a test can read them.
+
+        with FakeCheckpoints().installed() as fake:
+            ...            # code that imports agent.checkpoints gets the fake
+
+    resume() calls on_resume(cp, event) if the test gives one. If not, it returns a
+    Reply that names the run. The constants (RUNNING, DONE, ...) come from the real module."""
+
+    def __init__(self, on_resume=None):
+        from agent import checkpoints
+        self._real = checkpoints
+        self.runs: dict = {}
+        self.saves: list[tuple[str, str, str]] = []     # (run_key, mode, status)
+        self.resumed: list[tuple[str, dict]] = []       # (run_key, event)
+        self.on_resume = on_resume
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+    def installed(self):
+        """Put the fake in place of agent.checkpoints until the block ends."""
+        import contextlib
+        import sys
+        from unittest import mock
+
+        import agent
+
+        @contextlib.contextmanager
+        def block():
+            with mock.patch.dict(sys.modules, {"agent.checkpoints": self}), \
+                    mock.patch.object(agent, "checkpoints", self, create=True):
+                yield self
+        return block()
+
+    def _copy(self, cp):
+        import copy
+        return copy.deepcopy(cp)
+
+    def new_run(self, session_id, use_case, task):
+        run_no = 1 + max((cp.run_no for cp in self.runs.values() if cp.session_id == session_id), default=0)
+        cp = self._real.Checkpoint(self._real.key_of(session_id, run_no), session_id, run_no, use_case,
+                                   self._real.RUNNING, task)
+        self.runs[cp.run_key] = self._copy(cp)
+        return cp
+
+    def save(self, cp, *, mode):
+        self._real._check(cp, mode)
+        self.saves.append((cp.run_key, mode, cp.status))
+        if mode == "exit" and cp.status == self._real.RUNNING:
+            return
+        old = self.runs.get(cp.run_key)
+        kept = self._copy(cp)
+        kept.completed = {**(old.completed if old else {}), **(cp.completed or {})}
+        self.runs[cp.run_key] = kept
+
+    def load(self, run_key):
+        cp = self.runs.get(run_key)
+        return self._copy(cp) if cp else None
+
+    def live(self, session_id):
+        return [self._copy(cp) for cp in sorted(self.runs.values(), key=lambda c: c.run_no)
+                if cp.session_id == session_id and cp.status not in self._real.ENDED]
+
+    def waiting(self, kind=None):
+        return [self._copy(cp) for cp in self.runs.values() if cp.waiting_for and cp.status not in self._real.ENDED
+                and (kind is None or cp.waiting_for.get("kind") == kind)]
+
+    def journaled(self, run_key, key):
+        cp = self.runs.get(run_key)
+        return (cp.completed or {}).get(key) if cp else None
+
+    def record_completed(self, run_key, key, *, tool, args, result):
+        self.runs[run_key].completed.setdefault(key, {"tool": tool, "args": args, "result": result, "at": "fake"})
+
+    def resume(self, run_key, event):
+        from harness.turns import Reply
+        self.resumed.append((run_key, event))
+        if self.on_resume is not None:
+            return self.on_resume(self.load(run_key), event)
+        return Reply(f"resumed {run_key}")
+
+    def flush(self):
+        pass
+
+    def reset(self):
+        self.runs.clear()
+
+
 # -- Shruti Tewaney: plan, critique, detectors ---------------------------------------
 
 # The fakes below serve every model call of a planned U6 run: the planner and the
