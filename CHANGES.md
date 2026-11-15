@@ -25,6 +25,11 @@
 - The operator's commands (`agent/commands.py`): `/stop [n]`, `/cancel n`, `/resume n` and `/rollback n`, parsed by code before any model sees the message; a malformed one gets its usage back and does nothing. Tests in `tests/test_stop.py`. (Shruti Tewaney)
 - The executor takes the run's key (`run_planned(..., run_key=)`) and sets `run_key` and `origin="agent"` on every call. (Shruti Tewaney)
 - The planned path builds every model call with `context.assemble`: the planner's and the reviser's as kind `planner` (no notes, memory or stranger text), each fill call as kind `executor` with the notes; a call that cannot fit ends the run `budget_unfit` before the model is called. Tests in `tests/test_plan.py`. (Shruti Tewaney)
+- The run store (`agent/checkpoints.py`, C3.1). Each run has one checkpoint in `state_dir()/runs.sqlite3`, with the run key `<session_id>#<run_no>`. `save` has three durability modes: `sync`, `async` and `exit`. The journal of completed calls is a table of its own, and a save only adds to it, so the save of an old copy cannot remove an entry. Tests in `tests/test_checkpoints.py`. (Aman Panigrahi)
+- `checkpoints.resume(run_key, event)` sends a run to the `resume(cp, event)` function of its path: the workflows, the loop, or the executor for a U6 run with a plan. It refuses an ended run. It also refuses a reply or an approval that the run does not wait for. (Aman Panigrahi)
+- When a run waits or ends, our code writes its last checkpoint and its journal to the trace (`checkpoint_paused`, `checkpoint_final`). (Aman Panigrahi)
+- The console conversation (`agent/session.py`) is now in `state_dir()/sessions.sqlite3`, so the agent can read it after `make serve`. The interface did not change. (Aman Panigrahi)
+- `FakeCheckpoints` in `tests/fakes.py`: an in-memory stand-in for the run store, for the tests of other modules. (Aman Panigrahi)
 
 ### Limited
 
@@ -35,6 +40,9 @@
 - Until `agent/approvals.py` lands, a call whose class requires approval runs unapproved, and its tool refuses it as in Milestone 1 (the trace's `approval_unavailable` line). (Vipin Mourya)
 - `resume` and `rollback` have no saved run to carry on or journal to read until `agent/checkpoints.py` lands, and the rollback's compensations pass the hook, whose stop check refuses them while the run is stopped (to be settled with Vipin Mourya: an `origin="operator_command"` call of a stopped run). A status set by the run is not rolled back: the journal does not hold the status before. (Shruti Tewaney)
 - The planner's and the reviser's token count leaves out their one tool, `submit_plan`, which is not a registry tool, so `assemble` does not see its definition. (Shruti Tewaney)
+- No path calls `checkpoints.new_run` or `save` yet, and no path has a `resume` function. Until then, a resumed run stays in the store, and its reply says that its path cannot continue it yet. (Aman Panigrahi)
+- The journal does not keep the status of a request before a call, so a rollback cannot write the earlier status again (Shruti Tewaney's request in #18). (Aman Panigrahi)
+- `make app` does not clear the run store or the session store until `sandbox/seed.py: reset` calls `checkpoints.reset` and `session.reset`. (Aman Panigrahi)
 
 ### Fixes from Milestone 1's list
 
