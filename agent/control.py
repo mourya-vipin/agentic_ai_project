@@ -159,6 +159,14 @@ def state(key: str) -> str | None:
         return _state(conn, key)
 
 
+def flags(state: str | None = None) -> list[dict]:
+    """Every run's flag, or those in one state (stopped, cancelled, lifted), oldest stop first."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT * FROM flags" + (" WHERE state = ?" if state else "") + " ORDER BY stopped_at",
+                            (state,) if state else ()).fetchall()
+    return [dict(r) for r in rows]
+
+
 def history(key: str | None = None) -> list[dict]:
     """The command log, oldest first: every stop, cancel, resume and rollback with its time."""
     with _connect() as conn:
