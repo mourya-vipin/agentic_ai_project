@@ -1,7 +1,8 @@
 """The plan validator, run before any step (Lecture 2, slide 18): every tool exists,
 no step depends on a later one, every step has an observable outcome, the step count
 is within the plan's limit, and every employee the plan names is one the planner was
-given. The orphan check flags rather than rejects: it is agent.detectors.orphan_check.
+given, and a send (which cannot be undone) comes after every other step. The orphan
+check flags rather than rejects: it is agent.detectors.orphan_check.
 
 Owner: Shruti Tewaney. Ported from Shruti's Assignment 2 (agent/validator.py): its four
 checks, with the schema check before them, as ways/planned.py did, and rules our
@@ -18,6 +19,7 @@ from harness.schema import errors as schema_errors
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "plan_schema.json"
 KINDS = ("count_equals", "non_empty", "field_equals", "record_written")
+SENDS = ("reply_send",)       # irreversible: a sent message cannot be recalled
 EMPLOYEE_ID = re.compile(r"SYN-EMP-\d{4}", re.IGNORECASE)
 
 # The plan's own step limit for a bulk change over n people: up to four steps per
@@ -93,7 +95,15 @@ def validate(plan: dict, tool_names: list[str], max_steps: int,
                 problems.append((sid, "known_ids", f"step {sid} names {', '.join(strangers)}, who are not among the "
                                                    "employees you were given"))
         seen.add(sid)
-    # 4. the step count is within the plan's limit
+    # 4. irreversible last: no step after a send that is not itself a send
+    sends = [i for i, s in enumerate(steps) if isinstance(s, dict) and s.get("tool") in SENDS]
+    if sends:
+        late = [s.get("id") for s in steps[sends[0]:] if isinstance(s, dict) and s.get("tool") not in SENDS]
+        if late:
+            problems.append((late[0], "sends_last", f"step(s) {late} come after a send ({steps[sends[0]].get('tool')}, "
+                                                    f"step {steps[sends[0]].get('id')}); a message cannot be recalled, "
+                                                    "so every send comes after every other step"))
+    # 5. the step count is within the plan's limit
     if not steps or len(steps) > max_steps:
         problems.append((None, "step_limit", f"the plan has {len(steps)} steps; it needs at least 1 and at most "
                                              f"{max_steps}"))

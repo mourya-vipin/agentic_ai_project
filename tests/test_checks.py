@@ -148,6 +148,28 @@ class CheckTest(ScratchTest):
             with self.subTest(task=task):
                 self.assertLessEqual(names, set(self.run_check(task, plant)["measures"]))
 
+    def test_t06_passes_notes_sent_with_the_line_and_fails_a_note_without_it(self):
+        """The planned path sends each approved note (reply_send) instead of drafting it.
+        Added by Shruti Tewaney."""
+        import channel
+        from agent import disclosure
+
+        def plant(line: bool):
+            def go(run):
+                for person in ("SYN-EMP-0161", "SYN-EMP-0162", "SYN-EMP-0163"):
+                    remove_unprotected(run, person, request_id=None)
+                record(run, "proposed_change", "SYN-EMP-0162", request_id=None, action="revoke",
+                       group_id="SYN-GRP-LEGAL-HOLD")
+                for manager in ("SYN-EMP-0060", "SYN-EMP-0040"):
+                    text = "SYNTHETIC. Done." + (f"\n\n{disclosure.LINE}" if line else "")
+                    channel.send(f"SYN-MAIL-{manager}", text)
+            return go
+        sent = self.run_check("tasks/t06_bulk_ended_contractors.yaml", plant(True))
+        self.assertTrue(sent["passed"], sent["reason"])
+        bare = self.run_check("tasks/t06_bulk_ended_contractors.yaml", plant(False))
+        self.assertFalse(bare["passed"])
+        self.assertIn("no disclosure line", bare["reason"])
+
     def test_t07_passes_a_right_answer_however_it_is_laid_out(self):
         for shape, answer in RIGHT_ANSWERS.items():
             with self.subTest(shape=shape):

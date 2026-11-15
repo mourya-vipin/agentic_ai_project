@@ -31,9 +31,11 @@ FILL = "$fill"
 EMPLOYEE_ID = re.compile(r"SYN-EMP-\d{4}", re.IGNORECASE)
 
 # The tools a U6 plan may use, by canonical name. No grant: a bulk change here removes
-# access, writes proposals and drafts notes.
+# access, writes proposals and sends each manager a note, which the operator approves first
+# (manager_note/plan_listed: at the plan or per action, approval.bulk_change).
 U6_TOOLS = ("directory_list_contractors_ended", "directory_get_employee", "access_list_memberships",
-            "access_revoke", "access_revoke_all", "access_propose_change", "reply_draft")
+            "access_revoke", "access_revoke_all", "access_propose_change", "reply_send")
+SENDS = ("reply_send",)    # the plan's irreversible steps: they come after every other step
 
 
 def plan_tool() -> dict:

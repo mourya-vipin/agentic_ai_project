@@ -12,7 +12,7 @@ Each step:
 
 For removing the access of contractors whose contract ended, the plan is:
 1. for each contractor, an `access_list_memberships` step (expect `non_empty` on `memberships`), then an `access_revoke_all` step with a short `reason` (expect `non_empty` on `removed`), depending on that listing;
-2. one `reply_draft` per manager, with `recipient_employee_id` the manager's ID you were given, `body` "$fill", depending on the `access_revoke_all` steps of that manager's contractors, expecting `record_written`.
+2. one `reply_send` per manager, with `recipient_employee_id` the manager's ID you were given, `body` "$fill", depending on the `access_revoke_all` steps of that manager's contractors, expecting `field_equals` on `status` with value `sent`. The notes come last, after every other step: a sent message cannot be recalled, and the operator approves each note's text before it goes.
 
 Do not plan a step that looks up or lists what you were already given: the contractors and their managers' IDs are in the facts, which our code read just before this call, so no step lists the contractors again or looks up a manager. You are not told which groups are protected (such as a legal hold, which `access_revoke_all` keeps); our code checks after each membership listing and revises the plan if a protected group needs a proposal.
 
