@@ -2,6 +2,7 @@
 the decision log (Part 2, task 4). Owner: Shruti Tewaney.
 
     request(ctx, tool, args, action_class, facts)   the registry hands a gated call here (C3.2)
+    request_plan(ctx, steps, facts)                 the executor puts up a plan's gated steps, together
     covers(run_key, action_class, args)             the hook asks: has the operator approved this exact call?
     pending()                                       what the approvals page lists (service.pending_approvals)
     decide(approval_id, approved, note, who)        the answer: logged, then the run resumes
@@ -21,8 +22,11 @@ effect exactly as it would be applied), then facts our code computed from the re
 then what still checks the output. The model's rationale is not shown. Each line says
 whether our code computed it or the stranger asserted it.
 
-An approval covers one call: the same run, action class and arguments, used once.
-Approving at the plan (approval.bulk_change = plan) is not built yet.
+An approval lists one or more steps, each a tool, an action class and exact arguments. A
+per-action approval lists the one call; a plan approval (approval.bulk_change = plan) lists
+every gated step of a plan, with its recipient and text, and is asked once, before the first
+of them runs. covers() lets each listed step run once, unasked; a gated call the approval
+does not list, or a step whose arguments changed, asks again.
 """
 
 from __future__ import annotations
@@ -52,7 +56,10 @@ CREATE TABLE IF NOT EXISTS approvals (
     id TEXT PRIMARY KEY, n INTEGER NOT NULL UNIQUE, run_key TEXT, session_id TEXT NOT NULL,
     tool TEXT NOT NULL, action_class TEXT NOT NULL, args TEXT NOT NULL, screen TEXT NOT NULL,
     status TEXT NOT NULL, requested_at TEXT NOT NULL, decided_at TEXT, decided_by TEXT,
-    note TEXT NOT NULL DEFAULT '', used_at TEXT);
+    note TEXT NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS steps (
+    approval_id TEXT NOT NULL, n INTEGER NOT NULL, plan_step INTEGER, tool TEXT NOT NULL,
+    action_class TEXT NOT NULL, args TEXT NOT NULL, used_at TEXT, PRIMARY KEY (approval_id, n));
 CREATE TABLE IF NOT EXISTS decisions (
     id INTEGER PRIMARY KEY AUTOINCREMENT, approval_id TEXT NOT NULL, run_key TEXT, action_class TEXT NOT NULL,
     shown TEXT NOT NULL, decision TEXT NOT NULL, who TEXT NOT NULL, seconds REAL,
@@ -109,7 +116,22 @@ def _setting() -> str | None:
 def request(ctx, tool: str, args: dict, action_class: str, facts: dict) -> str:
     """Put a gated call up for the operator and checkpoint its run as waiting for it.
     The same call of the same run, already waiting, gets the same approval: never two."""
-    args_key = canonical(args)
+    step = {"plan_step": getattr(ctx, "plan_step", None), "tool": tool, "action_class": action_class, "args": args}
+    return _put(ctx, tool, action_class, [step], screen(tool, args, action_class, facts))
+
+
+def request_plan(ctx, steps: list[dict], facts: dict) -> str:
+    """Put up every gated step of a plan as one approval: each step {"plan_step", "tool",
+    "action_class", "args"}, its arguments final (a note's text filled and stamped). Once
+    approved, each listed step runs once, unasked."""
+    if not steps:
+        raise ValueError("a plan approval lists at least one gated step")
+    classes = sorted({s["action_class"] for s in steps})
+    return _put(ctx, "plan", ", ".join(classes), steps, plan_screen(steps, facts))
+
+
+def _put(ctx, tool: str, action_class: str, steps: list[dict], shown: dict) -> str:
+    args_key = json.dumps([[s["tool"], s["action_class"], canonical(s["args"])] for s in steps])
     with _connect(write=True) as conn:
         row = conn.execute("SELECT id FROM approvals WHERE status = ? AND run_key IS ? AND action_class = ? "
                            "AND args = ?", (PENDING, ctx.run_key, action_class, args_key)).fetchone()
@@ -121,9 +143,14 @@ def request(ctx, tool: str, args: dict, action_class: str, facts: dict) -> str:
             conn.execute("INSERT INTO approvals (id, n, run_key, session_id, tool, action_class, args, screen, status, "
                          "requested_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                          (approval_id, n, ctx.run_key, ctx.session_id, tool, action_class, args_key,
-                          json.dumps(screen(tool, args, action_class, facts)), PENDING, now()))
+                          json.dumps(shown), PENDING, now()))
+            conn.executemany("INSERT INTO steps (approval_id, n, plan_step, tool, action_class, args) "
+                             "VALUES (?, ?, ?, ?, ?, ?)",
+                             [(approval_id, i, s.get("plan_step"), s["tool"], s["action_class"], canonical(s["args"]))
+                              for i, s in enumerate(steps, start=1)])
     runtime.trace(ctx.session_id).event("approval_requested", approval_id=approval_id, tool=tool,
-                                        action_class=action_class, run_key=ctx.run_key, new=new)
+                                        action_class=action_class, run_key=ctx.run_key, new=new,
+                                        steps=[s.get("plan_step") for s in steps])
     _checkpoint_waiting(ctx.run_key, approval_id)
     return approval_id
 
@@ -139,18 +166,28 @@ def _checkpoint_waiting(run_key: str | None, approval_id: str) -> None:
 
 
 def covers(run_key: str | None, action_class: str, args: dict) -> bool:
-    """Whether the operator approved exactly this call of this run and it has not run yet.
-    A yes covers one call: it is used here, so a second call asks again."""
+    """Whether the operator approved exactly this call of this run, alone or as a listed step
+    of a plan, and it has not run yet. Each listed step is used once, here, so a second call
+    asks again."""
     if not run_key:
         return False
     with _connect(write=True) as conn:
-        row = conn.execute("SELECT id FROM approvals WHERE status = ? AND used_at IS NULL AND run_key = ? "
-                           "AND action_class = ? AND args = ? ORDER BY n LIMIT 1",
+        row = conn.execute("SELECT s.approval_id, s.n FROM steps s JOIN approvals a ON a.id = s.approval_id "
+                           "WHERE a.status = ? AND a.run_key = ? AND s.used_at IS NULL AND s.action_class = ? "
+                           "AND s.args = ? ORDER BY a.n, s.n LIMIT 1",
                            (APPROVED, run_key, action_class, canonical(args))).fetchone()
         if row is None:
             return False
-        conn.execute("UPDATE approvals SET used_at = ? WHERE id = ?", (now(), row["id"]))
+        conn.execute("UPDATE steps SET used_at = ? WHERE approval_id = ? AND n = ?",
+                     (now(), row["approval_id"], row["n"]))
     return True
+
+
+def steps_of(approval_id: str) -> list[dict]:
+    """The steps an approval lists, in order, with when each ran (used_at)."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT * FROM steps WHERE approval_id = ? ORDER BY n", (approval_id,)).fetchall()
+    return [{**dict(r), "args": json.loads(r["args"])} for r in rows]
 
 
 # -- the operator's side ------------------------------------------------------------------
@@ -273,6 +310,39 @@ def screen(tool: str, args: dict, action_class: str, facts: dict) -> dict:
     if tool == "reply_send":
         out["what still checks it"] = _critique_line()
     out["secrets (computed)"] = "none: the hook refuses any text or record that carries a credential's secret"
+    return out
+
+
+def plan_screen(steps: list[dict], facts: dict) -> dict:
+    """The screen of a plan's gated steps, approved together: every step's dry run, then what
+    our code knows about the run so far, then what still checks each step's output."""
+    from sandbox import directory
+
+    dry = []
+    for s in steps:
+        args = s["args"]
+        if s["tool"] == "reply_send":
+            who = directory.get_employee(str(args.get("recipient_employee_id"))) or {}
+            dry.append(f"Step {s.get('plan_step')}: send to {who.get('id')} ({who.get('name')}, {who.get('email')}):\n"
+                       f"{args.get('body')}")
+        else:
+            dry.append(f"Step {s.get('plan_step')}: {s['tool']} with {canonical(args)}")
+    people = sorted({str(s["args"].get("recipient_employee_id")) for s in steps if s["tool"] == "reply_send"})
+    out: dict = {
+        "action": (f"plan v{facts.get('version')} of {facts.get('use_case')}: {len(steps)} gated step(s), "
+                   "approved together; each then runs once, unasked"),
+        "dry run": "\n\n".join(dry),
+        "reach (computed)": f"{len(people)} person(s): {', '.join(people)}; a sent message cannot be recalled",
+        "done before this, reversible (computed)": "; ".join(facts.get("done") or []) or "nothing",
+        "the validator (computed)": f"plan v{facts.get('version')} passed every rule",
+        "the critique on each note (computed)": facts.get("critique") or "not run",
+        "not listed here": "any other gated step, or a step whose text changes, asks again",
+        "what still checks it": ("each note's text is checked again when it is sent, and each step's expected "
+                                 "outcome after it runs; the critique checks groups and people named, not tone"),
+        "secrets (computed)": "none: the hook refuses any text or record that carries a credential's secret",
+    }
+    if facts.get("instruction"):
+        out["the operator's instruction"] = facts["instruction"]
     return out
 
 

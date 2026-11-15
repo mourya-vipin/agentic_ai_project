@@ -6,7 +6,8 @@ No tokens. Owner: Shruti Tewaney."""
 
 import uuid
 
-from agent import critique, executor
+import channel
+from agent import critique, disclosure, executor
 from agent.bounds import Bound
 from agent.registry import CallContext, get_registry
 from harness.trace import read_trace
@@ -212,7 +213,8 @@ class RoundsTest(CritiqueTest):
 
 
 class PlannedNotesTest(ScratchTest):
-    """The same check on U6's path: the planned executor's notes to each manager."""
+    """The same check on U6's path: the planned executor's notes to each manager, checked
+    before the operator is asked to approve them, and sent once approved."""
 
     def run_planned(self, backend):
         run_id = self.run_id = f"crit-u6-{uuid.uuid4().hex[:8]}"
@@ -220,23 +222,31 @@ class PlannedNotesTest(ScratchTest):
                                 "set": {"end_date": "2026-10-28"}}}
         with fixed_run(task, run_id, backend=f"tests.fakes:{backend}") as run:
             result = executor.run_planned(run_id, fakes.T06_TEXT, bound=Bound())
+            fakes.approve_all()
         lines = read_trace(run.trace_path)
-        notes = [p for p in pending.open_items("reply_draft") if p["stamp"] == run_id]
+        notes = [{"employee_id": m, "body": disclosure.without_line(msg.text)}
+                 for m in (HANNAH, fakes.GRACE) for msg in channel.messages(f"SYN-MAIL-{m}")
+                 if msg.sender == channel.AGENT]
         return result, lines, notes
 
     def test_a_wrong_note_is_revised_with_its_reason_and_written_once(self):
         result, lines, notes = self.run_planned("WrongThenRightFiller")
-        rounds = [(x["recipient"], x["round"], x["verdict"]) for x in lines if x["type"] == "critique"]
+        rounds = [(x["recipient"], x["round"], x["verdict"]) for x in lines
+                  if x["type"] == "critique" and x.get("stage") == "before_approval"]
         self.assertEqual(rounds, [(HANNAH, 1, "fail"), (HANNAH, 2, "pass"),
                                   (fakes.GRACE, 1, "fail"), (fakes.GRACE, 2, "pass")])
-        self.assertEqual(result.end_reason, executor.PLAN_DONE)
+        at_send = [x["verdict"] for x in lines if x["type"] == "critique" and "stage" not in x]
+        self.assertEqual(at_send, ["pass", "pass"])                    # checked again as it is sent
+        self.assertEqual([x["terminal_reason"] for x in lines if x["type"] == "end"],
+                         [executor.AWAITING_APPROVAL, executor.PLAN_DONE])
         self.assertEqual(sorted(n["employee_id"] for n in notes), sorted([HANNAH, fakes.GRACE]))
 
     def test_a_note_still_wrong_at_the_bound_is_held_and_ends_the_run(self):
         result, lines, notes = self.run_planned("AlwaysWrongFiller")
         self.assertEqual([x["terminal_reason"] for x in lines if x["type"] == "end"], [critique.CRITIQUE_HELD])
         self.assertEqual(notes, [])
-        self.assertIn("held a drafted note", result.text)
+        self.assertIn("held a note", result.text)
+        self.assertEqual(lines and [x for x in lines if x["type"] == "approval_requested"], [])   # never put up
 
     def test_a_bulk_note_that_leaves_out_a_person_or_a_group_fails(self):
         self.run_planned("GoodPlannerWithHold")

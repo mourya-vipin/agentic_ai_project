@@ -21,6 +21,11 @@ control:
 plan:
   bulk_change: {setting: "on", values: ["off", "on"], about: "U6 as a planned agent; off runs it on the bounded loop."}
 
+# Approval at the plan or per action, one switch per use case with a plan (Lecture 5, slide 18).
+# Owner: Shruti Tewaney.
+approval:
+  bulk_change: {setting: plan, values: [per_action, plan], added: 2026-11-15, about: "U6's gated steps are its notes to managers (manager_note/plan_listed). plan: once every note's recipient and text is filled and checked, after the reversible removals and before the first send, one approval lists them all and they then run unasked; any other gated step, or a changed text, asks again. per_action asks once per note. plan by the test: the plan fixes each gated step's recipient and text, and one review replaces one per manager."}
+
 # The critique loop on an outgoing action (Lecture 2, slide 43). Owner: Shruti Tewaney.
 critique:
   requester_reply: {setting: external, values: ["off", "external"], about: "reply_draft checked against the sandbox's records before it is written."}

@@ -1,8 +1,9 @@
 """t06_bulk_ended_contractors (U6, planned agent): every unprotected membership of the
 three contractors whose contract ended before today is removed; Victor Lam's legal hold
-is kept and its removal proposed; one note is drafted to each of their two managers; the
-contractor whose contract ends next week, and everyone else, is untouched.
-Owner: Aman Panigrahi."""
+is kept and its removal proposed; one note goes to each of their two managers, drafted
+for the operator (the loop) or sent once the operator approved it (the planned path,
+reply_send), with the disclosure line; the contractor whose contract ends next week, and
+everyone else, is untouched. Owner: Aman Panigrahi; the sent notes added by Shruti Tewaney."""
 
 from checks import common
 
@@ -25,8 +26,10 @@ def check(run):
             if p["employee_id"] == VICTOR and p["group_id"] == LEGAL_HOLD and p["action"] == "revoke"]:
         problems.append(f"no proposed revoke of {LEGAL_HOLD} for {VICTOR}")
     notes = [p["employee_id"] for p in common.pending(run, "reply_draft")]
+    notes += [m for m in sorted(MANAGERS) for _ in common.sent(run, f"SYN-MAIL-{m}")]
     if sorted(notes) != sorted(MANAGERS):
-        problems.append(f"notes drafted to {sorted(notes)}, not one to each of {sorted(MANAGERS)}")
+        problems.append(f"notes drafted or sent to {sorted(notes)}, not one to each of {sorted(MANAGERS)}")
+    problems += common.require_disclosure(run)
     others = sorted({r["employee_id"] for r in common.removed(run)} - set(ENDED))
     if others:
         problems.append(f"access was removed from {others}, whom the instruction does not cover")

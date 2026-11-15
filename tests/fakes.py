@@ -315,10 +315,10 @@ def t06_plan(with_hold: bool = False) -> dict:
     hold = plan_step(10, f"propose removing {VICTOR}'s legal hold", "access_propose_change",
                      {"action": "revoke", "employee_id": VICTOR, "group_id": LEGAL_HOLD, "reason": reason},
                      [5], "record_written")      # after the removal that kept it, as the real reviser wrote
-    steps.append(plan_step(8, "note to Hannah Lee", "reply_draft", {"recipient_employee_id": HANNAH, "body": "$fill"},
-                           [3, 7], "record_written"))
-    steps.append(plan_step(9, "note to Grace Okafor", "reply_draft", {"recipient_employee_id": GRACE, "body": "$fill"},
-                           [5, 10] if with_hold else [5], "record_written"))
+    steps.append(plan_step(8, "note to Hannah Lee", "reply_send", {"recipient_employee_id": HANNAH, "body": "$fill"},
+                           [3, 7], "field_equals", "status", "sent"))
+    steps.append(plan_step(9, "note to Grace Okafor", "reply_send", {"recipient_employee_id": GRACE, "body": "$fill"},
+                           [5, 10] if with_hold else [5], "field_equals", "status", "sent"))
     if with_hold:
         steps.insert(5, hold)          # after step 5, Victor's removal; before the notes
     return {"steps": steps}
@@ -384,6 +384,17 @@ class GoodPlanner:
 
     def note(self, request):
         return true_note(request)
+
+
+def approve_all(approved: bool = True, limit: int = 10) -> list[str]:
+    """The scripted operator of a test that runs the executor directly: answer every approval
+    waiting, oldest first, as run.py's approvals: list does, until none is left. Returns the IDs."""
+    from agent import approvals
+    answered = []
+    while (waiting := approvals.pending()) and len(answered) < limit:
+        answered.append(waiting[0]["id"])
+        approvals.decide(waiting[0]["id"], approved, "scripted answer in a test", who="scripted")
+    return answered
 
 
 class GoodPlannerWithHold(GoodPlanner):

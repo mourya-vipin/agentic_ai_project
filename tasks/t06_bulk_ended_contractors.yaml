@@ -7,4 +7,7 @@ input: {kind: fact, table: employees, id: SYN-EMP-0164, set: {end_date: "2026-10
 operator:
   - "Remove all access for contractors whose contract ended before today, and draft a note to each one's manager."
 outside: []
+# The operator's answers to what waits for approval: the planned path's notes, approved at the
+# plan (one ask) or per action (one per manager, approval.bulk_change); the loop asks none.
+approvals: [yes, yes]
 check: checks/t06_bulk_ended_contractors.py
