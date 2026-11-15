@@ -6,8 +6,8 @@ On a scratch sandbox seeded with the demo day, one console session calls the reg
 with a reply whose text was built without the line, as a caller that skipped disclosure.stamp()
 would, then the same reply stamped. The first is refused before anything runs (hook_denied,
 "no disclosure") and the thread is unchanged. The second passes the disclosure check and goes on to
-the approval step, since a reply the model wrote always waits for the operator; until the gate is
-built, its tool refuses it (approval_unavailable). The trace is the evidence M2.md cites.
+the approval step, since a reply the model wrote always waits for the operator: it is put up
+(approval_requested) and nothing is sent. Line 1 of the trace is the evidence M2.md cites.
 """
 
 from __future__ import annotations

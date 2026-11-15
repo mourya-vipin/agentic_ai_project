@@ -23,6 +23,9 @@ make app                        # resets the sandbox, seeds the demo day, serves
 
 `make app BACKEND=never-stops` serves the same app on a scripted model, spending no tokens.
 
+`make app` also empties the agent's own stores in `state/` (the saved runs and their journal, the console sessions, the
+approvals and the stops). `make serve` serves the app as it is, so a run, its approvals and its stop survive a restart.
+
 ## The model
 
 `gpt-4.1-mini` through OpenAI (`settings.yaml`). Its price line is in `pricing.yaml`: $0.40 per million input

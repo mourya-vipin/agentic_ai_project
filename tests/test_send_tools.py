@@ -1,4 +1,4 @@
-"""The two sends M2 adds (C3.9): channel_ask_template, a question our code writes from a
+"""The two sends M2 adds: channel_ask_template, a question our code writes from a
 template, and reply_send, a reply the model writes, which always waits for the operator.
 Through the registry and the MCP server; no tokens. Owner: Vipin Mourya."""
 
