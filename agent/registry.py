@@ -19,7 +19,8 @@ call() does, in order (Lecture 3, slides 22 to 42):
     4. key         derived for every write from the intended action, never from the model
     5. run         a transient failure is retried in code, with backoff, up to MAX_ATTEMPTS
     6. result      checked against the tool's declared shape before the model sees it
-    7. cap         what the model reads is at most MAX_CHARS, and says so when cut
+    7. cap         what the model reads is at most MAX_CHARS, and says so when cut; a
+                   successful write goes in its run's journal (agent/checkpoints.py)
     8. record      the trace's tool_call line, with the key, attempts, latency and cost
 
 Callers never write a tool_call line of their own: call() traces each call.
@@ -187,8 +188,8 @@ class Registry:
             except AskApproval as ask:
                 approvals = _approvals()
                 if approvals is None:
-                    # until the gate is built, the call runs unapproved: every gated effect's
-                    # tool refuses without ctx.approved, as in Milestone 1 (C3.2)
+                    # without the gate, the call runs unapproved: every gated effect's tool
+                    # refuses without ctx.approved, as in Milestone 1
                     runtime.trace(ctx.session_id).event("approval_unavailable", tool=canon,
                                                         action_class=ask.action_class, run_key=ctx.run_key)
                     continue
@@ -247,14 +248,32 @@ class Registry:
             runtime.trace(ctx.session_id).event("result_invalid", tool=canon, problems=bad)
             result = ToolResult(BAD_RESULT, is_error=True, error_class="permanent", key=key)
             return self._record(name, canon, args, ctx, result, start, attempts=attempts)
-        # 7. the cap; then the session's notes, outside the conversation (agent/notes.py)
+        # 7. the cap; then the run's journal (agent/checkpoints.py) and the session's notes,
+        # outside the conversation (agent/notes.py)
         result = ToolResult(_cap(json.dumps(data, default=str), MAX_CHARS), data=data, key=key)
         if writes:
+            self._journal(canon, fixed, ctx, key, data)
             try:
                 notes.after_call(ctx, canon, fixed, data)
             except Exception as exc:           # the notes never fail the call they record
                 runtime.trace(ctx.session_id).event("notes_error", tool=canon, error=f"{type(exc).__name__}: {exc}"[:200])
         return self._record(name, canon, args, ctx, result, start, attempts=attempts)
+
+    def _journal(self, canon: str, fixed: dict, ctx: CallContext, key: str, data) -> None:
+        """Add a successful write to its run's journal, with the arguments that ran and the
+        result, so a replay of the run can skip it and /rollback can undo it. Only a call with
+        a run key has a run, and an operator's command on a run (/rollback's undo) is not one of
+        its steps, so a second /rollback never undoes the undo. The write has already happened,
+        so a journal that cannot be written does not fail the call: the key still makes a second
+        try of the write a no-op at the target, and the trace says the entry is missing."""
+        if ctx.run_key is None or ctx.origin == "operator_command":
+            return
+        try:
+            importlib.import_module("agent.checkpoints").record_completed(
+                ctx.run_key, key, tool=canon, args=fixed, result=json.loads(json.dumps(data, default=str)))
+        except Exception as exc:
+            runtime.trace(ctx.session_id).event("journal_error", tool=canon, run_key=ctx.run_key, key=key,
+                                                error=f"{type(exc).__name__}: {exc}"[:200])
 
     def _run(self, canon: str, run, fixed: dict, ctx: CallContext, key: str | None):
         """Run the tool: on the MCP server (the app and run.py), or in this process for a
@@ -363,7 +382,7 @@ def _tell_script(tool: str, args: dict, data) -> None:
 
 
 def _approvals():
-    """Shruti Tewaney's agent/approvals.py, or None until it lands (C3.2)."""
+    """Shruti Tewaney's agent/approvals.py, or None if it cannot be imported."""
     try:
         return importlib.import_module("agent.approvals")
     except ModuleNotFoundError as exc:

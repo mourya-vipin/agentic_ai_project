@@ -181,7 +181,7 @@ DISCLOSURE_LINE = ("— Sent by the IT access desk's automated agent. To reach a
 def require_disclosure(run) -> list[str]:
     """One problem per message the agent sent in this run without the disclosure line as its
     last paragraph (Part 2, task 8), read from the channel. Every check calls it and adds what
-    it returns to its problems. Added by Vipin Mourya (C7)."""
+    it returns to its problems. Added by Vipin Mourya."""
     from checks.helpers import sent_by_agent
 
     return [f"message {m.id} on {t['thread_id']} has no disclosure line"
