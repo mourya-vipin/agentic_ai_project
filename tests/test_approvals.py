@@ -96,7 +96,17 @@ class GateTest(ScratchTest):
         self.assertIn("member(s) now", shown["reach (computed)"])
         self.assertIn("sensitivity high", shown["reach (computed)"])
         self.assertEqual(shown["already holds it (computed)"], "no")
-        self.assertIn("YES on record", shown["manager's answer (computed)"])
+        self.assertIn("none on record", shown["manager's answer (computed)"])   # read, not assumed from the class
+
+    def test_a_grant_screen_reads_the_managers_answer_from_their_reply(self):
+        group = "SYN-GRP-FINREP-WRITE"
+        asked = self.registry.call("channel_ask_template", {"template": "manager_confirm", "employee_id": LEO,
+                                                            "group_id": group, "request_id": REQ}, self.ctx())
+        self.assertFalse(asked.is_error, asked.content)
+        channel.receive(asked.data["thread_id"], "SYNTHETIC. YES, that is fine.", sender="Grace Okafor")
+        shown = approvals.screen("access_grant", {"employee_id": LEO, "group_id": group, "request_id": REQ},
+                                 "access_grant/manager_confirmed", {"policy": {}, "already_holds": False})
+        self.assertTrue(shown["manager's answer (computed)"].startswith("YES, the first reply"))
 
     # -- the answer -------------------------------------------------------------------------
 
