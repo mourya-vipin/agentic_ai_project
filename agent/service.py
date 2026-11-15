@@ -35,7 +35,7 @@ your model calls labelled as theirs.
 
 from __future__ import annotations
 
-from agent import router
+from agent import approvals, router
 from harness.turns import Reply  # noqa: F401  (what each turn returns)
 
 
@@ -58,17 +58,14 @@ def on_outside_reply(thread_id: str, text: str) -> Reply:
 
 
 def pending_approvals() -> list[dict]:
-    """What waits for the operator's answer, one dict each, with an `id` and the
-    facts the approval screen shows. Give it the `session_id` of the console session
-    it came from, if any: the app then answers it in that session, so the answer and
-    the work it resumes land in that session's trace and count against its budget. It stays empty until you build an approval
-    gate; a pending record your system writes, such as a drafted reply for the
-    operator to send by hand, is not an approval: list it on your product's
-    pages."""
-    return []
+    """What waits for the operator's answer, one dict each, with an `id`, the console
+    `session_id` it came from, and the approval screen in reading order. A pending record
+    our system writes, such as a drafted reply, is not an approval: it is on /pending.
+    Written by Shruti Tewaney (C9b): the gate is agent/approvals.py."""
+    return approvals.pending()
 
 
 def decide_approval(approval_id: str, approved: bool, note: str = "") -> Reply | None:
     """The operator's answer to one approval: record it, and carry on the work that
-    waited for it."""
-    raise NotImplementedError("decide_approval: no approval gate is built yet (Milestone 2)")
+    waited for it. Written by Shruti Tewaney (C9b): the gate is agent/approvals.py."""
+    return approvals.decide(approval_id, approved, note)

@@ -30,6 +30,9 @@
 - When a run waits or ends, our code writes its last checkpoint and its journal to the trace (`checkpoint_paused`, `checkpoint_final`). (Aman Panigrahi)
 - The console conversation (`agent/session.py`) is now in `state_dir()/sessions.sqlite3`, so the agent can read it after `make serve`. The interface did not change. (Aman Panigrahi)
 - `FakeCheckpoints` in `tests/fakes.py`: an in-memory stand-in for the run store, for the tests of other modules. (Aman Panigrahi)
+- The approval gate (`agent/approvals.py`): a call whose class requires approval is stored in `state_dir()/approvals.sqlite3`, its run is checkpointed `waiting_approval`, and the turn ends `awaiting_approval` with the sandbox unchanged. The same call asked twice is one approval. `covers` lets exactly the approved call of that run through, once; another text, another run or a second call asks again. `decide` logs the answer and resumes the run through `checkpoints.resume`; a denial with no run to resume ends `approval_denied`. A stop withdraws what the run waits on. Every decision is logged with the action class, the screen shown, the decision, who decided (operator or scripted), the seconds from put-up to answer, the `approval.bulk_change` setting and the run key (`approvals.log`). Tests in `tests/test_approvals.py`. (Shruti Tewaney)
+- The approval screen (`approvals.screen`), in reading order: the dry run (the membership row, or the message exactly as sent with its disclosure line and recipient), then facts our code read (role policy, already held, the group's members and sensitivity, the manager's YES, the request and who sent it), the requester's text labelled as their words, and what still checks the output. No rationale and no recommendation. (Shruti Tewaney)
+- `service.pending_approvals` and `decide_approval` delegate to `agent/approvals.py` (C9b). `control.reset` and `approvals.reset` delete their files, for `sandbox/seed.py: reset`. (Shruti Tewaney)
 
 ### Limited
 
@@ -43,6 +46,7 @@
 - No path calls `checkpoints.new_run` or `save` yet, and no path has a `resume` function. Until then, a resumed run stays in the store, and its reply says that its path cannot continue it yet. (Aman Panigrahi)
 - The journal does not keep the status of a request before a call, so a rollback cannot write the earlier status again (Shruti Tewaney's request in #18). (Aman Panigrahi)
 - `make app` does not clear the run store or the session store until `sandbox/seed.py: reset` calls `checkpoints.reset` and `session.reset`. (Aman Panigrahi)
+- Approval at the plan (`approval.bulk_change = plan`) is not built: every gated call is approved on its own. No path has a `resume` function yet, so an approved call runs only when its path makes the call again. `sandbox/seed.py: reset` does not yet call `approvals.reset` or `control.reset`, so an approval or a stop can outlive `make app`. The screen does not show the critique's verdict: on `reply_send` the critique runs when the message is sent, after the approval, and the screen says so. (Shruti Tewaney)
 
 ### Fixes from Milestone 1's list
 
