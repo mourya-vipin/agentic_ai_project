@@ -340,6 +340,19 @@ class PlanApprovalTest(PlannedTest):
         self.assertEqual(len(self.sent()), 2)
 
 
+class FillSeesItsStepsOnlyTest(PlannedTest):
+    def test_a_note_is_filled_from_its_own_steps_and_never_the_sessions_notes(self):
+        fakes.SeeingFiller.seen = []
+        self.run_planned("SeeingFiller", overrides=["notes.console=on"])
+        hannah, grace = fakes.SeeingFiller.seen                  # step 8, then step 9
+        for request in (hannah, grace):
+            self.assertNotIn("Notes kept by our code", request)
+        self.assertNotIn("SYN-PEND", hannah)                      # Victor's proposal is Grace's, not hers
+        self.assertIn("SYN-PEND", grace)
+        fills = [x for x in self.of("context") if x["call_kind"] == "executor"]
+        self.assertEqual(len(fills), 2)
+
+
 class SendsLastTest(unittest.TestCase):
     def test_a_step_after_a_send_is_rejected(self):
         plan = fakes.t06_plan(with_hold=True)

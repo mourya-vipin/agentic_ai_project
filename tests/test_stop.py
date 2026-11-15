@@ -6,7 +6,7 @@ import importlib
 import threading
 
 import channel
-from agent import commands, control
+from agent import checkpoints, commands, control
 from agent.registry import CallContext, Registry
 from harness import runtime
 from harness.paths import state_dir
@@ -156,6 +156,21 @@ class StopTest(ScratchTest):
         self.assertTrue(all(p["tool"] == "access_grant" for p in plan[1:3]))   # the kept group is not regranted
         self.assertEqual(plan[3]["tool"], "access_revoke")
 
+    def test_rollback_undoes_the_runs_writes_and_a_second_changes_nothing(self):
+        cp = checkpoints.new_run(SID, "nonstandard_request", "grant Leo")
+        ctx_ = CallContext(SID, 1, "model", "nonstandard_request", request_id=REQ, run_key=cp.run_key)
+        grant = self.registry.call("access_grant", {"employee_id": LEO, "group_id": ALLOWED, "request_id": REQ}, ctx_)
+        self.assertFalse(grant.is_error, grant.content)
+        self.assertTrue(self.holds(LEO, ALLOWED))
+        commands.handle(SID, f"/stop {cp.run_no}")
+        first = commands.handle(SID, f"/rollback {cp.run_no}")
+        self.assertIn("access_grant → access_revoke", first.text)
+        self.assertFalse(self.holds(LEO, ALLOWED))                       # the compensation ran past the stop
+        self.assertTrue(control.stopped(cp.run_key))                      # and the run stays stopped
+        second = commands.handle(SID, f"/rollback {cp.run_no}")
+        self.assertIn("nothing changed", second.text)
+        self.assertEqual(self.lines("end")[-1]["terminal_reason"], control.END_ROLLED_BACK)
+
     def test_rollback_without_a_journal_changes_nothing(self):
         reply = control.rollback(control.run_key(SID, 1))
         self.assertIn("nothing to roll back", reply.text)
@@ -201,3 +216,128 @@ class CommandsTest(ScratchTest):
         commands.handle(SID, "/stop 1")
         self.assertIn("cancelled", commands.handle(SID, "/cancel 1").text)
         self.assertEqual(control.state(f"{SID}#1"), control.CANCELLED)
+
+
+# -- the five conditions (slide 40), from the environment ----------------------------------
+
+import threading as _threading
+import time as _time
+import uuid as _uuid
+from datetime import datetime as _dt
+
+from agent import approvals, executor
+from agent.bounds import Bound
+from sandbox import db
+from tests import fakes
+from tests.support import fixed_run
+
+T06 = {"id": "t06_stop_test", "operator": [fakes.T06_TEXT], "outside": [], "check": "checks/example.py",
+       "input": {"kind": "fact", "table": "employees", "id": "SYN-EMP-0164", "set": {"end_date": "2026-10-28"}}}
+
+
+def _at(line) -> float:
+    return _dt.fromisoformat(line["at"]).timestamp()
+
+
+def stopped_mid_run(test) -> dict:
+    """A planned t06 run on SlowPlanner in a second thread. The checkpoint after Victor's
+    listing fails and the reviser's model call starts; the stop is sent from this thread
+    while it runs. Returns what the conditions read: the trace, the run key, the writes."""
+    run_id = f"stop-{_uuid.uuid4().hex[:8]}"
+    out: dict = {"run_id": run_id}
+    with fixed_run(T06, run_id, backend="tests.fakes:SlowPlanner") as run:
+        worker = _threading.Thread(target=lambda: out.setdefault(
+            "result", executor.run_planned(run_id, fakes.T06_TEXT, bound=Bound())))
+        worker.start()
+        deadline = _time.monotonic() + 10
+        while _time.monotonic() < deadline and not any(
+                x["type"] == "checkpoint" and not x["passed"] for x in read_trace(run.trace_path)):
+            _time.sleep(0.01)
+        out["stop"] = commands.handle(run_id, "/stop")
+        worker.join(10)
+        test.assertFalse(worker.is_alive())
+        with db.connect() as conn:
+            out["writes_at_stop"] = conn.execute("SELECT COUNT(*) AS n FROM audit_log").fetchone()["n"]
+        out["lines"] = read_trace(run.trace_path)
+        out["key"] = checkpoints.live(run_id)[0].run_key
+        out["trace_path"] = run.trace_path
+    return out
+
+
+class StopConditionsTest(ScratchTest):
+    def setUp(self):
+        super().setUp()
+        runtime.configure()
+
+    def test_watched_the_notice_comes_before_the_first_write_and_again_on_resume(self):
+        run = stopped_mid_run(self)
+        lines = run["lines"]
+        notice = next(i for i, x in enumerate(lines) if x["type"] == "run_notice")
+        first_write = next(i for i, x in enumerate(lines) if x["type"] == "tool_call" and x.get("key"))
+        self.assertLess(notice, first_write)
+        self.assertLessEqual(_at(lines[notice]), _at(lines[first_write]))
+        self.assertIn("/stop 1", lines[notice - 1]["text"])                  # the console's progress line
+        with fixed_run(T06, run["run_id"], backend="tests.fakes:SlowPlanner", fresh=False):
+            control.resume(run["key"])
+        resumed = [x for x in read_trace(run["trace_path"]) if x["type"] == "run_notice" and x["resumed"]]
+        self.assertEqual(len(resumed), 1)
+
+    def test_fast_over_five_stops_the_next_call_is_refused(self):
+        latencies = []
+        for _ in range(5):
+            run = stopped_mid_run(self)
+            stop = next(x for x in run["lines"] if x["type"] == "stop_flag")
+            refused = next(x for x in run["lines"] if x["type"] == "tool_call" and x.get("denied")
+                           and _at(x) >= _at(stop))
+            latencies.append(_at(refused) - _at(stop))
+            self.assertEqual([x["terminal_reason"] for x in run["lines"] if x["type"] == "end"][-1],
+                             executor.STOPPED)
+        # the call in flight at the stop (the reviser's model call, SlowPlanner.DELAY_S) finishes first
+        self.assertTrue(all(0 <= s < fakes.SlowPlanner.DELAY_S + 1.0 for s in latencies), latencies)
+
+    def test_durable_the_stop_saves_the_run_and_the_resume_writes_nothing_twice(self):
+        run = stopped_mid_run(self)
+        saved = checkpoints.load(run["key"])
+        last_call = [x for x in run["lines"] if x["type"] == "tool_call"][-1]
+        self.assertEqual(saved.status, checkpoints.STOPPED)
+        self.assertGreaterEqual(saved.updated_at, last_call["at"])           # saved after the last call
+        with fixed_run(T06, run["run_id"], backend="tests.fakes:SlowPlanner", fresh=False):
+            control.resume(run["key"])
+            fakes.approve_all()
+        with db.connect() as conn:
+            removals = conn.execute("SELECT employee_id, group_id, COUNT(*) AS n FROM memberships "
+                                    "WHERE removed_at IS NOT NULL GROUP BY employee_id, group_id HAVING n > 1").fetchall()
+        self.assertEqual(removals, [])
+        for manager in (fakes.HANNAH, fakes.GRACE):
+            sent = [m for m in channel.messages(f"SYN-MAIL-{manager}") if m.sender == channel.AGENT]
+            self.assertEqual(len(sent), 1, manager)
+        self.assertEqual(checkpoints.load(run["key"]).status, checkpoints.DONE)
+
+    def test_safe_every_write_before_the_stop_is_in_the_runs_journal_with_its_key(self):
+        run = stopped_mid_run(self)
+        stop = next(x for x in run["lines"] if x["type"] == "stop_flag")
+        written = [x["key"] for x in run["lines"] if x["type"] == "tool_call" and x.get("key")
+                   and not x.get("denied") and _at(x) <= _at(stop)]
+        self.assertTrue(written)                                             # Ana's removal ran before it
+        journal = checkpoints.load(run["key"]).completed
+        self.assertEqual([k for k in written if k not in journal], [])
+
+    def test_outside_the_agent_nothing_is_written_from_the_stop_to_the_resume(self):
+        run = stopped_mid_run(self)
+        stop = next(i for i, x in enumerate(run["lines"]) if x["type"] == "stop_flag")
+        after = [x for x in run["lines"][stop:] if x["type"] == "tool_call" and not x.get("denied")]
+        self.assertEqual(after, [])
+        with db.connect() as conn:
+            self.assertEqual(conn.execute("SELECT COUNT(*) AS n FROM audit_log").fetchone()["n"],
+                             run["writes_at_stop"])
+
+    def test_outside_the_agent_a_stop_while_an_approval_waits_and_then_the_answer(self):
+        run_id = f"stop-{_uuid.uuid4().hex[:8]}"
+        with fixed_run(T06, run_id, backend="tests.fakes:GoodPlannerWithHold"):
+            executor.run_planned(run_id, fakes.T06_TEXT, bound=Bound())
+            waiting = approvals.pending()[0]["id"]
+            commands.handle(run_id, "/stop")
+            answer = approvals.decide(waiting, True, "the answer lands after the stop")
+        self.assertIn("withdrawn", answer.text)
+        for manager in (fakes.HANNAH, fakes.GRACE):
+            self.assertEqual([m for m in channel.messages(f"SYN-MAIL-{manager}") if m.sender == channel.AGENT], [])
