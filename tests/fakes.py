@@ -397,6 +397,28 @@ def approve_all(approved: bool = True, limit: int = 10) -> list[str]:
     return answered
 
 
+class SlowPlanner(GoodPlanner):
+    """GoodPlanner, with every model call taking DELAY_S: a stop sent while one runs lands
+    between two tool calls, as a stop typed during a real model call does."""
+    DELAY_S = 0.3
+
+    def create(self, *, system, messages, tools):
+        import time
+        time.sleep(self.DELAY_S)
+        return super().create(system=system, messages=messages, tools=tools)
+
+
+class SeeingFiller(GoodPlanner):
+    """Plans t06 with the hold, as GoodPlannerWithHold, and keeps every fill request it is
+    sent (`seen`), so a test can read what each note's call was given."""
+    with_hold = True
+    seen: list[str] = []
+
+    def fill(self, tool, request):
+        SeeingFiller.seen.append(request)
+        return super().fill(tool, request)
+
+
 class GoodPlannerWithHold(GoodPlanner):
     """Plans t06 with the legal-hold proposal from the start: no revision is needed."""
     with_hold = True

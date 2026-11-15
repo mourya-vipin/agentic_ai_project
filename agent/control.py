@@ -176,6 +176,16 @@ def history(key: str | None = None) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def notice(key: str, task: str, *, resumed: bool = False) -> None:
+    """The operator's notice that a run is live, naming it and how to stop it: before the run's
+    first call, and again when a held or waiting run resumes (the stop's first condition, watched)."""
+    session_id, run_no = split_key(key)
+    what = " ".join(str(task or "").split())[:120].rstrip(". ")
+    trace = runtime.trace(session_id)
+    trace.progress(f"Run {run_no} {'resumed' if resumed else 'is live'}: {what}. /stop {run_no} stops it.")
+    trace.event("run_notice", run_key=key, resumed=resumed)
+
+
 # -- the three commands -------------------------------------------------------------------
 
 def cancel(key: str) -> Reply:
@@ -186,6 +196,11 @@ def cancel(key: str) -> Reply:
             return Reply(f"Run {run_no} was already cancelled.")
         _set(conn, key, CANCELLED)
         _log(conn, key, "cancel")
+    checkpoints = _module("agent.checkpoints")
+    cp = checkpoints.load(key) if checkpoints is not None else None
+    if cp is not None and cp.status not in checkpoints.ENDED:
+        cp.status, cp.waiting_for = checkpoints.CANCELLED, None
+        checkpoints.save(cp, mode="sync")
     runtime.trace(session_id).end(END_CANCELLED, key)
     return Reply(f"Run {run_no} is cancelled. What it already did stays; /rollback {run_no} undoes what can be undone.",
                  actions=[f"cancelled run {run_no}"])
@@ -248,19 +263,24 @@ def compensations(completed: dict) -> list[dict]:
 
 def rollback(key: str) -> Reply:
     """Apply each write's compensation, newest first, through the registry with
-    origin="operator_command", printing "none" where there is none. The run stays stopped."""
+    origin="operator_command", printing "none" where there is none. The run stays stopped.
+    A second rollback undoes only what the run wrote since the last one."""
     session_id, run_no = split_key(key)
     checkpoints = _module("agent.checkpoints")
     cp = checkpoints.load(key) if checkpoints is not None else None
     if cp is None:
         return Reply(f"Run {run_no} has no saved journal, so there is nothing to roll back.")
+    last = next((h["at"] for h in reversed(history(key)) if h["command"] == "rollback"), None)
+    written = {k: e for k, e in (cp.completed or {}).items() if last is None or (e.get("at") or "") > last}
+    if last is not None and not written:
+        return Reply(f"Run {run_no} was rolled back at {last}, and it has written nothing since; nothing changed.")
     with _connect() as conn:
         if _state(conn, key) not in (STOPPED, CANCELLED):
             _set(conn, key, STOPPED)        # nothing else of the run may run while it is undone
             _log(conn, key, "stop", "before rollback")
     from agent.registry import CallContext, get_registry
     registry, lines = get_registry(), []
-    for n, undo in enumerate(compensations(cp.completed or {}), start=1):
+    for n, undo in enumerate(compensations(written), start=1):
         if undo["tool"] is None:
             lines.append(f"{undo['of']}: none ({undo['why']})")
             continue

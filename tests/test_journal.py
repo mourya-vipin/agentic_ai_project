@@ -101,7 +101,7 @@ class JournalTest(ScratchTest):
         self.assertIn("access_revoke SYN-GRP-FINREP-READ: done", first.text)
         self.assertNotIn(ALLOWED, [m["group_id"] for m in access.memberships(LEO)])
         self.assertEqual([e["tool"] for e in journal(cp.run_key)], ["access_grant"])   # the undo is not a step
-        self.assertIn("done", again.text)                                              # the same key: no new effect
+        self.assertIn("nothing changed", again.text)                                   # nothing new to undo
         self.assertNotIn(ALLOWED, [m["group_id"] for m in access.memberships(LEO)])
         self.assertTrue(control.stopped(cp.run_key))
 

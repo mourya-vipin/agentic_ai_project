@@ -45,7 +45,8 @@ import json
 import re
 import time
 
-from agent import approvals, checkpoints, context, critique, detectors, disclosure, planner, reviser, validator
+from agent import (approvals, checkpoints, context, control, critique, detectors, disclosure, planner, reviser,
+                   validator)
 from agent.bounds import LOOP_TOKEN_BUDGET, STEP_LIMIT, WALL_CLOCK, Bound
 from agent.loop import LoopResult
 from agent.registry import CallContext, get_registry
@@ -76,6 +77,7 @@ NOTHING_TO_DO = "nothing_to_do"
 UNSUPPORTED = "unsupported_instruction"
 AWAITING_APPROVAL = approvals.AWAITING_APPROVAL
 APPROVAL_DENIED = approvals.APPROVAL_DENIED
+STOPPED = control.END_STOPPED      # the hook refused a call because the operator stopped the run
 ENDED_WELL = (PLAN_DONE, NOTHING_TO_DO, UNSUPPORTED, APPROVAL_DENIED)   # the run is done, not failed
 
 
@@ -175,7 +177,9 @@ class PlannedRun:
         if cp is None:
             return
         cp.status = status
-        if status != checkpoints.WAITING_APPROVAL:
+        if status == checkpoints.STOPPED:
+            cp.waiting_for = {"kind": "stop"}
+        elif status != checkpoints.WAITING_APPROVAL:
             cp.waiting_for = None              # a waiting run keeps what approvals.request wrote
         cp.plan = self.plan
         nxt = self._next() if self.plan else None
@@ -199,15 +203,18 @@ class PlannedRun:
         """One model call, bounded, built by context.assemble and traced: the planner, reviser
         and filler all use it. The planner and the reviser are assembled as kind "planner", so
         they never get notes, memory or a stranger's words; their one tool (submit_plan) is not
-        a registry tool, so it is passed as given. A fill call is kind "executor", with the
-        notes, offered its step's one tool through the registry."""
+        a registry tool, so it is passed as given. A fill call is kind "executor", offered its
+        step's one tool through the registry, and given no notes: a step is filled from the
+        results of the steps it depends on alone. With the session's notes, a note to one
+        manager saw the others' contractors and proposal, and the critique held it
+        (pilot-m2-t06-plan-t06_bulk_ended_contractors-s02-fa6328, trace line 39)."""
         self._check_bound(model_call=True)
         if purpose == "fill":
             names = [t["name"] for t in tools]
             built = context.assemble("executor", system=system, session_id=self.sid, run_key=self.run_key,
                                      task=None, history=messages, tool_names=[self.registry.resolve(n) or n
                                                                               for n in names],
-                                     registry=self.registry, use_case=USE_CASE)
+                                     notes=False, registry=self.registry, use_case=USE_CASE)
             tools = built.tools
         else:
             built = context.assemble("planner", system=system, session_id=self.sid, run_key=self.run_key,
@@ -231,6 +238,7 @@ class PlannedRun:
         self._bound_line()
         try:
             self._open()
+            control.notice(self.run_key, self.text)          # before the run's first call
             self.context = planner.build_context(self.text)
             if not self.context["active_membership_counts"]:
                 raise _End(NOTHING_TO_DO, f"no contractor whose contract ended before {self.context['today']} "
@@ -250,6 +258,7 @@ class PlannedRun:
         """Carry on after the operator's answer (or /resume, or the next turn after a crash)."""
         self._bound_line()
         self.trace.event("resumed", run_key=self.run_key, event_kind=event.get("kind"), done=list(self.done))
+        control.notice(self.run_key, self.text, resumed=True)
         try:
             if event.get("kind") == "approval" and not event.get("approved"):
                 raise _End(APPROVAL_DENIED, f"the operator denied {event.get('approval_id')}"
@@ -266,6 +275,8 @@ class PlannedRun:
         report = None
         if reason == AWAITING_APPROVAL:
             self._save(checkpoints.WAITING_APPROVAL)
+        elif reason == STOPPED:
+            self._save(checkpoints.STOPPED)            # paused, its state saved: /resume carries it on
         else:
             if self.plan is not None:
                 report = detectors.diff(self.plan, self.trace.lines()[self.line0:])
@@ -350,7 +361,10 @@ class PlannedRun:
         if seen:
             self.trace.event("repeat_call", tool=step["tool"], plan_step=step["id"], first=seen["step"],
                              hash=seen["hash"])
-        return self.registry.call(step["tool"], args, self._ctx(step))
+        result = self.registry.call(step["tool"], args, self._ctx(step))
+        if result.is_error and self.run_key and control.stopped(self.run_key):
+            raise _End(STOPPED, f"step {step['id']} ({step['tool']}) was refused: the operator stopped this run")
+        return result
 
     def _ctx(self, step: dict) -> CallContext:
         return CallContext(self.sid, self.n, "executor", USE_CASE, plan_step=step["id"], run_key=self.run_key,
@@ -422,6 +436,8 @@ class PlannedRun:
         for s in gated:
             if s["id"] not in self.ready:
                 self.ready[s["id"]] = self._prepare(s)
+        if control.stopped(self.run_key):            # the review is no tool call, so the hook never sees it
+            raise _End(STOPPED, "the operator stopped this run before its plan review was put up")
         listed = [{"plan_step": s["id"], "tool": s["tool"], "args": self.ready[s["id"]],
                    "action_class": hook.classify(s["tool"], self.ready[s["id"]], self._ctx(s))} for s in gated]
         facts = {"version": self.version, "use_case": USE_CASE, "instruction": self.text,
@@ -577,6 +593,7 @@ class PlannedRun:
         head = {PLAN_DONE: f"Done. The plan (version {self.version}) ran all its steps.",
                 AWAITING_APPROVAL: f"Waiting for you: {detail}. Answer it on /approvals; nothing is sent before.",
                 APPROVAL_DENIED: f"Stopped: {detail}. What ran before it stays.",
+                STOPPED: f"Stopped: {detail}. Its state is saved: /resume, /cancel or /rollback it.",
                 STEP_HALTED: f"I stopped: {detail}",
                 REVISION_BOUND: f"I stopped at the checkpoint: {detail}",
                 "critique_held": f"I held a note and did not send it: {detail}"}.get(

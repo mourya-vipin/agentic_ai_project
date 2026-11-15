@@ -1,0 +1,191 @@
+{
+ "made_by": "scripts/stop_conditions.py",
+ "date": "2026-11-15",
+ "model": "tests.fakes:SlowPlanner (no tokens)",
+ "model_call_seconds": 0.3,
+ "runs": 5,
+ "trace": "traces/s-m2-stop.jsonl",
+ "fast_seconds": {
+  "median": 0.301,
+  "largest": 0.303,
+  "smallest": 0.299,
+  "each": [
+   0.303,
+   0.302,
+   0.301,
+   0.299,
+   0.299
+  ]
+ },
+ "all_watched": true,
+ "all_durable": true,
+ "all_safe": true,
+ "all_outside": true,
+ "each": [
+  {
+   "run_id": "s-m2-stop-1-a90750",
+   "watched": {
+    "notice_line": 5,
+    "first_write_line": 17,
+    "notice_first": true,
+    "notice_again_on_resume": true
+   },
+   "fast": {
+    "stop_line": 23,
+    "refused_call": "access_revoke_all",
+    "plan_step": 5,
+    "seconds": 0.303
+   },
+   "durable": {
+    "saved_status": "stopped",
+    "saved_after_last_call": true,
+    "duplicate_removals": 0,
+    "notes_sent": {
+     "SYN-EMP-0060": 1,
+     "SYN-EMP-0040": 1
+    },
+    "final_status": "done"
+   },
+   "safe": {
+    "writes_before_stop": 1,
+    "all_in_journal": true
+   },
+   "outside": {
+    "calls_run_after_stop": 0,
+    "writes_between_stop_and_resume": 0
+   }
+  },
+  {
+   "run_id": "s-m2-stop-2-d200f2",
+   "watched": {
+    "notice_line": 5,
+    "first_write_line": 17,
+    "notice_first": true,
+    "notice_again_on_resume": true
+   },
+   "fast": {
+    "stop_line": 23,
+    "refused_call": "access_revoke_all",
+    "plan_step": 5,
+    "seconds": 0.302
+   },
+   "durable": {
+    "saved_status": "stopped",
+    "saved_after_last_call": true,
+    "duplicate_removals": 0,
+    "notes_sent": {
+     "SYN-EMP-0060": 1,
+     "SYN-EMP-0040": 1
+    },
+    "final_status": "done"
+   },
+   "safe": {
+    "writes_before_stop": 1,
+    "all_in_journal": true
+   },
+   "outside": {
+    "calls_run_after_stop": 0,
+    "writes_between_stop_and_resume": 0
+   }
+  },
+  {
+   "run_id": "s-m2-stop-3-d58d42",
+   "watched": {
+    "notice_line": 5,
+    "first_write_line": 17,
+    "notice_first": true,
+    "notice_again_on_resume": true
+   },
+   "fast": {
+    "stop_line": 23,
+    "refused_call": "access_revoke_all",
+    "plan_step": 5,
+    "seconds": 0.301
+   },
+   "durable": {
+    "saved_status": "stopped",
+    "saved_after_last_call": true,
+    "duplicate_removals": 0,
+    "notes_sent": {
+     "SYN-EMP-0060": 1,
+     "SYN-EMP-0040": 1
+    },
+    "final_status": "done"
+   },
+   "safe": {
+    "writes_before_stop": 1,
+    "all_in_journal": true
+   },
+   "outside": {
+    "calls_run_after_stop": 0,
+    "writes_between_stop_and_resume": 0
+   }
+  },
+  {
+   "run_id": "s-m2-stop-4-eac2ce",
+   "watched": {
+    "notice_line": 5,
+    "first_write_line": 17,
+    "notice_first": true,
+    "notice_again_on_resume": true
+   },
+   "fast": {
+    "stop_line": 23,
+    "refused_call": "access_revoke_all",
+    "plan_step": 5,
+    "seconds": 0.299
+   },
+   "durable": {
+    "saved_status": "stopped",
+    "saved_after_last_call": true,
+    "duplicate_removals": 0,
+    "notes_sent": {
+     "SYN-EMP-0060": 1,
+     "SYN-EMP-0040": 1
+    },
+    "final_status": "done"
+   },
+   "safe": {
+    "writes_before_stop": 1,
+    "all_in_journal": true
+   },
+   "outside": {
+    "calls_run_after_stop": 0,
+    "writes_between_stop_and_resume": 0
+   }
+  },
+  {
+   "run_id": "s-m2-stop-5-881e80",
+   "watched": {
+    "notice_line": 5,
+    "first_write_line": 17,
+    "notice_first": true,
+    "notice_again_on_resume": true
+   },
+   "fast": {
+    "stop_line": 23,
+    "refused_call": "access_revoke_all",
+    "plan_step": 5,
+    "seconds": 0.299
+   },
+   "durable": {
+    "saved_status": "stopped",
+    "saved_after_last_call": true,
+    "duplicate_removals": 0,
+    "notes_sent": {
+     "SYN-EMP-0060": 1,
+     "SYN-EMP-0040": 1
+    },
+    "final_status": "done"
+   },
+   "safe": {
+    "writes_before_stop": 1,
+    "all_in_journal": true
+   },
+   "outside": {
+    "calls_run_after_stop": 0,
+    "writes_between_stop_and_resume": 0
+   }
+  }
+ ]
+}
