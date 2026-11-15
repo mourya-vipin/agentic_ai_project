@@ -1,7 +1,7 @@
 """The approval gate: what waits for the operator, the screen they read, their answer, and
 the decision log (Part 2, task 4). Owner: Shruti Tewaney.
 
-    request(ctx, tool, args, action_class, facts)   the registry hands a gated call here (C3.2)
+    request(ctx, tool, args, action_class, facts)   the registry hands a gated call here
     request_plan(ctx, steps, facts)                 the executor puts up a plan's gated steps, together
     covers(run_key, action_class, args)             the hook asks: has the operator approved this exact call?
     pending()                                       what the approvals page lists (service.pending_approvals)
@@ -46,7 +46,7 @@ from harness.turns import Reply
 DB_FILE = "approvals.sqlite3"
 PENDING, APPROVED, DENIED, WITHDRAWN = "pending", "approved", "denied", "withdrawn"
 
-# end reasons (C6)
+# the end reasons this module writes
 AWAITING_APPROVAL, APPROVAL_DENIED = "awaiting_approval", "approval_denied"
 
 TEXT_CHARS = 600          # the most of a stranger's message the screen quotes

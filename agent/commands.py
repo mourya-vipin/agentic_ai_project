@@ -10,7 +10,7 @@ Owner: Shruti Tewaney.
     /answer <id> <text>   answer an escalation's packet (ESC-0001), from any console session
     /packet <id>     open an escalation's packet, one held over the day's cap included
 
-service.operator_turn calls handle() first (C3.3). A message that is a command is
+service.operator_turn calls handle() first. A message that is a command is
 answered here and never queued, routed or shown to a model; any other message gets
 None and goes on as usual. A command with a missing or malformed run number gets its
 usage back, still without a model.

@@ -64,13 +64,13 @@ DEMO_FACTS = [{"kind": "fact", "table": "employees", "id": "SYN-EMP-0150", "set"
 
 # The agent's own stores under state_dir(), each emptied with the sandbox, so that no saved
 # run, conversation, approval or stop points at records the reset deleted.
-AGENT_STORES = ("agent.checkpoints", "agent.session", "agent.approvals", "agent.control")
+AGENT_STORES = ("agent.checkpoints", "agent.session", "agent.approvals", "agent.control", "agent.escalation")
 
 
 def reset() -> None:
     """Empty the sandbox: delete its one file (the harness empties the channel), and the
     agent's stores (AGENT_STORES): the runs and their journal, the console sessions, the
-    approvals and the stops. `make serve` does not call it, so a restart keeps them all."""
+    approvals, the stops and the escalations. `make serve` does not call it, so a restart keeps them all."""
     db.remove()
     for name in AGENT_STORES:
         importlib.import_module(name).reset()

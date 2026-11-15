@@ -15,10 +15,11 @@ refused, whoever makes it (the loop, the executor, a workflow, a second agent).
 
 Every command is written to the `log` table with its time, and to the session's trace.
 
-Until agent/checkpoints.py (Aman, C3.1) lands, stop() without a run number flags the
-whole session (run key "<session_id>#*"), since nothing yet lists a session's live
-runs, and resume() and rollback() lift the flag and plan the compensation but have no
-saved run to carry on or journal to read.
+stop() without a run number flags every live run of the session (agent/checkpoints.py:
+live), or the whole session (run key "<session_id>#*") when none is saved yet. resume()
+carries the run on through checkpoints.resume; rollback() reads the run's journal, which
+the registry writes after every successful write, and its undo calls pass the hook's stop
+check as the operator's command (origin="operator_command").
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ ANY_RUN = "*"                  # the run number of a session-wide flag
 
 STOPPED, CANCELLED, LIFTED = "stopped", "cancelled", "lifted"
 
-# end reasons (C6)
+# the end reasons this module writes
 END_STOPPED, END_CANCELLED, END_ROLLED_BACK = "stopped", "cancelled", "rolled_back"
 
 SCHEMA = """
@@ -72,7 +73,7 @@ def reset() -> None:
 
 
 def run_key(session_id: str, run_no: int | str) -> str:
-    """C3.1's run key."""
+    """The run key agent/checkpoints.py gives a run: "<session_id>#<run number>"."""
     return f"{session_id}#{run_no}"
 
 
@@ -215,7 +216,7 @@ def resume(key: str, new_input: str | None = None) -> Reply:
 # -- rollback -----------------------------------------------------------------------------
 
 def compensations(completed: dict) -> list[dict]:
-    """The undo of each journaled write (C3.1's `completed`), newest first. A write with
+    """The undo of each journaled write (the checkpoint's `completed`), newest first. A write with
     none gets {"tool": None, "why": ...}, so rollback can print "none" for it."""
     entries = sorted(completed.values(), key=lambda e: e.get("at") or "", reverse=True)
     out = []

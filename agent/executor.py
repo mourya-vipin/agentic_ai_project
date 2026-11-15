@@ -122,7 +122,7 @@ def summarize(step: dict, result) -> dict:
 class PlannedRun:
     def __init__(self, session_id: str, operator_text: str, bound: Bound, run_key: str | None = None):
         self.sid, self.text, self.bound = session_id, operator_text, bound
-        self.run_key = run_key                  # C3.1, from the caller's checkpoints.new_run; on every call
+        self.run_key = run_key                  # from the caller's checkpoints.new_run; on every call
         self.trace = runtime.trace(session_id)
         self.client = runtime.client(session_id)
         self.registry = get_registry()
@@ -600,5 +600,5 @@ def resume(cp, event: dict) -> Reply:
 
 def run_planned(session_id: str, operator_text: str, *, bound: Bound, run_key: str | None = None) -> LoopResult:
     """U6 as a planned agent (plan.bulk_change = "on"). Writes its own trace.end. `run_key`
-    is the run's checkpoint key (C3.1): the hook's stop check and the per-run write keys read it."""
+    is the run's checkpoint key (agent/checkpoints.py): the hook's stop check and the per-run write keys read it."""
     return PlannedRun(session_id, operator_text, bound, run_key=run_key).run()

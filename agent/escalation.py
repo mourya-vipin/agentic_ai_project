@@ -21,7 +21,7 @@ The four decisions, made before the agent runs (slide 37):
                   no packet: the run waits in the queue marked over the cap, until the
                   operator opens it from the console (/packet <id>).
 
-    escalate(run_key, signal, *, attempted, why, needs) -> packet_id   (C3.4)
+    escalate(run_key, signal, *, attempted, why, needs) -> packet_id
     answer(packet_id, text)        the operator's answer: logged, then the run resumes
     expire(now=None)               ends every packet past its deadline: held_timeout
     held()                         the packets still waiting, for the queue page
@@ -45,7 +45,7 @@ DB_FILE = "escalations.sqlite3"
 SIGNALS = ("ambiguous_write", "memory_contradiction", "blocked_three_times")
 PENDING, ANSWERED, TIMED_OUT = "pending", "answered", "timed_out"
 
-# end reasons (C6)
+# the end reasons this module writes
 ESCALATED, HELD_TIMEOUT = "escalated", "held_timeout"
 
 # The hold: an escalation waits at most one working day for the operator.
@@ -127,7 +127,7 @@ def packet_text(row) -> str:
 
 
 def escalate(run_key: str, signal: str, *, attempted: str, why: str, needs: str) -> str:
-    """Hold the run on a named signal and put the packet up for the operator (C3.4). The
+    """Hold the run on a named signal and put the packet up for the operator. The
     caller ends the turn with ESCALATED and makes no further write."""
     if signal not in SIGNALS:
         raise ValueError(f"the signal is {signal!r}; use one of {', '.join(SIGNALS)} (never low confidence)")

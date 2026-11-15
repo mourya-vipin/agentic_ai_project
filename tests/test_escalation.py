@@ -165,3 +165,8 @@ class EscalationTest(ScratchTest):
         escalation.escalate(self.cp.run_key, "ambiguous_write", **PACKET)
         escalation.reset()
         self.assertEqual(escalation.held(), [])
+
+    def test_the_sandbox_reset_clears_the_escalations_too(self):
+        escalation.escalate(self.cp.run_key, "ambiguous_write", **PACKET)
+        seed.reset()                                           # make app, run.py
+        self.assertEqual(escalation.held(), [])

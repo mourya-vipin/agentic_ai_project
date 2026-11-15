@@ -2,7 +2,7 @@
 requests and open pending records), the runs held by an escalation, the runs waiting for the
 operator or a stranger, and the stopped runs. The page itself adds the threads that wait for an
 outside reply and the calls waiting for approval (app/main.py).
-Owner: Shruti Tewaney (from Vipin Mourya, as agreed in C2).
+Owner: Shruti Tewaney (from Vipin Mourya).
 
 Each item is {"id", "summary", "status", "since", ...}; the page shows any further key in its
 "More" column. Held runs come first: each one stops a run until the operator answers.
