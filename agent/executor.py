@@ -122,7 +122,7 @@ def summarize(step: dict, result) -> dict:
 class PlannedRun:
     def __init__(self, session_id: str, operator_text: str, bound: Bound, run_key: str | None = None):
         self.sid, self.text, self.bound = session_id, operator_text, bound
-        self.run_key = run_key                  # C3.1, from the caller's checkpoints.new_run; on every call
+        self.run_key = run_key                  # from the caller's checkpoints.new_run; on every call
         self.trace = runtime.trace(session_id)
         self.client = runtime.client(session_id)
         self.registry = get_registry()
@@ -400,6 +400,22 @@ class PlannedRun:
         found = approvals.get(self.asked["approval_id"])
         return bool(found) and found["status"] == approvals.APPROVED
 
+    def _done_summary(self) -> list[str]:
+        """What ran before the plan review, one line per person, from the step results."""
+        lines = []
+        for sid in self.done:
+            tool, data = self._step(sid)["tool"], self.data.get(sid) or {}
+            if tool == "access_revoke_all":
+                lines.append(f"removed {len(data.get('removed') or [])} group(s) from {data.get('employee_id')}"
+                             + (f", kept {', '.join(data['kept_protected'])} (protected)" if data.get("kept_protected")
+                                else ""))
+            elif tool == "access_revoke" and data.get("status") == "removed":
+                lines.append(f"removed {data.get('group_id')} from {data.get('employee_id')}")
+            elif tool == "access_propose_change":
+                lines.append(f"proposed to {data.get('action')} {data.get('group_id')} for {data.get('employee_id')} "
+                             f"({data.get('pending_id')}), waiting for the operator on /pending")
+        return lines
+
     def _ask_plan(self) -> None:
         """Approval at the plan: prepare every gated step still to run, then put them up as one."""
         gated = [s for s in self.plan["steps"] if s["id"] not in self.done and s["tool"] in GATED]
@@ -409,7 +425,7 @@ class PlannedRun:
         listed = [{"plan_step": s["id"], "tool": s["tool"], "args": self.ready[s["id"]],
                    "action_class": hook.classify(s["tool"], self.ready[s["id"]], self._ctx(s))} for s in gated]
         facts = {"version": self.version, "use_case": USE_CASE, "instruction": self.text,
-                 "done": list(self.actions), "critique": "; ".join(self.checked) or "off (critique.requester_reply)"}
+                 "done": self._done_summary(), "critique": "; ".join(self.checked) or "off (critique.requester_reply)"}
         approval_id = approvals.request_plan(self._ctx(gated[0]), listed, facts)
         self.asked = {"approval_id": approval_id, "version": self.version, "steps": [s["id"] for s in gated]}
         raise _End(AWAITING_APPROVAL, f"plan v{self.version}'s {len(gated)} gated step(s) wait for the operator's "
@@ -584,5 +600,5 @@ def resume(cp, event: dict) -> Reply:
 
 def run_planned(session_id: str, operator_text: str, *, bound: Bound, run_key: str | None = None) -> LoopResult:
     """U6 as a planned agent (plan.bulk_change = "on"). Writes its own trace.end. `run_key`
-    is the run's checkpoint key (C3.1): the hook's stop check and the per-run write keys read it."""
+    is the run's checkpoint key (agent/checkpoints.py): the hook's stop check and the per-run write keys read it."""
     return PlannedRun(session_id, operator_text, bound, run_key=run_key).run()

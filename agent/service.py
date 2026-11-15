@@ -61,11 +61,11 @@ def pending_approvals() -> list[dict]:
     """What waits for the operator's answer, one dict each, with an `id`, the console
     `session_id` it came from, and the approval screen in reading order. A pending record
     our system writes, such as a drafted reply, is not an approval: it is on /pending.
-    Written by Shruti Tewaney (C9b): the gate is agent/approvals.py."""
+    Written by Shruti Tewaney: the gate is agent/approvals.py."""
     return approvals.pending()
 
 
 def decide_approval(approval_id: str, approved: bool, note: str = "") -> Reply | None:
     """The operator's answer to one approval: record it, and carry on the work that
-    waited for it. Written by Shruti Tewaney (C9b): the gate is agent/approvals.py."""
+    waited for it. Written by Shruti Tewaney: the gate is agent/approvals.py."""
     return approvals.decide(approval_id, approved, note)

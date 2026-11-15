@@ -1,7 +1,7 @@
 """The approval gate: what waits for the operator, the screen they read, their answer, and
 the decision log (Part 2, task 4). Owner: Shruti Tewaney.
 
-    request(ctx, tool, args, action_class, facts)   the registry hands a gated call here (C3.2)
+    request(ctx, tool, args, action_class, facts)   the registry hands a gated call here
     request_plan(ctx, steps, facts)                 the executor puts up a plan's gated steps, together
     covers(run_key, action_class, args)             the hook asks: has the operator approved this exact call?
     pending()                                       what the approvals page lists (service.pending_approvals)
@@ -46,7 +46,7 @@ from harness.turns import Reply
 DB_FILE = "approvals.sqlite3"
 PENDING, APPROVED, DENIED, WITHDRAWN = "pending", "approved", "denied", "withdrawn"
 
-# end reasons (C6)
+# the end reasons this module writes
 AWAITING_APPROVAL, APPROVAL_DENIED = "awaiting_approval", "approval_denied"
 
 TEXT_CHARS = 600          # the most of a stranger's message the screen quotes
@@ -289,10 +289,14 @@ def screen(tool: str, args: dict, action_class: str, facts: dict) -> dict:
         members = _member_count(group.get("id"))
         out["reach (computed)"] = (f"one person; {group.get('id')} has {members} member(s) now, sensitivity "
                                    f"{group.get('sensitivity')}, system {group.get('system_id')}")
-        if action_class == "access_grant/manager_confirmed" or action_class == "access_grant/high_sensitivity":
+        if action_class in ("access_grant/manager_confirmed", "access_grant/high_sensitivity") and person:
+            from policy import hook
             manager = directory.manager_of(str(person.get("id"))) or {}
-            out["manager's answer (computed)"] = (f"YES on record from {manager.get('id')} ({manager.get('name')}), "
-                                                  "read by code from their reply; the operator still decides")
+            said = hook.manager_answer(person, group, _request(args.get("request_id")))
+            out["manager's answer (computed)"] = (
+                f"{said.upper()}, the first reply from {manager.get('id')} ({manager.get('name')}) after our "
+                "manager_confirm question, read by code; the operator still decides" if said
+                else f"none on record from {manager.get('id')} ({manager.get('name')})")
     elif tool == "reply_send":
         recipient = directory.get_employee(str(args.get("recipient_employee_id"))) or {}
         out["dry run"] = (f"Send to {recipient.get('id')} ({recipient.get('name')}, {recipient.get('email')}):\n"
@@ -338,7 +342,8 @@ def plan_screen(steps: list[dict], facts: dict) -> dict:
         "the critique on each note (computed)": facts.get("critique") or "not run",
         "not listed here": "any other gated step, or a step whose text changes, asks again",
         "what still checks it": ("each note's text is checked again when it is sent, and each step's expected "
-                                 "outcome after it runs; the critique checks groups and people named, not tone"),
+                                 "outcome after it runs; the critique checks the groups and people named and any "
+                                 "approval claimed, not tone"),
         "secrets (computed)": "none: the hook refuses any text or record that carries a credential's secret",
     }
     if facts.get("instruction"):
@@ -365,6 +370,6 @@ def _request(request_id) -> dict | None:
 
 def _critique_line() -> str:
     if str(runtime.switch("critique.requester_reply", "off")) == "external":
-        return ("the critique, when it is sent: it checks the groups the text says were granted, removed or "
-                "waiting against the records; not tone, and not claims of approval")
+        return ("the critique, again when it is sent: the groups and people the text names against the records, "
+                "and any approval it claims that no record shows; not tone")
     return "nothing after this screen: the critique is off (critique.requester_reply)"
