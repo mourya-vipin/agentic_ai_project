@@ -3,56 +3,231 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}Project{% endblock %}</title>
+<title>{% block title %}Project{% endblock %} · IT Access Desk</title>
 <style>
-  :root { --bg: #ffffff; --fg: #1d1f23; --muted: #5f6672; --line: #d9dce1; --soft: #f3f4f6;
-          --accent: #2754c5; --agent: #eef3ff; --outside: #fff6e6; --error: #b42318; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #16181c; --fg: #e6e8eb; --muted: #9aa1ab; --line: #343840; --soft: #1f2227;
-            --accent: #8fb0ff; --agent: #1e2a44; --outside: #3a2f1c; --error: #ff8a80; }
-  }
+  /* An IT service desk workspace: a top banner, a menu on the left, list views and record forms. */
+  :root { --bg: #ffffff; --fg: #1b2426; --muted: #5d6b6e; --line: #d5dbdc; --soft: #f4f6f6; --page: #eef1f2;
+          --accent: #1f6fb2; --brand: #1b7f74; --banner: #213438; --menu: #2b4146; --menu-fg: #d9e4e5;
+          --menu-here: #3b5a60; --agent: #eef5fb; --outside: #fff6e3; --error: #b42318;
+          --ok: #1a7f37; --wait: #9a6700; --run: #1f6fb2; --stop: #b42318; --chip: #e7ecec; }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
-  nav { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
-  nav a { color: var(--muted); text-decoration: none; }
-  nav a.here { color: var(--fg); font-weight: 600; }
-  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
-  h1 { font-size: 1.4rem; margin: 8px 0 12px; }
-  h2 { font-size: 1.1rem; margin: 22px 0 8px; }
-  a { color: var(--accent); }
-  table { border-collapse: collapse; width: 100%; font-size: 14px; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--page); color: var(--fg); font: 14px/1.5 "Segoe UI", system-ui, sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* The banner */
+  .banner { position: sticky; top: 0; z-index: 10; height: 50px; display: flex; align-items: center; gap: 14px;
+            padding: 0 14px; background: var(--banner); color: #fff; }
+  .banner .burger { background: none; border: 0; color: #fff; font-size: 20px; padding: 4px 8px; cursor: pointer; }
+  .brand { display: flex; align-items: center; gap: 10px; color: #fff; font-weight: 600; font-size: 15px; }
+  .brand:hover { text-decoration: none; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--brand); display: grid;
+                 place-items: center; font-size: 12px; letter-spacing: 0.5px; }
+  .brand small { font-weight: 400; color: #b9cacc; font-size: 12px; }
+  .banner form { margin-left: auto; }
+  .banner input[type=search] { width: 260px; padding: 6px 10px; border-radius: 4px; border: 1px solid #45605f;
+                               background: #2d4448; color: #fff; font: inherit; }
+  .banner input[type=search]::placeholder { color: #a9bcbe; }
+  .badge-env { font-size: 11px; padding: 2px 8px; border-radius: 3px; background: #f0c24b; color: #2b2100;
+               font-weight: 600; letter-spacing: 0.3px; }
+  .who-am-i { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #d9e4e5; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 11px;
+            font-weight: 700; background: #4d7479; color: #fff; flex: none; }
+
+  /* The menu on the left */
+  .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: calc(100vh - 50px); }
+  body.menu-closed .shell { grid-template-columns: 0 minmax(0, 1fr); }
+  body.menu-closed nav { visibility: hidden; }
+  nav { background: var(--menu); color: var(--menu-fg); padding: 10px 0; position: sticky; top: 50px;
+        height: calc(100vh - 50px); overflow-y: auto; }
+  nav input[type=text] { display: block; width: calc(100% - 20px); margin: 0 10px 10px; padding: 6px 9px; border-radius: 4px;
+              border: 1px solid #4a6469; background: #22373b; color: #fff; font: inherit; font-size: 13px; }
+  nav input::placeholder { color: #9fb3b5; }
+  nav .group { padding: 10px 14px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+               letter-spacing: 0.6px; color: #9fb7b9; }
+  nav a { display: block; padding: 6px 14px 6px 24px; color: var(--menu-fg); border-left: 3px solid transparent; }
+  nav a:hover { background: #344d52; text-decoration: none; }
+  nav a.here { background: var(--menu-here); border-left-color: #6fd1c3; color: #fff; font-weight: 600; }
+  nav .foot { margin-top: 18px; padding: 10px 14px; font-size: 11px; color: #8ea5a7; border-top: 1px solid #3a5257; }
+
+  /* The work area */
+  main { padding: 16px 20px 28px; min-width: 0; }
+  main > * { max-width: 1240px; }
+  main.wide > * { max-width: none; }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 14px; padding: 10px 14px; background: var(--bg);
+       border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 3px; }
+  h1 .muted { font-weight: 400; }
+  h2 { font-size: 14px; font-weight: 600; margin: 20px 0 0; padding: 8px 12px; background: #e3e9ea;
+       border: 1px solid var(--line); border-bottom: 0; border-radius: 3px 3px 0 0; }
+  h2 + * { margin-top: 0; }
+  h2 + p, h2 + form, h2 + .line { background: var(--bg); border: 1px solid var(--line); padding: 10px 12px;
+                                  margin-top: 0; margin-bottom: 0; }
+  main > p, section > p { margin: 8px 0; }
+
+  /* Lists */
+  table { border-collapse: collapse; width: 100%; font-size: 13px; background: var(--bg); border: 1px solid var(--line); }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #e6eaeb; vertical-align: top; }
+  th { background: #f1f4f4; color: #3b4a4d; font-weight: 600; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  tr:nth-child(even) td { background: #fafbfb; }
+  tr:hover td { background: #eaf4f3; }
   .scroll { overflow-x: auto; }
+
+  /* Forms and buttons */
+  textarea, input[type=text], select { width: 100%; padding: 7px 9px; font: inherit; color: var(--fg); background: var(--bg);
+                                      border: 1px solid #b9c4c6; border-radius: 3px; }
+  select { width: auto; max-width: 100%; }
+  textarea:focus, input:focus, select:focus { outline: 2px solid #8cc9c1; outline-offset: 0; border-color: var(--brand); }
+  button { padding: 6px 14px; font: inherit; font-size: 13px; border-radius: 3px; border: 1px solid #aab7b9;
+           background: var(--bg); color: var(--fg); cursor: pointer; }
+  button:hover { background: #eef3f3; }
+  button.primary, button[value=approve] { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+  button.primary:hover, button[value=approve]:hover { background: #166a61; }
+  button[value=deny] { color: var(--stop); }
+  button.block { width: 100%; }
+  button.small { padding: 2px 10px; font-size: 12px; }
+  button.danger { color: var(--stop); }
+  button.link { border: 0; background: none; padding: 0 4px; color: var(--accent); font-size: 12px; }
+  form { margin: 0; }
+
+  /* Common pieces */
   .muted { color: var(--muted); }
-  .notice { padding: 10px 12px; background: var(--soft); border-left: 3px solid var(--accent); margin: 12px 0; }
+  .small { font-size: 12px; }
+  .warn { color: var(--wait); }
+  .notice { padding: 10px 12px; background: #e8f4f2; border: 1px solid #b8ddd7; border-left: 4px solid var(--brand); margin: 12px 0; }
   .error { color: var(--error); }
-  textarea, input[type=text] { width: 100%; padding: 8px; font: inherit; color: var(--fg);
-                               background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
-  button { padding: 7px 14px; font: inherit; border-radius: 6px; border: 1px solid var(--line);
-           background: var(--soft); color: var(--fg); cursor: pointer; }
-  .line { padding: 8px 10px; margin: 6px 0; border-radius: 6px; background: var(--soft); white-space: pre-wrap; }
+  code, pre { font-family: Consolas, ui-monospace, monospace; font-size: 12px; }
+  pre { background: var(--bg); border: 1px solid var(--line); padding: 10px; overflow-x: auto; margin-top: 0; }
+  .line { padding: 9px 12px; margin: 8px 0; border-radius: 3px; background: var(--bg); border: 1px solid var(--line);
+          white-space: pre-wrap; }
   .line.reply { background: var(--agent); }
   .line.outside { background: var(--outside); }
-  .line.error { border-left: 3px solid var(--error); }
-  .who { font-size: 12px; color: var(--muted); }
-  code, pre { font-family: ui-monospace, monospace; font-size: 13px; }
-  pre { background: var(--soft); padding: 10px; overflow-x: auto; }
-  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: 24px; }
-  @media (max-width: 720px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .line.error { border-left: 4px solid var(--error); }
+  .who { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: 20px; }
+  .split > section:first-child { background: var(--bg); border: 1px solid var(--line); padding: 4px 12px; align-self: start; }
+  @media (max-width: 760px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .chip { display: inline-block; padding: 0 8px; border-radius: 3px; font-size: 11px; line-height: 19px; font-weight: 600;
+          background: var(--chip); color: #46585b; white-space: nowrap; }
+  .chip.running { background: #e2eefa; color: var(--run); }
+  .chip.waiting, .chip.waiting_reply, .chip.waiting_approval, .chip.held { background: #fbf0d6; color: var(--wait); }
+  .chip.stopped, .chip.failed { background: #fbe3e1; color: var(--stop); }
+  .chip.done { background: #e1f3e6; color: var(--ok); }
+  .chip.cancelled { background: #ebeeee; color: #6b7a7d; }
+  .spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--line);
+             border-top-color: var(--brand); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: -1px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* The console: a record form with an activity stream and related lists */
+  .console { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .console.open { grid-template-columns: 230px minmax(0, 1fr) 310px; }
+  @media (max-width: 1280px) { .console.open { grid-template-columns: 210px minmax(0, 1fr); } .console .panel { grid-column: 1 / -1; } }
+  @media (max-width: 760px) { .console, .console.open { grid-template-columns: minmax(0, 1fr); } }
+  .box { background: var(--bg); border: 1px solid var(--line); border-radius: 3px; }
+  .box-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px;
+              background: #e3e9ea; border-bottom: 1px solid var(--line); font-weight: 600; font-size: 13px; }
+  .box-body { padding: 10px 12px; }
+  .sessions { max-height: calc(100vh - 100px); overflow-y: auto; }
+  .session { display: flex; flex-direction: column; padding: 8px 12px; color: var(--fg); border-bottom: 1px solid #e6eaeb;
+             border-left: 3px solid transparent; }
+  .session:hover { background: #eaf4f3; text-decoration: none; }
+  .session.here { background: #e3f1ef; border-left-color: var(--brand); }
+  .session-id { font-family: Consolas, ui-monospace, monospace; font-size: 12px; color: var(--accent); }
+  .session .first { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .record-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--bg);
+                 border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 3px; margin-bottom: 12px; }
+  .record-head .kind { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+  .record-head .title { font-size: 16px; font-weight: 600; }
+  .record-head .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin-bottom: 12px; }
+  .fields div { padding: 8px 12px; border-right: 1px solid #e6eaeb; }
+  .fields div:last-child { border-right: 0; }
+  .fields label { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  .compose { padding: 12px; }
+  .send-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; }
+  .hints { margin-left: auto; }
+  .history { height: calc(100vh - 430px); min-height: 260px; overflow-y: auto; padding: 6px 12px; }
+  .entry { display: flex; gap: 10px; margin: 10px 0; }
+  .entry .avatar.operator { background: #4d7479; }
+  .entry .avatar.agent { background: var(--brand); }
+  .entry .avatar.outside { background: #b7791f; }
+  .entry .avatar.system { background: #8a9799; }
+  .entry .avatar.error { background: var(--error); }
+  .entry .card-body { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); }
+  .entry .card-body .who { padding: 5px 10px; background: #f4f7f7; border-bottom: 1px solid #e6eaeb; }
+  .entry .card-body .who b { color: var(--fg); font-weight: 600; }
+  .entry .text { padding: 8px 10px; white-space: pre-wrap; }
+  .entry.agent .card-body { border-left: 3px solid var(--brand); }
+  .entry.outside .card-body { border-left: 3px solid #b7791f; background: #fffaf0; }
+  .entry.error .card-body { border-left: 3px solid var(--error); }
+  .entry.progress { margin: 4px 0 4px 38px; font-size: 12px; color: var(--muted); }
+  .done-list { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 8px; }
+  .wait-line { padding: 0 10px 8px; }
+  .at { font-variant-numeric: tabular-nums; }
+  .panel { max-height: calc(100vh - 100px); overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+  .count { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: #c9d6d8;
+           color: #2b3c3f; font-size: 11px; text-align: center; }
+  .card { border-bottom: 1px solid #e6eaeb; padding: 9px 12px; border-left: 3px solid transparent; }
+  .card:last-child { border-bottom: 0; }
+  .card.run.running { border-left-color: var(--run); }
+  .card.run.waiting_reply, .card.run.waiting_approval, .card.run.held { border-left-color: var(--wait); }
+  .card.run.stopped, .card.run.failed { border-left-color: var(--stop); }
+  .card.run.done { border-left-color: var(--ok); }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .task { margin: 4px 0; white-space: pre-wrap; }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .empty { padding: 10px 12px; }
 </style>
 </head>
 <body>
+<header class="banner">
+  <button class="burger" type="button" id="menu-toggle" title="Show or hide the menu" aria-label="Show or hide the menu">&#9776;</button>
+  <a class="brand" href="/"><span class="mark">IA</span><span>IT Access Desk <small>Operator workspace</small></span></a>
+  <form method="get" action="/people" role="search">
+    <input type="search" name="q" placeholder="Search people: name, email or ID" aria-label="Search people">
+  </form>
+  <span class="badge-env" title="Every record is synthetic">SANDBOX</span>
+  <span class="who-am-i"><span class="avatar">OP</span>Operator</span>
+</header>
+<div class="shell">
 <nav>
-  <a href="/" class="{{ 'here' if page == 'home' }}">Home</a>
+  {% set path = request.url.path if request else '' %}
+  <input type="text" id="menu-filter" placeholder="Filter the menu" aria-label="Filter the menu">
+  <div class="group">Access desk</div>
+  <a href="/" class="{{ 'here' if path == '/' or path.startswith('/requests') }}">Requests</a>
+  <a href="/people" class="{{ 'here' if path.startswith('/people') }}">People</a>
+  <a href="/pending" class="{{ 'here' if path.startswith('/pending') }}">Pending</a>
+  <div class="group">Agent</div>
   <a href="/console" class="{{ 'here' if page == 'console' }}">Console</a>
+  <a href="/approvals" class="{{ 'here' if page == 'approvals' }}">Approvals</a>
   <a href="/queue" class="{{ 'here' if page == 'queue' }}">Queue</a>
   <a href="/threads" class="{{ 'here' if page == 'threads' }}">Threads</a>
-  <a href="/approvals" class="{{ 'here' if page == 'approvals' }}">Approvals</a>
+  <div class="group">Diagnostics</div>
   <a href="/traces" class="{{ 'here' if page in ('traces', 'trace') }}">Traces</a>
+  <div class="foot">Every record here is synthetic.</div>
 </nav>
-<main>
+<main class="{% block wide %}{% endblock %}">
 {% block content %}{% endblock %}
 </main>
+</div>
+<script>
+  // The menu: a filter, and a button that hides it (kept for the next page).
+  (function () {
+    const body = document.body;
+    if (localStorage.getItem("menu-closed") === "1") body.classList.add("menu-closed");
+    document.getElementById("menu-toggle").addEventListener("click", () => {
+      body.classList.toggle("menu-closed");
+      localStorage.setItem("menu-closed", body.classList.contains("menu-closed") ? "1" : "0");
+    });
+    const filter = document.getElementById("menu-filter");
+    filter.addEventListener("input", () => {
+      const q = filter.value.trim().toLowerCase();
+      document.querySelectorAll("nav a").forEach((a) => {
+        a.style.display = !q || a.textContent.toLowerCase().includes(q) ? "" : "none";
+      });
+      document.querySelectorAll("nav .group").forEach((g) => { g.style.display = q ? "none" : ""; });
+    });
+  })();
+</script>
 </body>
 </html>

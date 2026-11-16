@@ -16,6 +16,7 @@ number. The same key names the wait, the stop flag and the hold of the run.
     live(session_id)                          the runs that are not done, failed or cancelled
     crashed(session_id)                       the runs that a stopped process left as running
     waiting(kind)                             the runs that wait for a reply, an approval, ...
+    runs_of(session_id, limit)                the runs of one session, newest first (the console's panel)
     resume(run_key, event)                    continue a run from its checkpoint
     journaled(run_key, key)                   the recorded result of a completed call, or None
     journal_of(run_key)                       the whole journal of the run, without a flush
@@ -405,6 +406,15 @@ def crashed(session_id: str) -> list[Checkpoint]:
     """The runs of the session that are "running", but that another process saved last:
     that process stopped during the run (a crash, or a restart of the app). By run number."""
     return [cp for cp in live(session_id) if cp.status == RUNNING and cp.process and cp.process != PROCESS]
+
+
+def runs_of(session_id: str, limit: int = 20) -> list[Checkpoint]:
+    """The runs of one session, in every status, newest first: at most `limit` of them."""
+    flush()
+    with _connect() as conn:
+        rows = conn.execute("SELECT * FROM runs WHERE session_id = ? ORDER BY run_no DESC LIMIT ?",
+                            (session_id, int(limit))).fetchall()
+        return [_from_row(r, _journal(conn, r["run_key"])) for r in rows]
 
 
 def waiting(kind: str | None = None) -> list[Checkpoint]:
