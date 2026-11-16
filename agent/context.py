@@ -291,5 +291,6 @@ def assemble(kind: str, *, system: str, session_id: str, run_key: str | None, ta
     unfit = count > budget()
     out = Assembled(system, messages, tools, count, left_out, compacted=compacted, unfit=unfit)
     runtime.trace(session_id).event("context", call_kind=kind, run_key=run_key, tokens=count, budget=budget(),
-                                    over_budget=unfit, compacted=compacted, left_out=left_out)
+                                    over_budget=unfit, compacted=compacted, left_out=left_out,
+                                    tools_offered=len(tools), definition_tokens=tokens(tools) if tools else 0)
     return out
