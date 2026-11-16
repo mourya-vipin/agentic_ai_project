@@ -17,6 +17,17 @@ since this loop started, from the metered client), the wall clock. The first one
 reached ends the loop with its own reason; the model's retries after an error count
 as steps like any other. The loop ends early when a tool result carries an end
 reason (critique_held), or on the second protocol error in the loop.
+
+Milestone 2. The caller opens the run (agent/checkpoints.py) and gives its key. Before
+each model call, the loop also does these two steps:
+  - It reads the stop flag (agent/control.py). A stopped run ends with "stopped" and
+    makes no more model calls. The hook refuses the tool calls of a stopped run too.
+  - It builds the call with context.assemble. A call that cannot fit ends the
+    loop with budget_unfit. After a compaction, the loop keeps the compacted messages,
+    so that the compaction holds. It does not keep the notes or the memory, because
+    assemble adds them again to each call.
+Each tool call carries the run key and origin "agent". The text of a send passes
+disclosure.stamp_call before the registry.
 """
 
 from __future__ import annotations
@@ -24,7 +35,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
-from agent import bounds
+from agent import bounds, context, control, disclosure
 from agent.bounds import Bound
 from agent.detectors import RepeatTracker
 from agent.registry import CallContext, get_registry
@@ -44,11 +55,11 @@ class LoopResult:
 
 
 def run_loop(session_id: str, *, use_case: str, system: str, user_content: str,
-             tools: list[str], bound: Bound, request_id: str | None = None) -> LoopResult:
+             tools: list[str], bound: Bound, request_id: str | None = None,
+             run_key: str | None = None) -> LoopResult:
     client = runtime.client(session_id)
     trace = runtime.trace(session_id)
     registry = get_registry()
-    definitions = registry.definitions(tools)          # the same order on every request
     repeats = RepeatTracker()
     done = bounds.ANSWERED if use_case == "operator_review" else bounds.DONE
     trace.event("bound", use_case=use_case, request_id=request_id, max_steps=bound.max_steps,
@@ -73,9 +84,18 @@ def run_loop(session_id: str, *, use_case: str, system: str, user_content: str,
         if elapsed >= bound.wall_clock_s:
             return end(bounds.WALL_CLOCK, f"{elapsed:.1f}s >= {bound.wall_clock_s:g}s before step {step + 1}",
                        _stopped("the time limit", text))
+        if control.stopped(run_key):
+            return end(control.END_STOPPED, f"{run_key} stopped by the operator before step {step + 1}",
+                       f"Stopped by the operator before step {step + 1}." + (f" Last said: {text}" if text else ""))
+        built = context.assemble("loop", system=system, session_id=session_id, run_key=run_key, task=user_content,
+                                 history=messages, tool_names=tools, registry=registry, use_case=use_case)
+        if built.unfit:
+            return end(context.BUDGET_UNFIT, f"{built.tokens:,} > {context.budget():,} tokens before step {step + 1}",
+                       _stopped("the context budget", text))
+        messages = _kept(built, messages)
 
         step += 1
-        response = client.create(system=system, messages=messages, tools=definitions)
+        response = client.create(system=built.system, messages=built.messages, tools=built.tools)
         trace.model_call(step, response, purpose=use_case, request_id=request_id)
         text = response.text or text
         calls = response.tool_calls
@@ -88,8 +108,10 @@ def run_loop(session_id: str, *, use_case: str, system: str, user_content: str,
             earlier = repeats.see(call.name, call.input, step)
             if earlier is not None:
                 trace.event("repeat_call", step=step, tool=call.name, first_step=earlier["step"], hash=earlier["hash"])
-            ctx = CallContext(session_id, step, "model", use_case, request_id=request_id, call_id=call.id)
-            result = registry.call(call.name, call.input, ctx)
+            ctx = CallContext(session_id, step, "model", use_case, request_id=request_id, call_id=call.id,
+                              run_key=run_key, origin="agent")
+            result = registry.call(call.name, disclosure.stamp_call(registry.resolve(call.name) or call.name,
+                                                                    call.input), ctx)
             calls_made += 1
             results.append(tool_result(call, result.content, result.is_error))
             if result.error_class == "protocol":
@@ -110,6 +132,16 @@ def run_loop(session_id: str, *, use_case: str, system: str, user_content: str,
 
 def _stopped(limit: str, text: str) -> str:
     return f"Stopped at {limit} before finishing." + (f" Last said: {text}" if text else "")
+
+
+def _kept(built: context.Assembled, messages: list[dict]) -> list[dict]:
+    """The conversation for the next step. After a compaction, it is the compacted
+    conversation, so that the compaction holds. assemble puts the notes and the memory in
+    the last message, which is always a user turn here. The loop keeps that message as it
+    was, without them."""
+    if not built.compacted:
+        return messages
+    return built.messages[:-1] + messages[-1:]
 
 
 def action_line(tool: str, args: dict, data) -> str:

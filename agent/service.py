@@ -35,15 +35,50 @@ your model calls labelled as theirs.
 
 from __future__ import annotations
 
-from agent import approvals, router
+from agent import approvals, checkpoints, commands, notes, router
+from harness import runtime
 from harness.turns import Reply  # noqa: F401  (what each turn returns)
+from policy import limits
 
 
 def operator_turn(session_id: str, text: str) -> Reply:
     """One message from the operator in this session: give a task, add to it, ask
     about it. Route the case to its path, as your routing and the switches say, and
-    reply."""
-    return router.handle_operator(session_id, text)
+    reply.
+
+    Owner: Aman Panigrahi. Our code does these steps in this order:
+      1. A command of the operator (/stop, /cancel, /resume, /rollback) gets its answer
+         from agent/commands.py. No model sees it, and it does not go into the conversation.
+      2. A limit that the message lifts or states becomes a rule that the hook reads before
+         each call (policy/limits.py). The reply starts with what our code recorded.
+      3. The router sends the message to its path.
+    The turn writes the async checkpoints before it replies, so that the operator never
+    reads a result that the run store does not hold."""
+    try:
+        command = commands.handle(session_id, text)
+        if command is not None:
+            return command
+        recorded = _limits(session_id, text)
+        reply = router.handle_operator(session_id, text)
+    finally:
+        checkpoints.flush()
+    if not recorded:
+        return reply
+    return Reply("\n".join([*recorded, reply.text]).strip(), reply.actions, reply.waiting_for)
+
+
+def _limits(session_id: str, text: str) -> list[str]:
+    """Lift, then record, the limits that the message gives. A message can lift the old
+    rules and state a new one, and the new rule stays. One line for each change."""
+    lines = []
+    lifted = limits.lift_from_text(session_id, text)
+    if lifted:
+        lines.append(f"Rules lifted: {', '.join(lifted)}.")
+    rule = limits.from_text(session_id, text)
+    if rule is not None:
+        until = "until you lift it" if rule.until == limits.OPERATOR_LIFTS else f"until {rule.until}"
+        lines.append(f'Rule {rule.id} is recorded. It holds {until}: "{rule.text}"')
+    return lines
 
 
 def on_outside_reply(thread_id: str, text: str) -> Reply:
@@ -53,8 +88,29 @@ def on_outside_reply(thread_id: str, text: str) -> Reply:
     outside exchange, so a message typed on the threads page is ignored. Once you
     build it, the agent asks on the thread, ends its turn with
     Reply(waiting_for=thread_id), and carries on here when the answer arrives,
-    finding the work that waits on this thread. Do not wait for `text` again."""
-    return Reply()
+    finding the work that waits on this thread. Do not wait for `text` again.
+
+    Owner: Aman Panigrahi. The run that waits for a reply on this thread continues from
+    its checkpoint (checkpoints.resume), in this process or after a restart. The notes
+    mark the thread as answered (agent/notes.py). If no run waits on the thread, the
+    message stays in the channel, and the reply is empty."""
+    run = next((cp for cp in checkpoints.waiting("reply") if (cp.waiting_for or {}).get("thread_id") == thread_id),
+               None)
+    session_id = run.session_id if run is not None else _this_session()
+    if session_id:
+        notes.thread_answered(session_id, thread_id)
+    if run is None:
+        return Reply()
+    try:
+        return checkpoints.resume(run.run_key, {"kind": "reply", "thread_id": thread_id, "text": text})
+    finally:
+        checkpoints.flush()
+
+
+def _this_session() -> str | None:
+    """The session of this turn: the run ID in a run.py run, else the console session."""
+    run = runtime.current_run()
+    return run.run_id if run is not None else runtime.current_session()
 
 
 def pending_approvals() -> list[dict]:
