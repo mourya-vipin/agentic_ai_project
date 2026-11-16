@@ -385,6 +385,29 @@ class WriteInDoubtTest(PlannedTest):
         self.assertEqual(twice, 0)
 
 
+
+class MidTaskTest(PlannedTest):
+    """The operator's messages mid-task on the planned path (agent/inbox.py)."""
+
+    def test_a_message_that_adds_to_the_task_reaches_every_later_model_call(self):
+        fakes.MidTaskOperator.seen = []
+        result = self.run_planned("MidTaskOperator")
+        taken = self.of("midtask_taken")
+        from agent import inbox
+        self.assertEqual([x["way"] for x in taken], [inbox.ADD])
+        self.assertTrue(all(fakes.MidTaskOperator.MESSAGE in r for r in fakes.MidTaskOperator.seen))
+        self.assertEqual(len(fakes.MidTaskOperator.seen), 2)               # both notes' calls read it
+        self.assertEqual(self.end_reasons()[-1], executor.PLAN_DONE)
+        self.assertIn("You added, mid-task", result.text)
+
+    def test_a_message_that_replaces_the_task_ends_the_run_before_its_next_step(self):
+        result = self.run_planned("MidTaskReplacer", answer=None)
+        self.assertEqual(self.end_reasons(), [executor.REPLACED])
+        self.assertEqual(self.of("tool_call"), [])                        # taken before the first step: no write
+        self.assertEqual(approvals.pending(), [])
+        self.assertIn("replaced the task", result.text)
+
+
 class SendsLastTest(unittest.TestCase):
     def test_a_step_after_a_send_is_rejected(self):
         plan = fakes.t06_plan(with_hold=True)
