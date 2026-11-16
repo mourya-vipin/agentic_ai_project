@@ -1,4 +1,4 @@
-"""The run store: one checkpoint for each run, in state_dir()/runs.sqlite3 (C3.1).
+"""The run store: one checkpoint for each run, in state_dir()/runs.sqlite3.
 
 Owner: Aman Panigrahi.
 
@@ -29,7 +29,7 @@ The durability modes (Lecture 4, slide 12):
             A crash before that loses the whole run.
 
 The journal is a table of its own. The registry adds an entry after each successful
-write (C3.2), and save() only adds entries. Because of this, the save of an old copy
+write, and save() only adds entries. Because of this, the save of an old copy
 of a checkpoint cannot remove an entry that the registry wrote.
 
 Nothing resumes a run at start-up. A run continues only after one of these calls:
@@ -315,7 +315,7 @@ def _check(cp: Checkpoint, mode: str) -> None:
         raise ValueError(f"the run key {cp.run_key!r} does not agree with {key_of(cp.session_id, cp.run_no)!r}")
 
 
-# -- C3.1 -----------------------------------------------------------------------------------
+# -- the functions that the paths call ------------------------------------------------------
 
 def new_run(session_id: str, use_case: str, task: str) -> Checkpoint:
     """Make a run with the next run number of its session, and write it at once (sync).
@@ -407,7 +407,7 @@ def journaled(run_key: RunKey, key: str) -> dict | None:
 
 def record_completed(run_key: RunKey, key: str, *, tool: str, args: dict, result) -> None:
     """Add one completed call to the journal of the run, at once (sync). The registry
-    calls it after each successful write (C3.2). The first result of a key stays, as the
+    calls it after each successful write. The first result of a key stays, as the
     target keeps the first result of a key."""
     entry = (key, tool, _json(args, "args"), _json(result, "result"), now())
     with _connect(write=True) as conn:

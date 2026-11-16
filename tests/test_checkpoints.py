@@ -1,4 +1,4 @@
-"""The run store (C3.1) and the durable console session (Milestone 2, Part 1, task 2).
+"""The run store and the durable console session (Milestone 2, Part 1, task 2).
 No tokens. Owner: Aman Panigrahi.
 
 A crash test starts a child process, which saves and then stops with os._exit. The
