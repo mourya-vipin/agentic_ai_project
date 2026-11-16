@@ -45,6 +45,7 @@ PROTOCOL_ERROR = "protocol_error"
 # turn waiting_reply. If no reply comes within REPLY_WORKING_DAYS on the sandbox's clock,
 # the operator's next turn ends it reply_deadline and leaves its request for the operator.
 WAITING_REPLY = "waiting_reply"
+REPLACED = "replaced"          # a message mid-task replaced the run's task (agent/inbox.py)
 REPLY_DEADLINE = "reply_deadline"
 REPLY_WORKING_DAYS = 2
 
