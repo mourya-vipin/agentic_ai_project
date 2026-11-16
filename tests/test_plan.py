@@ -353,6 +353,38 @@ class FillSeesItsStepsOnlyTest(PlannedTest):
         self.assertEqual(len(fills), 2)
 
 
+
+class WriteInDoubtTest(PlannedTest):
+    """The three exits on the planned path: a removal in doubt that no read can settle holds
+    the run on an ambiguous_write packet; the operator's answer carries it on, writing nothing twice."""
+
+    def test_a_removal_no_one_can_settle_holds_the_run_and_the_answer_carries_it_on(self):
+        from unittest import mock
+        from agent import checkpoints, commands, escalation, exits
+        run_id = f"plan-{uuid.uuid4().hex[:8]}"
+        with fixed_run(T06, run_id, backend="tests.fakes:GoodPlannerWithHold") as run:
+            access.set_fault("access_revoke", 100)                       # every removal fails as transient
+            with mock.patch.object(exits, "confirm", return_value=None):  # and no read can tell
+                result = executor.run_planned(run_id, fakes.T06_TEXT, bound=Bound())
+            self.assertEqual(result.end_reason, executor.ESCALATED)
+            packet = escalation.held()[0]
+            self.assertEqual(packet["signal"], "ambiguous_write")
+            key = packet["run_key"]
+            self.assertEqual(checkpoints.load(key).status, checkpoints.HELD)
+            self.assertEqual(approvals.pending(), [])                     # nothing after it ran: no note put up
+            access.set_fault("access_revoke", 0)
+            commands.handle("s-later", f"/answer {packet['id']} The removals did not happen; carry on.")
+            fakes.approve_all()
+            lines = read_trace(run.trace_path)
+        self.assertEqual([x["terminal_reason"] for x in lines if x["type"] == "end"][-1], executor.PLAN_DONE)
+        self.assertEqual(access.memberships(fakes.ANA), [])
+        with db.connect() as conn:
+            twice = conn.execute("SELECT COUNT(*) AS n FROM (SELECT employee_id, group_id FROM memberships "
+                                 "WHERE removed_at IS NOT NULL GROUP BY employee_id, group_id HAVING COUNT(*) > 1)"
+                                 ).fetchone()["n"]
+        self.assertEqual(twice, 0)
+
+
 class SendsLastTest(unittest.TestCase):
     def test_a_step_after_a_send_is_rejected(self):
         plan = fakes.t06_plan(with_hold=True)

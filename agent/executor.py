@@ -45,8 +45,8 @@ import json
 import re
 import time
 
-from agent import (approvals, checkpoints, context, control, critique, detectors, disclosure, planner, reviser,
-                   validator)
+from agent import (approvals, checkpoints, context, control, critique, detectors, disclosure, escalation, exits,
+                   planner, reviser, validator)
 from agent.bounds import LOOP_TOKEN_BUDGET, STEP_LIMIT, WALL_CLOCK, Bound
 from agent.loop import LoopResult
 from agent.registry import CallContext, get_registry
@@ -78,6 +78,7 @@ UNSUPPORTED = "unsupported_instruction"
 AWAITING_APPROVAL = approvals.AWAITING_APPROVAL
 APPROVAL_DENIED = approvals.APPROVAL_DENIED
 STOPPED = control.END_STOPPED      # the hook refused a call because the operator stopped the run
+ESCALATED = escalation.ESCALATED   # a write in doubt that no one can settle: the run holds for the operator
 ENDED_WELL = (PLAN_DONE, NOTHING_TO_DO, UNSUPPORTED, APPROVAL_DENIED)   # the run is done, not failed
 
 
@@ -179,7 +180,7 @@ class PlannedRun:
         cp.status = status
         if status == checkpoints.STOPPED:
             cp.waiting_for = {"kind": "stop"}
-        elif status != checkpoints.WAITING_APPROVAL:
+        elif status not in (checkpoints.WAITING_APPROVAL, checkpoints.HELD):
             cp.waiting_for = None              # a waiting run keeps what approvals.request wrote
         cp.plan = self.plan
         nxt = self._next() if self.plan else None
@@ -277,6 +278,8 @@ class PlannedRun:
             self._save(checkpoints.WAITING_APPROVAL)
         elif reason == STOPPED:
             self._save(checkpoints.STOPPED)            # paused, its state saved: /resume carries it on
+        elif reason == ESCALATED:
+            self._save(checkpoints.HELD)               # held on its packet; the operator's /answer carries it on
         else:
             if self.plan is not None:
                 report = detectors.diff(self.plan, self.trace.lines()[self.line0:])
@@ -361,7 +364,12 @@ class PlannedRun:
         if seen:
             self.trace.event("repeat_call", tool=step["tool"], plan_step=step["id"], first=seen["step"],
                              hash=seen["hash"])
-        result = self.registry.call(step["tool"], args, self._ctx(step))
+        ctx = self._ctx(step)
+        result = self.registry.call(step["tool"], args, ctx)
+        if result.is_error and result.error_class in exits.IN_DOUBT and exits.is_write(step["tool"]):
+            # the three exits: it happened (the journal or a read says so), it did not (made again
+            # under the same key), or no one can tell (the run holds on an ambiguous_write packet)
+            result = exits.settle(step["tool"], args, ctx, first=result, registry=self.registry).result
         if result.is_error and self.run_key and control.stopped(self.run_key):
             raise _End(STOPPED, f"step {step['id']} ({step['tool']}) was refused: the operator stopped this run")
         return result
@@ -594,6 +602,7 @@ class PlannedRun:
                 AWAITING_APPROVAL: f"Waiting for you: {detail}. Answer it on /approvals; nothing is sent before.",
                 APPROVAL_DENIED: f"Stopped: {detail}. What ran before it stays.",
                 STOPPED: f"Stopped: {detail}. Its state is saved: /resume, /cancel or /rollback it.",
+                ESCALATED: f"Held for you: {detail}",
                 STEP_HALTED: f"I stopped: {detail}",
                 REVISION_BOUND: f"I stopped at the checkpoint: {detail}",
                 "critique_held": f"I held a note and did not send it: {detail}"}.get(
