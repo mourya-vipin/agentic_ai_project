@@ -102,15 +102,18 @@ def canonical(value):
 
 
 def derive_key(tool: str, args: dict, ctx: CallContext) -> str:
-    """Lecture 3, slide 38: from the run (in the app, the console session), the plan step
-    it serves, the tool and the arguments that name the effect; never from text the
-    model writes, so a reworded retry gets the same key."""
+    """Lecture 3, slide 38: from the run, the plan step it serves, the tool and the arguments
+    that name the effect; never from text the model writes, so a reworded retry gets the same key.
+
+    The run is its run key when the caller set one: one run's writes, not the whole console
+    session's, so a later run that makes the same change again gets a new key. The run key
+    alone, never the console session the call happens in, so a run resumed from another
+    session (an approval or /answer given there) replays its writes with the same keys and a
+    send goes out once. With no run key, the run is the stamp (the console session in the app,
+    the run ID in run.py), as in Milestone 1."""
     effect = {name: canonical(args.get(name)) for name in impl.EFFECT_ARGS[tool]}
-    material = [db.current_stamp(), "-" if ctx.plan_step is None else str(ctx.plan_step), tool, effect]
-    if ctx.run_key is not None:
-        # one run's writes, not the whole console session's: a later run that makes the same
-        # change again gets a new key, and a replay of this run gets the same one (M1 CHANGES)
-        material.append(ctx.run_key)
+    run = ["run", ctx.run_key] if ctx.run_key is not None else db.current_stamp()
+    material = [run, "-" if ctx.plan_step is None else str(ctx.plan_step), tool, effect]
     return hashlib.sha256(json.dumps(material, sort_keys=True).encode()).hexdigest()[:32]
 
 

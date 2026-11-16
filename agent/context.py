@@ -10,8 +10,8 @@ calls here, so one rule decides what goes in, and the trace says what was left o
 
 Tokens are counted as characters / 4, tool definitions included, against context_budget. The
 rule for when the candidates do not fit is assemble()'s docstring; compaction runs past
-compaction_threshold. Notes (agent/notes.py) go in loop, executor and answer calls, never the
-planner's.
+compaction_threshold. Notes (agent/notes.py) go in loop and answer calls, never the planner's
+or a plan step's fill call (the executor's), which is written from its own steps' results.
 """
 
 from __future__ import annotations
@@ -34,7 +34,10 @@ CORE = {
     "bulk_change": ("access_propose_change", "access_revoke_all", "directory_list_contractors_ended", "reply_draft"),
 }
 NO_OUTSIDE_TEXT = ("planner",)       # never notes, memory or a stranger's words
-NOTES_KINDS = ("loop", "executor", "answer")   # the calls that do the work or answer the operator
+NOTES_KINDS = ("loop", "answer")   # the calls that do the work or answer the operator
+# A planned step is filled from the results of the steps it depends on alone: with the session's
+# notes, one manager's note named another manager's contractor.
+OWN_STEPS_ONLY = ("executor",)
 DEFAULT_BUDGET = 8000
 DEFAULT_THRESHOLD = 4000
 KEEP_STEPS = 2                       # the latest steps, kept word for word through a compaction
@@ -228,7 +231,7 @@ def assemble(kind: str, *, system: str, session_id: str, run_key: str | None, ta
 
     Every piece's source is known: a stranger's text is labelled as theirs, the notes and the summary
     say who wrote them, and the trace's context line lists what was left out. The planner never gets
-    notes, memory or a stranger's words. Callers keep the returned messages as their conversation,
+    notes, memory or a stranger's words, and an executor call gets no notes. Callers keep the returned messages as their conversation,
     so a compaction holds."""
     if kind not in KINDS:
         raise ValueError(f"assemble: kind is one of {KINDS}, not {kind!r}")
@@ -259,6 +262,8 @@ def assemble(kind: str, *, system: str, session_id: str, run_key: str | None, ta
                              "id": s.get("message_id") or s.get("thread_id")})
     else:
         outside += [("stranger_text", label(s), s.get("message_id") or s.get("thread_id")) for s in stranger_texts or []]
+        if use_notes and kind in OWN_STEPS_ONLY:
+            left_out.append({"what": "notes", "why": "a plan step is filled from its own steps' results", "id": session_id})
         if use_notes and kind in NOTES_KINDS:
             text = notes_module.render(session_id)
             if text:
