@@ -106,6 +106,27 @@ class JournalTest(ScratchTest):
         self.assertTrue(control.stopped(cp.run_key))
 
 
+    def test_a_runs_write_keeps_its_key_in_another_console_session_and_a_send_goes_out_once(self):
+        from agent import disclosure
+        from agent.registry import derive_key
+        args = {"recipient_employee_id": LEO, "request_id": REQ,
+                "body": disclosure.stamp("SYNTHETIC. Hi Leo, your request is with the IT team.")}
+        keys = []
+        for console in ("s-jr", "s-later"):              # the run began in s-jr; resumed from s-later
+            with runtime.in_session(console):
+                keys.append(derive_key("reply_send", args, ctx()))
+                approved = ctx()
+                approved.approved = True                  # as an approval covering this exact call sets it
+                self.registry.hooks = []                  # the send's own path, past the gate
+                sent = self.registry.call("reply_send", args, approved)
+                self.assertFalse(sent.is_error, sent.content)
+        self.assertEqual(keys[0], keys[1])
+        self.assertEqual(len([m for m in channel.messages("SYN-MSG-D05") if m.sender == channel.AGENT]), 1)
+        with runtime.in_session("s-jr"):
+            mine = derive_key("reply_send", args, ctx(run_key=None))
+        with runtime.in_session("s-later"):
+            self.assertNotEqual(mine, derive_key("reply_send", args, ctx(run_key=None)))   # no run: the session
+
 class ResetTest(ScratchTest):
     def test_the_sandbox_reset_empties_the_runs_sessions_approvals_and_stops(self):
         runtime.configure()

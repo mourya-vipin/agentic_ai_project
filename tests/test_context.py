@@ -164,6 +164,22 @@ class NotesThroughCompactionTest(ScratchTest):
         self.assertEqual(out.messages[-1]["content"][-1], {"type": "text", "text": before})
         self.assertEqual(notes.render("s-bud"), before)
 
+    def test_a_plan_steps_fill_call_gets_no_notes_and_the_trace_says_so(self):
+        from agent import notes
+        from agent.registry import CallContext, Registry
+        Registry().call("access_grant", {"employee_id": "SYN-EMP-0031", "group_id": "SYN-GRP-FINREP-READ",
+                                         "request_id": "SYN-REQ-0005"},
+                        CallContext("s-bud", 1, "model", "nonstandard_request", request_id="SYN-REQ-0005",
+                                    run_key="s-bud#1"))
+        written = "granted: SYN-GRP-FINREP-READ to SYN-EMP-0031 on SYN-REQ-0005"
+        self.assertIn(written, notes.render("s-bud"))
+        loop, fill = (context.assemble(kind, system="You are the IT access desk.", session_id="s-bud",
+                                       run_key="s-bud#1", task=TASK, history=[{"role": "user", "content": TASK}],
+                                       tool_names=[], notes=True) for kind in ("loop", "executor"))
+        self.assertIn(written, str(loop.messages))
+        self.assertNotIn(written, str(fill.messages))
+        self.assertEqual([x["what"] for x in fill.left_out], ["notes"])
+
     def test_no_strangers_words_reach_the_notes_or_the_planner(self):
         import channel
         from agent import notes
