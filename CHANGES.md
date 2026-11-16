@@ -61,6 +61,7 @@
 - Before the calls of a step run, the loop saves them with their arguments. After a restart, it finishes that step with the saved arguments, never with new ones from the model. A workflow does not make again a write that the run's journal holds. (Aman Panigrahi)
 - Each save records the process that made it (`checkpoints.PROCESS`). The operator's next turn in a session continues each run that a stopped process left as running (`checkpoints.crashed`), with the event `restart`. A run in the exit mode (U5) only reads, so it ends `process_stopped`, and the operator asks again. (Aman Panigrahi)
 - The recovery test (`tests/test_recovery.py`): for t01, t02 and t03 (at their first write and at their last) and for a write of the loop on t04, the process dies with `os._exit(9)` after the sandbox commits a write and before the journal records it. A new process carries the run on at the operator's next turn. The check passes, the sandbox holds the same effects as a run with no crash, and no write runs twice. (Aman Panigrahi)
+- The planned path runs the three exits (`agent/exits.py`, Aman Panigrahi) on a write in doubt. A removal or proposal that failed as transient is settled from the journal, a read of the target, or a second try under the same key. When none can tell, the turn ends `escalated` with the run held on an `ambiguous_write` packet, and nothing after it runs; `/answer` carries the run on, writing nothing twice. `tests/test_plan.py: WriteInDoubtTest`. (Shruti Tewaney)
 
 ### Limited
 
@@ -75,7 +76,7 @@
 - The journal does not keep the status of a request before a call, so a rollback cannot write the earlier status again (Shruti Tewaney's request in #18). (Aman Panigrahi)
 - Only the planned U6 path has a `resume` function: on the loop and the workflows, an approved call runs only when the path makes the call again. The screen does not show the critique's verdict: on `reply_send` the critique runs when the message is sent, after the approval, and the screen says so. (Shruti Tewaney)
 - The plan review for U6 comes after the removals, not before the first step: a note's text is written from what the removals did, so the plan fixes it only then. Nothing gated runs before it (the removals are `access_revoke/unprotected`, independent), and a run that ends before its notes (nothing to do, plan rejected, step limit, a held note) never asks. Per action, a denied note ends the run and the next note is not asked. (Shruti Tewaney)
-- No path calls `escalation.escalate` yet: the three exits (`agent/exits.py`, Aman Panigrahi) will raise `ambiguous_write`, and the tests call it directly. `/answer` and `/packet` work once `service.operator_turn` calls `commands.handle` first. The timeout is checked when the queue page or an answer reads the packets, not by a timer. (Shruti Tewaney)
+- The escalation's timeout is checked when the queue page or an answer reads the packets, not by a timer. (Shruti Tewaney)
 
 ### Fixes from Milestone 1's list
 
