@@ -19,6 +19,7 @@ number. The same key names the wait, the stop flag and the hold of the run.
     journaled(run_key, key)                   the recorded result of a completed call, or None
     record_completed(run_key, key, ...)       add one completed call to the journal
     end_turn(cp, end_reason)                  save the run when its turn ends: done, paused or ended
+    save_step(cp, step, messages=...)         save the run after one step of its path
     mode_for(use_case)                        the durability mode of the use case (DURABILITY)
 
 The durability modes (Lecture 4, slide 12):
@@ -72,15 +73,16 @@ EVENT_KINDS = ("reply", "approval", "stop_lifted", "operator")
 # router reads them (agent/router.py, HISTORY_TURNS). The task stays whole in `task`.
 CONVERSATION_TURNS = 6
 
-# The function that continues a run of each use case: resume(cp, event) -> Reply, in
-# the module of that path. A U6 run with a plan continues in the executor.
+# The function that continues a run of each use case: resume(cp, event) -> Reply. The
+# router opens and ends the runs of the workflows and of the loop, so it also continues
+# them (router.resume). A U6 run on the planned path continues in the executor.
 RESUMERS = {
-    "standard_grant": "agent.workflows:resume",
-    "onboarding": "agent.workflows:resume",
-    "offboarding": "agent.workflows:resume",
-    "nonstandard_request": "agent.loop:resume",
-    "operator_review": "agent.loop:resume",
-    "bulk_change": "agent.loop:resume",
+    "standard_grant": "agent.router:resume",
+    "onboarding": "agent.router:resume",
+    "offboarding": "agent.router:resume",
+    "nonstandard_request": "agent.router:resume",
+    "operator_review": "agent.router:resume",
+    "bulk_change": "agent.router:resume",
 }
 PLANNED_RESUMER = "agent.executor:resume"
 
@@ -102,7 +104,8 @@ DURABILITY = {
 # The status that each end reason (trace.end) gives the run. Each name comes from the
 # module that ends the turn: agent/bounds.py, agent/executor.py, agent/registry.py and
 # agent/control.py. An end reason that is not here gives "failed".
-ENDS_DONE = ("done", "answered", "workflow_done", "plan_done", "nothing_to_do")
+ENDS_DONE = ("done", "answered", "workflow_done", "plan_done", "nothing_to_do", "unsupported_instruction",
+             "approval_denied")
 ENDS_PAUSED = {                       # end reason -> (status, wait kind)
     "awaiting_approval": (WAITING_APPROVAL, "approval"),
     "waiting_reply": (WAITING_REPLY, "reply"),
@@ -121,7 +124,7 @@ CREATE TABLE IF NOT EXISTS journal (
 """
 
 # The fields of a checkpoint that go in the `state` column, as JSON.
-STATE_FIELDS = ("task", "plan", "steps", "findings", "current_step", "waiting_for", "conversation")
+STATE_FIELDS = ("task", "plan", "steps", "findings", "current_step", "waiting_for", "conversation", "messages")
 
 
 @dataclass
@@ -140,6 +143,7 @@ class Checkpoint:
     waiting_for: dict | None = None   # {"kind": "reply", "thread_id", "deadline"} | {"kind": "approval", "approval_id"}
                                       # | {"kind": "escalation", "packet_id"} | {"kind": "stop"}
     conversation: list[dict] | None = None            # console runs only, trimmed to CONVERSATION_TURNS
+    messages: list[dict] | None = None                # the loop's own conversation, so that its resume carries it on
     updated_at: str = ""
 
 
@@ -357,7 +361,8 @@ def save(cp: Checkpoint, *, mode: str) -> None:
 def _trace_stop(cp: Checkpoint) -> None:
     with _connect() as conn:
         journal = _journal(conn, cp.run_key)
-    last = {**asdict(cp), "completed": {**journal, **(cp.completed or {})}}
+    last = {**asdict(cp), "completed": {**journal, **(cp.completed or {})},
+            "messages": len(cp.messages or [])}           # the count: each call is in the trace already
     kind = "checkpoint_final" if cp.status in ENDED else "checkpoint_paused"
     runtime.trace(cp.session_id).event(kind, run_key=cp.run_key, checkpoint=last)
 
@@ -433,6 +438,25 @@ def end_turn(cp: Checkpoint, end_reason: str, *, waiting_for: dict | None = None
         cp.waiting_for = None
     cp.findings = {**(cp.findings or {}), "end_reason": end_reason}
     save(cp, mode=mode or mode_for(cp.use_case))
+    return cp
+
+
+def save_step(cp: Checkpoint, step: dict, *, messages: list[dict] | None = None) -> Checkpoint:
+    """Save the run after one step of its path, in the durability mode of its use case.
+    `step` is the record of the step, and `messages` is the conversation of the loop.
+    During the step, the approval gate, an escalation or /cancel can save a new status for
+    the run (a wait, a hold or the end). That status stays, with its wait: a step does not
+    write "running" over it. The store is read here without a flush, because those
+    writers save at once (sync)."""
+    cp.steps = [*(cp.steps or []), step]
+    cp.current_step = step.get("n", cp.current_step)
+    if messages is not None:
+        cp.messages = [dict(m) for m in messages]
+    with _connect() as conn:
+        row = conn.execute("SELECT status, state FROM runs WHERE run_key = ?", (cp.run_key,)).fetchone()
+    if row is not None and row["status"] != RUNNING:
+        cp.status, cp.waiting_for = row["status"], json.loads(row["state"]).get("waiting_for")
+    save(cp, mode=mode_for(cp.use_case))
     return cp
 
 

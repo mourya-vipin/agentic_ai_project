@@ -212,15 +212,16 @@ class StoreTest(ScratchTest):
 
     def test_a_path_that_cannot_resume_yet_leaves_the_run_saved_and_says_so(self):
         cp = self.waits_for_reply()
-        reply = checkpoints.resume(cp.run_key, {"kind": "reply", "thread_id": "SYN-MSG-D06", "text": "yes"})
+        with mock.patch.dict(checkpoints.RESUMERS, {"nonstandard_request": "agent.loop:no_such_resume"}):
+            reply = checkpoints.resume(cp.run_key, {"kind": "reply", "thread_id": "SYN-MSG-D06", "text": "yes"})
         self.assertIn("cannot continue it yet", reply.text)
         self.assertEqual(checkpoints.load(cp.run_key).status, checkpoints.WAITING_REPLY)
 
-    def test_a_planned_bulk_change_continues_in_the_executor_and_one_without_a_plan_in_the_loop(self):
+    def test_a_planned_bulk_change_continues_in_the_executor_and_one_without_a_plan_in_the_router(self):
         planned = checkpoints.Checkpoint("s#1", "s", 1, "bulk_change", checkpoints.RUNNING, TASK, plan={"steps": []})
         looped = checkpoints.Checkpoint("s#2", "s", 2, "bulk_change", checkpoints.RUNNING, TASK)
         self.assertEqual(checkpoints._resumer(planned)[1], "agent.executor:resume")
-        self.assertEqual(checkpoints._resumer(looped)[1], "agent.loop:resume")
+        self.assertEqual(checkpoints._resumer(looped)[1], "agent.router:resume")
 
     # -- the stop finds the live runs (Shruti's agent/control.py) --------------------------
 

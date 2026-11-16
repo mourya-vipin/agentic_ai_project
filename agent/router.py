@@ -38,7 +38,8 @@ Milestone 2. Each request, each question and each bulk change is one run
 (agent/checkpoints.py). The router opens the run, gives its key to the path, and
 saves the run when the turn ends (checkpoints.end_turn). If the operator stopped or
 cancelled the run during the turn, and the run is not done, it is saved as stopped or
-cancelled. The two routing calls are built with context.assemble (kind "router"). They
+cancelled. resume() continues a saved run of the workflows or of the loop, after an
+approval, a reply, /resume or the operator's answer to an escalation. The two routing calls are built with context.assemble (kind "router"). They
 get no notes, and a call that cannot fit gives the safe route: a question, or U4.
 """
 
@@ -49,7 +50,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from agent import checkpoints, context, control, executor, loop, session, workflows
+import channel
+from agent import approvals, checkpoints, context, control, executor, loop, session, workflows
 from agent.bounds import Bound
 from agent.loop import LoopResult
 from agent.registry import CallContext, get_registry
@@ -260,15 +262,11 @@ def _in_run(session_id: str, use_case: str, task: str, work, *, notice: str | No
         result = work(cp.run_key)
     except Exception:
         try:
-            latest = checkpoints.load(cp.run_key) or cp
-            if latest.status == checkpoints.RUNNING:
-                checkpoints.end_turn(latest, "error")
+            _settle(cp, "error")
         except Exception:  # noqa: BLE001  (the first error is the one that the caller must see)
             pass
         raise
-    latest = checkpoints.load(cp.run_key) or cp
-    if latest.status == checkpoints.RUNNING:
-        checkpoints.end_turn(latest, _end_of(cp.run_key, result.end_reason))
+    _settle(cp, result.end_reason)
     return result
 
 
@@ -284,13 +282,103 @@ def _end_of(run_key: str, end_reason: str) -> str:
     return end_reason
 
 
-def _leave_for_operator(session_id: str, request_id: str, result: LoopResult, run_key: str | None = None) -> str:
+def resume(cp, event: dict) -> Reply:
+    """checkpoints.resume's way back into a run of the workflows or of the loop
+    (checkpoints.RESUMERS): after the operator's answer to an approval, a stranger's reply,
+    /resume after a stop, or the operator's answer to an escalation. The run continues
+    under its own key, so a write that it made before gets the same key, and the target
+    keeps its first result.
+
+      - A denied approval ends the run with approval_denied, as on the planned path.
+      - /resume of a run that waits for a reply reads the thread. If the reply came during
+        the stop, the run continues with it. If not, the run waits again.
+      - Otherwise the run is saved as running, the operator gets the notice that it resumed,
+        and the workflow runs again, or the loop carries on (loop.carry_on).
+
+    When the turn ends, the run is saved as in _in_run, and a request that the agent did
+    not finish goes to the operator."""
+    findings, trace = cp.findings or {}, runtime.trace(cp.session_id)
+    rid, wait = findings.get("request_id"), cp.waiting_for or {}
+    if event.get("kind") == "stop_lifted" and wait.get("kind") == "reply":
+        heard = _reply_on(wait.get("thread_id"))
+        if heard is None:
+            trace.event("resumed", run_key=cp.run_key, event_kind="stop_lifted", waits_again=wait.get("thread_id"))
+            return Reply(f"The stop on run {cp.run_no} is lifted. It waits for a reply on {wait.get('thread_id')} "
+                         "again.", waiting_for=wait.get("thread_id"))
+        event = {"kind": "reply", "thread_id": wait.get("thread_id"), "text": heard}
+    control.notice(cp.run_key, f"{cp.use_case} for {rid}" if rid else cp.task, resumed=True)
+    trace.event("resumed", run_key=cp.run_key, event_kind=event.get("kind"), use_case=cp.use_case)
+    if event.get("kind") == "approval" and not event.get("approved"):
+        detail = f"the operator denied {event.get('approval_id')}" + (f" ({event['note']})" if event.get("note") else "")
+        trace.end(approvals.APPROVAL_DENIED, detail)
+        result = LoopResult(f"Run {cp.run_no}: {detail}, so its call did not run.", [], approvals.APPROVAL_DENIED,
+                            cp.current_step or 0)
+        checkpoints.end_turn(cp, approvals.APPROVAL_DENIED)
+    else:
+        cp.status, cp.waiting_for = checkpoints.RUNNING, None
+        checkpoints.save(cp, mode="sync")
+        try:
+            result = _again(cp, event)
+        except Exception:
+            try:
+                _settle(cp, "error")
+            except Exception:  # noqa: BLE001  (the first error is the one that the caller must see)
+                pass
+            raise
+    text = result.text
+    if rid and (cp.use_case == NONSTANDARD or result.end_reason == approvals.APPROVAL_DENIED):
+        left = _leave_for_operator(cp.session_id, rid, result, cp.run_key, use_case=cp.use_case)
+        path = "agent" if cp.use_case == NONSTANDARD else cp.use_case
+        text = " ".join(t for t in (f"{rid} ({path}):", result.text, left) if t)
+    _settle(cp, result.end_reason)
+    return Reply(text, result.actions)
+
+
+def _again(cp, event: dict) -> LoopResult:
+    """The path of the run, again: a workflow from its first step (its writes keep their
+    keys), or the loop from its saved messages."""
+    found = cp.findings or {}
+    if cp.use_case == STANDARD_GRANT:
+        return workflows.standard_grant(cp.session_id, found.get("request_id"), found.get("group_id"),
+                                        run_key=cp.run_key)
+    if cp.use_case == ONBOARDING:
+        return workflows.onboarding(cp.session_id, found.get("request_id"), found.get("fields") or {},
+                                    run_key=cp.run_key)
+    if cp.use_case == OFFBOARDING:
+        return workflows.offboarding(cp.session_id, found.get("request_id"), found.get("fields") or {},
+                                     run_key=cp.run_key)
+    return loop.carry_on(cp, event, system=_prompt(cp.use_case), tools=TOOLS[cp.use_case], bound=BOUND)
+
+
+def _reply_on(thread_id: str | None) -> str | None:
+    """The stranger's words on the thread after our last message there, or None. In a run.py
+    run, only the messages of this run count."""
+    if not thread_id:
+        return None
+    run = runtime.current_run()
+    found = channel.messages(thread_id, run.run_id if run is not None else None)
+    ours = [m.id for m in found if m.sender in channel.OURS]
+    after = [m.text for m in found if m.sender not in channel.OURS and m.id > (ours[-1] if ours else 0)]
+    return "\n".join(after) or None
+
+
+def _settle(cp, end_reason: str) -> None:
+    """Save the run when its turn ends, with the status that the end reason gives. A path or
+    the approval gate can save the run during the turn (a plan, a wait for an approval): that
+    save stays, and the router does not write its own older copy over it."""
+    latest = checkpoints.load(cp.run_key) or cp
+    if latest.status == checkpoints.RUNNING:
+        checkpoints.end_turn(latest, _end_of(cp.run_key, end_reason))
+
+
+def _leave_for_operator(session_id: str, request_id: str, result: LoopResult, run_key: str | None = None,
+                        use_case: str = NONSTANDARD) -> str:
     """Our code, not the model, sets a request the agent did not finish to pending_operator."""
     status = requests.get(request_id)["status"]
     if status not in ("new", "in_progress"):
         return ""
     note = f"The agent ended ({result.end_reason}) with the request still {status}."
-    ctx = CallContext(session_id, result.steps + 1, "workflow", NONSTANDARD, request_id=request_id,
+    ctx = CallContext(session_id, result.steps + 1, "workflow", use_case, request_id=request_id,
                       run_key=run_key, origin="workflow")
     done = get_registry().call("requests_set_status", {"request_id": request_id, "status": "pending_operator",
                                                        "note": note}, ctx)

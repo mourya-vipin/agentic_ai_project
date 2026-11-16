@@ -4,6 +4,7 @@ and resumes the run; one yes covers one call; a stop withdraws what waits. Real 
 hook and MCP server, on the demo sandbox. No tokens. Owner: Shruti Tewaney."""
 
 import importlib
+from unittest import mock
 
 import channel
 from agent import approvals, checkpoints, control, disclosure, service
@@ -18,6 +19,11 @@ LEO, REQ = "SYN-EMP-0031", "SYN-REQ-0005"
 LEO_THREAD = "SYN-MSG-D05"
 TEXT = "SYNTHETIC. Hi Leo, your request is with the IT team."
 REPLY = "reply_send/model_text"
+
+
+def resumed_path(cp, event):
+    """A path's resume for the gate's tests: the run gets to it, and no model is called."""
+    return service.Reply("resumed")
 
 
 class GateTest(ScratchTest):
@@ -150,10 +156,11 @@ class GateTest(ScratchTest):
     def test_the_answer_resumes_the_waiting_run(self):
         cp = checkpoints.new_run(SID, "nonstandard_request", "reply to Leo")
         self.reply(run_key=cp.run_key)
-        reply = approvals.decide("APR-0001", True)
+        with mock.patch.dict(checkpoints.RESUMERS, {"nonstandard_request": "tests.test_approvals:resumed_path"}):
+            reply = approvals.decide("APR-0001", True)
         resumed = self.lines("resume")
         self.assertEqual([(r["run_key"], r["event_kind"]) for r in resumed], [(cp.run_key, "approval")])
-        self.assertIn("cannot continue it yet", reply.text)                    # agent.loop:resume is Aman's, next
+        self.assertEqual(reply.text, "resumed")             # the path's resume (Aman's router.resume) gets the run
 
     def test_every_decision_is_logged(self):
         self.reply()

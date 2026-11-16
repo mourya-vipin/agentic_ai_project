@@ -29,6 +29,11 @@ each model call, the loop also does these two steps:
     assemble adds them again to each call.
 Each tool call carries the run key and origin "agent". The text of a send passes
 disclosure.stamp_call before the registry.
+
+After each step, the loop saves the run (checkpoints.save_step): the messages, and a
+record of each call with its arguments, its key and its end reason. carry_on() continues
+a saved run from there, after an approval, a reply, /resume or the operator's words
+(router.resume calls it). A new run and a resumed run use the same loop (_drive).
 """
 
 from __future__ import annotations
@@ -36,15 +41,18 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
-from agent import bounds, context, control, disclosure
+from agent import bounds, checkpoints, context, control, disclosure
 from agent.bounds import Bound
 from agent.detectors import RepeatTracker
-from agent.registry import CallContext, get_registry
+from agent.registry import AWAITING_APPROVAL, CallContext, get_registry
 from harness import runtime
 from harness.client import tool_result
 
 PROGRESS_EVERY = 3        # steps between the progress lines the console shows (Lecture 1, slide 34)
 MAX_PROTOCOL_ERRORS = 2   # the second protocol error in one loop ends it
+NOT_RUN = "Not run: the operator stopped this run before this call."
+STOP_LIFTED = ("[from our code] The operator lifted the stop on this run. A call that the stop "
+               "refused did not run: make it again if it is still needed.")
 
 
 @dataclass
@@ -58,18 +66,57 @@ class LoopResult:
 def run_loop(session_id: str, *, use_case: str, system: str, user_content: str,
              tools: list[str], bound: Bound, request_id: str | None = None,
              run_key: str | None = None) -> LoopResult:
+    """A new run of the loop, from its task."""
+    return _drive(session_id, use_case=use_case, system=system, tools=tools, bound=bound, request_id=request_id,
+                  run_key=run_key, messages=[{"role": "user", "content": user_content}], step=0, actions=[])
+
+
+def carry_on(cp, event: dict, *, system: str, tools: list[str], bound: Bound) -> LoopResult:
+    """Continue a saved run of the loop after one event (router.resume). The run goes on
+    from its saved messages, or from its task when no step was saved (the exit mode, or a
+    crash before the first step). What the event adds:
+
+        approval     each call that waited for the operator's approval is made again with
+                     the same arguments. The gate lets that exact call through once, and its
+                     result takes the place of the "waiting" result. A denial does not come here.
+        reply        the stranger's reply, labelled as theirs (context.label)
+        stop_lifted  a line from our code: the stop is lifted, and a call that the stop
+                     refused did not run. Then the operator's new words, if any
+        operator     the operator's words (the answer to an escalation, or the next turn)
+
+    The bound is new: a resumed turn is a turn of its own."""
+    findings = cp.findings or {}
+    messages = [dict(m) for m in (cp.messages or [{"role": "user", "content": cp.task}])]
+    step, actions = cp.current_step or 0, []
+    if event.get("kind") == "approval":
+        ended = _make_approved_calls(cp, messages, step, actions)
+        if ended is not None:
+            runtime.trace(cp.session_id).end(ended, f"step {step}: an approved call ended the turn again")
+            return LoopResult(f"Stopped: {ended.replace('_', ' ')}.", actions, ended, step)
+    else:
+        messages = _with_text(messages, _event_text(event))
+    return _drive(cp.session_id, use_case=cp.use_case, system=system, tools=tools, bound=bound,
+                  request_id=findings.get("request_id"), run_key=cp.run_key, messages=messages, step=step,
+                  actions=actions, cp=cp)
+
+
+def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bound: Bound,
+           request_id: str | None, run_key: str | None, messages: list[dict], step: int, actions: list[str],
+           cp=None) -> LoopResult:
+    """The loop itself, for a new run and for a resumed one. After each step it saves the
+    run (checkpoints.save_step): the record of each call and the messages."""
     client = runtime.client(session_id)
     trace = runtime.trace(session_id)
     registry = get_registry()
     repeats = RepeatTracker()
     done = bounds.ANSWERED if use_case == "operator_review" else bounds.DONE
     trace.event("bound", use_case=use_case, request_id=request_id, max_steps=bound.max_steps,
-                token_budget=bound.token_budget, wall_clock_s=bound.wall_clock_s)
-
-    messages = [{"role": "user", "content": user_content}]
-    actions: list[str] = []
-    start, start_tokens = time.monotonic(), client.total_tokens
-    text, step, calls_made, protocol_errors = "", 0, 0, 0
+                token_budget=bound.token_budget, wall_clock_s=bound.wall_clock_s, from_step=step)
+    if cp is None and run_key is not None:
+        cp = checkpoints.load(run_key)          # the router saved the run when it opened it
+    task = messages[0]["content"] if isinstance(messages[0].get("content"), str) else None
+    first, start, start_tokens = step, time.monotonic(), client.total_tokens
+    text, calls_made, protocol_errors = "", 0, 0
 
     def end(reason: str, detail: str, said: str) -> LoopResult:
         trace.end(reason, detail)
@@ -77,7 +124,7 @@ def run_loop(session_id: str, *, use_case: str, system: str, user_content: str,
 
     while True:
         used, elapsed = client.total_tokens - start_tokens, time.monotonic() - start
-        if step >= bound.max_steps:
+        if step - first >= bound.max_steps:
             return end(bounds.STEP_LIMIT, f"{bound.max_steps} model calls", _stopped("the step limit", text))
         if used >= bound.token_budget:
             return end(bounds.LOOP_TOKEN_BUDGET, f"{used:,} >= {bound.token_budget:,} tokens before step {step + 1}",
@@ -88,7 +135,7 @@ def run_loop(session_id: str, *, use_case: str, system: str, user_content: str,
         if control.stopped(run_key):
             return end(control.END_STOPPED, f"{run_key} stopped by the operator before step {step + 1}",
                        f"Stopped by the operator before step {step + 1}." + (f" Last said: {text}" if text else ""))
-        built = context.assemble("loop", system=system, session_id=session_id, run_key=run_key, task=user_content,
+        built = context.assemble("loop", system=system, session_id=session_id, run_key=run_key, task=task,
                                  history=messages, tool_names=tools, registry=registry, use_case=use_case)
         if built.unfit:
             return end(context.BUDGET_UNFIT, f"{built.tokens:,} > {context.budget():,} tokens before step {step + 1}",
@@ -104,15 +151,25 @@ def run_loop(session_id: str, *, use_case: str, system: str, user_content: str,
             return end(done, f"step {step}, stop_reason {response.stop_reason}", response.text)
 
         messages.append(response.assistant_message())
-        results, ended = [], None
+        results, ended, record = [], None, {"n": step, "calls": []}
         for call in calls:
+            name = registry.resolve(call.name) or call.name
+            if ended == control.END_STOPPED:
+                # the stop refused an earlier call of this step: the rest do not run, and each
+                # still gets a result, so that the saved conversation stays whole for a resume
+                results.append(tool_result(call, NOT_RUN, True))
+                record["calls"].append({"id": call.id, "tool": name, "args": call.input, "key": None,
+                                        "is_error": True, "end_reason": "not_run"})
+                continue
             earlier = repeats.see(call.name, call.input, step)
             if earlier is not None:
                 trace.event("repeat_call", step=step, tool=call.name, first_step=earlier["step"], hash=earlier["hash"])
             ctx = CallContext(session_id, step, "model", use_case, request_id=request_id, call_id=call.id,
                               run_key=run_key, origin="agent")
-            result = registry.call(call.name, disclosure.stamp_call(registry.resolve(call.name) or call.name,
-                                                                    call.input), ctx)
+            args = disclosure.stamp_call(name, call.input)
+            result = registry.call(call.name, args, ctx)
+            record["calls"].append({"id": call.id, "tool": name, "args": args, "key": result.key,
+                                    "is_error": result.is_error, "end_reason": result.end_reason})
             calls_made += 1
             results.append(tool_result(call, result.content, result.is_error))
             if result.error_class == "protocol":
@@ -120,13 +177,14 @@ def run_loop(session_id: str, *, use_case: str, system: str, user_content: str,
                 if protocol_errors >= MAX_PROTOCOL_ERRORS and ended is None:
                     ended = bounds.PROTOCOL_ERROR
             elif not result.is_error and result.key is not None:
-                actions.append(action_line(registry.resolve(call.name) or call.name, call.input, result.data))
+                actions.append(action_line(name, call.input, result.data))
             if result.end_reason and ended is None:
                 ended = result.end_reason
             if result.is_error and control.stopped(run_key):
                 ended = control.END_STOPPED          # the hook refused the call: the operator stopped this run
-                break
         messages.append({"role": "user", "content": results})
+        if cp is not None:
+            checkpoints.save_step(cp, record, messages=messages)
         if ended == control.END_STOPPED:
             return end(ended, f"step {step}: the hook refused a call of the stopped run",
                        f"Stopped by the operator at step {step}." + (f" Last said: {text}" if text else ""))
@@ -135,6 +193,59 @@ def run_loop(session_id: str, *, use_case: str, system: str, user_content: str,
         if step % PROGRESS_EVERY == 0:
             trace.progress(f"{use_case}{' ' + request_id if request_id else ''}: step {step}, "
                            f"{calls_made} tool calls so far.")
+
+
+def _make_approved_calls(cp, messages: list[dict], step: int, actions: list[str]) -> str | None:
+    """Make again each call of the last saved step that waited for an approval, with its
+    saved arguments, and put its result in place of the "waiting" result. Returns the end
+    reason of a call that ends the turn again (a second approval, for example), or None."""
+    registry, ended = get_registry(), None
+    last = (cp.steps or [{}])[-1]
+    for saved in [c for c in last.get("calls", []) if c.get("end_reason") == AWAITING_APPROVAL]:
+        ctx = CallContext(cp.session_id, step, "model", cp.use_case, request_id=(cp.findings or {}).get("request_id"),
+                          call_id=saved["id"], run_key=cp.run_key, origin="agent")
+        result = registry.call(saved["tool"], saved["args"], ctx)
+        if not result.is_error and result.key is not None:
+            actions.append(action_line(saved["tool"], saved["args"], result.data))
+        _put_result(messages, saved["id"], result)
+        ended = ended or result.end_reason
+    return ended
+
+
+def _put_result(messages: list[dict], call_id: str, result) -> None:
+    """Put a new result in place of the old result of one call, in the last user turn that has it."""
+    block = {"type": "tool_result", "tool_use_id": call_id, "content": result.content}
+    if result.is_error:
+        block["is_error"] = True
+    for m in reversed(messages):
+        content = m.get("content")
+        if m.get("role") == "user" and isinstance(content, list) and any(
+                b.get("type") == "tool_result" and b.get("tool_use_id") == call_id for b in content):
+            m["content"] = [block if b.get("type") == "tool_result" and b.get("tool_use_id") == call_id else b
+                            for b in content]
+            return
+
+
+def _event_text(event: dict) -> str:
+    """What the event adds to the conversation, with the name of who wrote it."""
+    kind = event.get("kind")
+    if kind == "reply":
+        return context.label({"sender": event.get("sender") or "outside", "thread_id": event.get("thread_id"),
+                              "text": event.get("text", "")})
+    if kind == "stop_lifted":
+        new = str(event.get("new_input") or "").strip()
+        return STOP_LIFTED + (f"\n[from the operator] {new}" if new else "")
+    return f"[from the operator] {event.get('text', '')}"
+
+
+def _with_text(messages: list[dict], text: str) -> list[dict]:
+    """The conversation with the text at its end: in the last user turn, or in a new one."""
+    last = messages[-1] if messages else None
+    if last is None or last.get("role") != "user":
+        return messages + [{"role": "user", "content": text}]
+    content = last["content"]
+    joined = f"{content}\n\n{text}" if isinstance(content, str) else list(content) + [{"type": "text", "text": text}]
+    return messages[:-1] + [{**last, "content": joined}]
 
 
 def _stopped(limit: str, text: str) -> str:

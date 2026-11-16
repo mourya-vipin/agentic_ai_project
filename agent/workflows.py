@@ -23,13 +23,19 @@ Milestone 2. The router opens the run (agent/checkpoints.py) and gives its key. 
 carries the run key and origin "workflow", so the hook reads the stop flag of the run and
 the registry derives the key of each write from the run. A step that the hook refuses
 because the run is stopped ends the workflow with "stopped", and no more steps run.
+
+After each step, the workflow saves the run (checkpoints.save_step) with a record of the
+call. A step that the approval gate holds ends the workflow with "awaiting_approval". To
+continue a run, router.resume runs the workflow again under the same run key. Each write
+gets the same key as before, so the target keeps its first result, and the gate lets the
+approved call through once.
 """
 
 from __future__ import annotations
 
-from agent import bounds, control
+from agent import bounds, checkpoints, control
 from agent.loop import LoopResult, action_line
-from agent.registry import CallContext, get_registry
+from agent.registry import AWAITING_APPROVAL, CallContext, get_registry
 from harness import runtime
 from sandbox import catalog
 
@@ -40,18 +46,28 @@ class Refused(Exception):
     """A fixed step found a case this workflow must not handle."""
 
 
+class Waits(Exception):
+    """The approval gate holds a step until the operator answers."""
+
+
 class _Steps:
     """Numbers each step, calls it through the registry, and keeps one action line per effect."""
 
     def __init__(self, session_id: str, use_case: str, request_id: str, run_key: str | None = None):
         self.session_id, self.use_case, self.request_id, self.run_key = session_id, use_case, request_id, run_key
         self.step, self.actions = 0, []
+        self.cp = checkpoints.load(run_key) if run_key else None     # the router saved it when it opened the run
 
     def call(self, tool: str, **args) -> dict:
         self.step += 1
         ctx = CallContext(self.session_id, self.step, "workflow", self.use_case, request_id=self.request_id,
                           run_key=self.run_key, origin="workflow")
         result = get_registry().call(tool, args, ctx)
+        if self.cp is not None:
+            checkpoints.save_step(self.cp, {"n": self.step, "tool": tool, "args": args, "key": result.key,
+                                            "is_error": result.is_error, "end_reason": result.end_reason})
+        if result.end_reason == AWAITING_APPROVAL:
+            raise Waits(f"step {self.step}, {tool}")
         if result.is_error:
             raise Refused(f"step {self.step}, {tool}: {result.content}")
         if result.key is not None and tool != "requests_set_status":
@@ -67,6 +83,10 @@ def _run(session_id: str, use_case: str, request_id: str, gather, choose, post, 
         gathered = gather(steps)
         chosen = choose(gathered)
         text = post(steps, gathered, chosen)
+    except Waits as exc:
+        trace.end(AWAITING_APPROVAL, str(exc))       # the gate saved the run as waiting for the operator
+        return LoopResult(f"{request_id} ({use_case}): waits for your approval at {exc}.", steps.actions,
+                          AWAITING_APPROVAL, steps.step)
     except Refused as exc:
         reason = str(exc)
         if control.stopped(run_key):
