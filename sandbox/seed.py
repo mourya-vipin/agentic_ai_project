@@ -69,7 +69,7 @@ DEMO_FACTS = [{"kind": "fact", "table": "employees", "id": "SYN-EMP-0150", "set"
 # The agent's own stores under state_dir(), each emptied with the sandbox, so that no saved
 # run, conversation, approval or stop points at records the reset deleted.
 AGENT_STORES = ("agent.checkpoints", "agent.session", "agent.approvals", "agent.control", "agent.escalation",
-                "agent.memory")
+                "agent.memory", "agent.inbox")
 
 
 def reset() -> None:

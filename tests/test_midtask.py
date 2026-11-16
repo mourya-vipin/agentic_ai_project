@@ -1,0 +1,121 @@
+"""Messages mid-task (Part 2, task 7): each one is sent from a second thread while a turn runs.
+Owner: Aman Panigrahi. No tokens: the models are fakes (free = True).
+
+    carry on     "Also ...": the sandbox holds the earlier work once, plus the addition
+    start over   "Forget that. Instead ...": the run ends "replaced" before its next step; after
+                 the message the old run writes nothing more, and the operator sees what it wrote
+    queue        a question waits, and it is taken as a new message when the turn ends
+    reject       past the queue's size, the operator knows at once
+"""
+
+from __future__ import annotations
+
+import json
+import threading
+from collections import Counter
+from types import SimpleNamespace
+
+from agent import bounds, inbox
+from harness import runtime, turns
+from harness.client import Usage
+from harness.trace import read_trace
+from sandbox import pending
+from tests import fakes
+from tests.support import ScratchTest, fixed_run
+
+T04 = "tasks/t04_same_access_as.yaml"
+LEO, REQ, GROUP = "SYN-EMP-0031", "SYN-REQ-0001", "SYN-GRP-JIRA-WRITE"
+PROCESS = "Please handle the new access requests."
+ADDS = "Also propose Jira write access for Leo, for me to review."
+REPLACES = "Forget that. Instead, just tell me which requests are open."
+ASKS = "How far along are you?"
+
+
+class PausesInItsFirstStep(fakes.RouterFake):
+    """Routes the request to U4. Its first step waits until the test has sent the message
+    mid-task (the gate), then drafts the reply to Leo. If the conversation then holds the
+    operator's addition, it proposes the group. Then "Done."."""
+    entered, gate = threading.Event(), threading.Event()
+
+    def create(self, *, system, messages, tools):
+        if not tools:
+            return super().create(system=system, messages=messages, tools=tools)
+        said = [m for m in messages if m["role"] == "assistant"]
+        if not said:
+            PausesInItsFirstStep.entered.set()
+            PausesInItsFirstStep.gate.wait(30)
+            return ([{"type": "tool_use", "id": "toolu_draft", "name": "reply_draft",
+                      "input": {"recipient_employee_id": LEO, "request_id": REQ,
+                                "body": "SYNTHETIC. Hi Leo, your request is with the IT team."}}],
+                    "tool_use", self.name, Usage(40, 10))
+        added = "adding to the task] " + ADDS in json.dumps(messages)
+        proposed = "access_propose_change" in json.dumps([m for m in said])
+        if added and not proposed:
+            return ([{"type": "tool_use", "id": "toolu_propose", "name": "access_propose_change",
+                      "input": {"action": "grant", "employee_id": LEO, "group_id": GROUP, "request_id": REQ,
+                                "reason": "the operator asked for it mid-task"}}], "tool_use", self.name, Usage(40, 10))
+        return [{"type": "text", "text": "Done."}], "end_turn", self.name, Usage(40, 2)
+
+
+class MidTaskTest(ScratchTest):
+    def setUp(self):
+        super().setUp()
+        PausesInItsFirstStep.entered, PausesInItsFirstStep.gate = threading.Event(), threading.Event()
+
+    def during_a_turn(self, rid: str, message: str):
+        """The first turn in a thread; the message from this thread once the run's first step has begun."""
+        with fixed_run(T04, rid, backend="tests.test_midtask:PausesInItsFirstStep") as run:
+            done = {}
+            first = threading.Thread(target=lambda: done.update(reply=turns.operator_turn(rid, PROCESS)))
+            first.start()
+            self.assertTrue(PausesInItsFirstStep.entered.wait(60), "the run's first step began")
+            mid = turns.operator_turn(rid, message)
+            PausesInItsFirstStep.gate.set()
+            first.join(120)
+            self.assertFalse(first.is_alive())
+            kinds = dict(Counter(p["kind"] for p in pending.by_request(REQ)))
+            return mid, done["reply"], kinds, read_trace(run.trace_path)
+
+    def test_a_message_that_adds_to_the_task_keeps_the_work_and_adds_to_it(self):
+        mid, reply, kinds, lines = self.during_a_turn("midtask-add", ADDS)
+        self.assertIn("It adds your message to its task", mid.text)
+        self.assertEqual(kinds, {"reply_draft": 1, "proposed_change": 1}, "the earlier work once, plus the addition")
+        self.assertIn("midtask_taken", [x["type"] for x in lines])
+
+    def test_a_message_that_replaces_the_task_stops_the_run_and_lists_what_it_wrote(self):
+        mid, reply, kinds, lines = self.during_a_turn("midtask-replace", REPLACES)
+        self.assertIn("Your message replaces its task", mid.text)
+        self.assertEqual(kinds, {"reply_draft": 1}, "the old run writes nothing after the message")
+        self.assertIn(bounds.REPLACED, [x.get("terminal_reason") for x in lines if x["type"] == "end"])
+        self.assertIn("stopped, because your message replaced its task. It had written:", reply.text)
+        self.assertIn("/rollback 1 undoes what can be undone.", reply.text)
+        self.assertIn(REPLACES, [x["text"] for x in lines if x["type"] == "operator"])
+
+    def test_a_question_waits_and_is_taken_when_the_turn_ends(self):
+        mid, reply, kinds, lines = self.during_a_turn("midtask-queue", ASKS)
+        self.assertIn("Your message waits", mid.text)
+        self.assertEqual(kinds, {"reply_draft": 1})
+        routes = [x for x in lines if x["type"] == "route" and x.get("scope") == "operator"]
+        self.assertEqual(len(routes), 2, "the question went to the router once the turn ended")
+
+
+class TheWays(ScratchTest):
+    def test_our_code_reads_the_way_from_the_words(self):
+        self.assertEqual(inbox.way_of(ADDS), inbox.ADD)
+        self.assertEqual(inbox.way_of("Do it for Priya as well."), inbox.ADD)
+        self.assertEqual(inbox.way_of(REPLACES), inbox.REPLACE)
+        self.assertEqual(inbox.way_of("Never mind, do SYN-REQ-0002 instead."), inbox.REPLACE)
+        self.assertEqual(inbox.way_of(ASKS), inbox.QUEUE)
+
+    def test_past_the_queues_size_a_message_is_refused_at_once(self):
+        runtime.configure(backend="never-stops")
+        cp = SimpleNamespace(run_key="s-mid#1", run_no=1)
+        replies = [inbox.post("s-mid", f"Question {n}?", cp) for n in range(inbox.MAX_QUEUED + 1)]
+        self.assertIn("this one is not kept", replies[-1].text)
+        self.assertTrue(all("waits" in r.text for r in replies[:-1]))
+        self.assertEqual(len(inbox.after_turn("s-mid")), inbox.MAX_QUEUED)
+
+
+if __name__ == "__main__":
+    import unittest
+    unittest.main()

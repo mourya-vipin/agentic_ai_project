@@ -37,6 +37,10 @@ fails with a transient or protocol error takes the three exits (agent/exits.py).
 a saved run from there, after an approval, a reply, /resume or the operator's words
 (router.resume calls it). A new run and a resumed run use the same loop (_drive).
 
+Before each model call, the loop also reads the operator's messages mid-task (inbox.take):
+one that adds to the task goes in at the end of the conversation, and one that replaces it
+ends the loop with "replaced".
+
 A run that asks a stranger (channel_ask_template) carries on with its turn. When the model
 ends the turn, the run is saved as waiting for the reply, with the thread and a deadline
 (bounds.reply_deadline), and the LoopResult names the thread (waiting_for).
@@ -47,7 +51,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
-from agent import bounds, checkpoints, context, control, disclosure, exits
+from agent import bounds, checkpoints, context, control, disclosure, exits, inbox
 from agent.bounds import Bound
 from agent.detectors import RepeatTracker
 from agent.registry import AWAITING_APPROVAL, CallContext, get_registry
@@ -157,6 +161,12 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
         if control.stopped(run_key):
             return end(control.END_STOPPED, f"{run_key} stopped by the operator before step {step + 1}",
                        f"Stopped by the operator before step {step + 1}." + (f" Last said: {text}" if text else ""))
+        for said in inbox.take(run_key):          # the operator's messages mid-task (agent/inbox.py)
+            if said["way"] == inbox.REPLACE:
+                return end(bounds.REPLACED, f"before step {step + 1}: the operator's message replaced the task",
+                           f"Stopped before step {step + 1}: your new message replaced this task.")
+            messages = _with_text(messages, f"[from the operator, mid-task, adding to the task] {said['text']}")
+            trace.event("midtask_taken", run_key=run_key, way=said["way"], step=step + 1)
         built = context.assemble("loop", system=system, session_id=session_id, run_key=run_key, task=task,
                                  history=messages, tool_names=tools, registry=registry, use_case=use_case,
                                  memory=memory)

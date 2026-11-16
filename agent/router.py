@@ -51,7 +51,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import channel
-from agent import approvals, checkpoints, context, control, executor, loop, memory, session, workflows
+from agent import approvals, checkpoints, context, control, executor, inbox, loop, memory, session, workflows
 from agent import bounds
 from agent.bounds import Bound
 from agent.loop import LoopResult
@@ -130,6 +130,11 @@ def handle_operator(session_id: str, text: str) -> Reply:
             notice=text, subjects=subjects))
     if first is not None:
         carried = [first, *carried]
+    after = _after_turn(session_id)
+    if after:
+        reply = Reply("\n".join([reply.text, *(r.text for r in after)]).strip(),
+                      list(reply.actions) + [a for r in after for a in r.actions],
+                      reply.waiting_for or next((r.waiting_for for r in after if r.waiting_for), None))
     if carried:
         waits = [reply.waiting_for] + [r.waiting_for for r in carried]
         reply = Reply("\n".join([*(r.text for r in carried), reply.text]).strip(),
@@ -165,6 +170,30 @@ def _subjects(text: str) -> list[str]:
     """The people and groups that an operator's message names: by ID, or a person by full name."""
     ids = [i.upper() for i in (*EMPLOYEE_ID.findall(text), *GROUP_ID.findall(text))]
     return list(dict.fromkeys(ids + people_named(text, exclude="")))
+
+
+def _after_turn(session_id: str) -> list[Reply]:
+    """When the turn ends, the messages that came mid-task go on (inbox.after_turn): the
+    replacement first, as a new message, with what the replaced run did and the /rollback that
+    undoes it; then each message that waited, as a new message, in order."""
+    out = []
+    for said in inbox.after_turn(session_id):
+        if said["way"] == inbox.REPLACE:
+            out.append(_what_it_did(said["run_key"]))
+        out.append(handle_operator(session_id, said["text"]))
+    return out
+
+
+def _what_it_did(run_key: str) -> Reply:
+    """What a replaced run wrote (its journal), newest last, so the operator can pick what to undo."""
+    cp = checkpoints.load(run_key)
+    done = [f"- {e['tool']} ({', '.join(f'{k}={v}' for k, v in sorted((e.get('args') or {}).items()) if k != 'body')})"
+            for e in sorted((cp.completed if cp else {}).values(), key=lambda e: e.get("at") or "")]
+    head = f"Run {run_key} stopped, because your message replaced its task."
+    if not done:
+        return Reply(f"{head} It wrote nothing.")
+    run_no = run_key.rpartition("#")[2]
+    return Reply("\n".join([f"{head} It had written:", *done, f"/rollback {run_no} undoes what can be undone."]))
 
 
 def _past_deadline(session_id: str) -> list[Reply]:
@@ -263,7 +292,7 @@ def process_requests(session_id: str, request_ids: list[str]) -> Reply:
         return Reply("There are no new requests.")
     actions: list[str] = []
     waits: list[str] = []
-    for item in todo:
+    for position, item in enumerate(todo):
         # claimed first, then read again: two console sessions at once must not both handle it,
         # and one that listed it earlier must not redo what the other has finished
         if not requests.claim(item["id"], session_id):
@@ -286,6 +315,11 @@ def process_requests(session_id: str, request_ids: list[str]) -> Reply:
             actions += result.actions
             if result.waiting_for:
                 waits.append(result.waiting_for)
+            if result.end_reason == bounds.REPLACED:
+                rest = [t["id"] for t in todo[position + 1:]]
+                if rest:
+                    lines.append(f"Not started, because your new message replaced the task: {', '.join(rest)}.")
+                break
         finally:
             requests.release(item["id"], session_id)
     # the turn names the first thread a run waits on: run.py lets that thread's stranger answer

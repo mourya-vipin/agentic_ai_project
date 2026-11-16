@@ -121,7 +121,7 @@ ENDS_PAUSED = {                       # end reason -> (status, wait kind)
     "stopped": (STOPPED, "stop"),
     "escalated": (HELD, "escalation"),
 }
-ENDS_CANCELLED = ("cancelled",)
+ENDS_CANCELLED = ("cancelled", "replaced")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (
