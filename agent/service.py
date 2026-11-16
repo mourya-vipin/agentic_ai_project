@@ -35,7 +35,7 @@ your model calls labelled as theirs.
 
 from __future__ import annotations
 
-from agent import approvals, checkpoints, commands, notes, router
+from agent import approvals, checkpoints, commands, memory, notes, router
 from harness import runtime
 from harness.turns import Reply  # noqa: F401  (what each turn returns)
 from policy import limits
@@ -52,6 +52,8 @@ def operator_turn(session_id: str, text: str) -> Reply:
       2. A limit that the message lifts or states becomes a rule that the hook reads before
          each call (policy/limits.py). The reply starts with what our code recorded.
       3. The router sends the message to its path.
+      4. At the end of the turn, a preference or a fact that the message states for later is
+         kept, with its source and age (agent/memory.py). The reply ends with what was kept.
     The turn writes the async checkpoints before it replies, so that the operator never
     reads a result that the run store does not hold."""
     try:
@@ -60,11 +62,13 @@ def operator_turn(session_id: str, text: str) -> Reply:
             return command
         recorded = _limits(session_id, text)
         reply = router.handle_operator(session_id, text)
+        kept = memory.from_text(session_id, text)
     finally:
         checkpoints.flush()
-    if not recorded:
+    after = [f"Kept for later sessions as {kept.id} (a {kept.kind}, from you): {kept.text}"] if kept else []
+    if not recorded and not after:
         return reply
-    return Reply("\n".join([*recorded, reply.text]).strip(), reply.actions, reply.waiting_for)
+    return Reply("\n".join([*recorded, reply.text, *after]).strip(), reply.actions, reply.waiting_for)
 
 
 def _limits(session_id: str, text: str) -> list[str]:

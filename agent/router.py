@@ -51,7 +51,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import channel
-from agent import approvals, checkpoints, context, control, executor, loop, session, workflows
+from agent import approvals, checkpoints, context, control, executor, loop, memory, session, workflows
 from agent import bounds
 from agent.bounds import Bound
 from agent.loop import LoopResult
@@ -111,6 +111,7 @@ def handle_operator(session_id: str, text: str) -> Reply:
     process left as running carries on (_carry_on_crashed)."""
     carried = _past_deadline(session_id) + _carry_on_crashed(session_id)
     earlier = session.history(session_id)[-HISTORY_TURNS:]
+    first = _session_start(session_id) if not earlier else None
     session.add(session_id, "operator", text)
     intent, request_ids, reason = route_operator(session_id, text, earlier)
     runtime.trace(session_id).event("route", scope="operator", intent=intent, request_ids=request_ids, reason=reason)
@@ -121,9 +122,14 @@ def handle_operator(session_id: str, text: str) -> Reply:
     else:
         _agent_path(OPERATOR_REVIEW)
         content = _with_history(session_id, text)
+        subjects = _subjects(text)
         reply = _as_reply(_in_run(session_id, OPERATOR_REVIEW, content, lambda run_key: loop.run_loop(
             session_id, use_case=OPERATOR_REVIEW, system=_prompt(OPERATOR_REVIEW), user_content=content,
-            tools=TOOLS[OPERATOR_REVIEW], bound=BOUND, run_key=run_key), notice=text))
+            tools=TOOLS[OPERATOR_REVIEW], bound=BOUND, run_key=run_key,
+            memory=memory.for_call(session_id, subjects, OPERATOR_REVIEW, run_key=run_key)),
+            notice=text, subjects=subjects))
+    if first is not None:
+        carried = [first, *carried]
     if carried:
         waits = [reply.waiting_for] + [r.waiting_for for r in carried]
         reply = Reply("\n".join([*(r.text for r in carried), reply.text]).strip(),
@@ -131,6 +137,34 @@ def handle_operator(session_id: str, text: str) -> Reply:
                       next((w for w in waits if w), None))
     session.add(session_id, "agent", reply.text)
     return reply
+
+
+def _session_start(session_id: str) -> Reply | None:
+    """The first turn of a console session, before its first model call: read the memory
+    store (memory.read_for_session writes memory_read) and the runs that still wait, and show
+    the operator what was found, with each record's source and age. None when there is nothing.
+    In a run.py run, only the runs of this run count."""
+    records = memory.read_for_session(session_id)
+    in_run = runtime.current_run() is not None
+    waits = [cp for cp in checkpoints.waiting() if not in_run or cp.session_id == session_id]
+    if not records and not waits:
+        return None
+    lines = []
+    if records:
+        lines.append("From earlier sessions, our memory holds:")
+        lines += [f"- {memory.as_line(r)}" for r in records]
+    if waits:
+        lines.append("Runs that still wait:")
+        lines += [f"- run {cp.run_key} ({cp.use_case}): {PAUSED_WORDS.get(cp.status, cp.status)}"
+                  + (f" on {cp.waiting_for.get('thread_id')}" if (cp.waiting_for or {}).get("thread_id") else "")
+                  for cp in waits]
+    return Reply("\n".join(lines))
+
+
+def _subjects(text: str) -> list[str]:
+    """The people and groups that an operator's message names: by ID, or a person by full name."""
+    ids = [i.upper() for i in (*EMPLOYEE_ID.findall(text), *GROUP_ID.findall(text))]
+    return list(dict.fromkeys(ids + people_named(text, exclude="")))
 
 
 def _past_deadline(session_id: str) -> list[Reply]:
@@ -208,10 +242,12 @@ def bulk_change(session_id: str, text: str) -> LoopResult:
         return _in_run(session_id, BULK_CHANGE, text,
                        lambda run_key: executor.run_planned(session_id, text, bound=BOUND, run_key=run_key),
                        path="planned")
-    content = _with_history(session_id, text)
+    content, subjects = _with_history(session_id, text), _subjects(text)
     return _in_run(session_id, BULK_CHANGE, content, lambda run_key: loop.run_loop(
         session_id, use_case=BULK_CHANGE, system=_prompt(BULK_CHANGE), user_content=content,
-        tools=TOOLS[BULK_CHANGE], bound=BOUND, run_key=run_key), path="loop", notice=text)
+        tools=TOOLS[BULK_CHANGE], bound=BOUND, run_key=run_key,
+        memory=memory.for_call(session_id, subjects, BULK_CHANGE, run_key=run_key)),
+        path="loop", notice=text, subjects=subjects)
 
 
 # -- the core task: the day's requests ----------------------------------------------------
@@ -276,14 +312,18 @@ def handle_request(session_id: str, request: dict) -> LoopResult:
         return _in_run(session_id, OFFBOARDING, case, lambda run_key: workflows.offboarding(
             session_id, rid, route.fields, run_key=run_key), **found)
 
+    subjects = [s for s in (request["requester_id"], *people_named(request["text"], exclude=request["requester_id"] or ""),
+                            route.group_id) if s]
+
     def agent(run_key: str) -> LoopResult:
         result = loop.run_loop(session_id, use_case=NONSTANDARD, system=_prompt(NONSTANDARD), user_content=case,
-                               tools=TOOLS[NONSTANDARD], bound=BOUND, request_id=rid, run_key=run_key)
+                               tools=TOOLS[NONSTANDARD], bound=BOUND, request_id=rid, run_key=run_key,
+                               memory=memory.for_call(session_id, subjects, NONSTANDARD, run_key=run_key))
         left = _leave_for_operator(session_id, rid, result, run_key)
         text = " ".join(t for t in (f"{rid} (agent):", route.note, result.text, left) if t)
         return LoopResult(text, result.actions, result.end_reason, result.steps, waiting_for=result.waiting_for)
 
-    return _in_run(session_id, NONSTANDARD, case, agent, **found)
+    return _in_run(session_id, NONSTANDARD, case, agent, **found, subjects=subjects)
 
 
 def _paused_run(session_id: str, request_id: str):
@@ -402,7 +442,8 @@ def _again(cp, event: dict) -> LoopResult:
     if cp.use_case == OFFBOARDING:
         return workflows.offboarding(cp.session_id, found.get("request_id"), found.get("fields") or {},
                                      run_key=cp.run_key)
-    return loop.carry_on(cp, event, system=_prompt(cp.use_case), tools=TOOLS[cp.use_case], bound=BOUND)
+    return loop.carry_on(cp, event, system=_prompt(cp.use_case), tools=TOOLS[cp.use_case], bound=BOUND,
+                         memory=memory.for_call(cp.session_id, found.get("subjects"), cp.use_case, run_key=cp.run_key))
 
 
 def _reply_on(thread_id: str | None) -> str | None:

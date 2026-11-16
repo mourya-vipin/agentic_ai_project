@@ -74,13 +74,16 @@ class LoopResult:
 
 def run_loop(session_id: str, *, use_case: str, system: str, user_content: str,
              tools: list[str], bound: Bound, request_id: str | None = None,
-             run_key: str | None = None) -> LoopResult:
-    """A new run of the loop, from its task."""
+             run_key: str | None = None, memory: list | None = None) -> LoopResult:
+    """A new run of the loop, from its task. `memory` is what memory.for_call chose for the run:
+    each call of the run carries it, at the end of the call (context.assemble)."""
     return _drive(session_id, use_case=use_case, system=system, tools=tools, bound=bound, request_id=request_id,
-                  run_key=run_key, messages=[{"role": "user", "content": user_content}], step=0, actions=[])
+                  run_key=run_key, messages=[{"role": "user", "content": user_content}], step=0, actions=[],
+                  memory=memory)
 
 
-def carry_on(cp, event: dict, *, system: str, tools: list[str], bound: Bound) -> LoopResult:
+def carry_on(cp, event: dict, *, system: str, tools: list[str], bound: Bound,
+             memory: list | None = None) -> LoopResult:
     """Continue a saved run of the loop after one event (router.resume). The run goes on
     from its saved messages, or from its task when no step was saved (the exit mode, or a
     crash before the first step). What the event adds:
@@ -115,12 +118,12 @@ def carry_on(cp, event: dict, *, system: str, tools: list[str], bound: Bound) ->
         messages = _with_text(messages, _event_text(event))
     return _drive(cp.session_id, use_case=cp.use_case, system=system, tools=tools, bound=bound,
                   request_id=findings.get("request_id"), run_key=cp.run_key, messages=messages, step=step,
-                  actions=actions, cp=cp)
+                  actions=actions, cp=cp, memory=memory)
 
 
 def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bound: Bound,
            request_id: str | None, run_key: str | None, messages: list[dict], step: int, actions: list[str],
-           cp=None) -> LoopResult:
+           cp=None, memory: list | None = None) -> LoopResult:
     """The loop itself, for a new run and for a resumed one. After each step it saves the
     run (checkpoints.save_step): the record of each call and the messages."""
     client = runtime.client(session_id)
@@ -155,7 +158,8 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
             return end(control.END_STOPPED, f"{run_key} stopped by the operator before step {step + 1}",
                        f"Stopped by the operator before step {step + 1}." + (f" Last said: {text}" if text else ""))
         built = context.assemble("loop", system=system, session_id=session_id, run_key=run_key, task=task,
-                                 history=messages, tool_names=tools, registry=registry, use_case=use_case)
+                                 history=messages, tool_names=tools, registry=registry, use_case=use_case,
+                                 memory=memory)
         if built.unfit:
             return end(context.BUDGET_UNFIT, f"{built.tokens:,} > {context.budget():,} tokens before step {step + 1}",
                        _stopped("the context budget", text))

@@ -1,0 +1,27 @@
+id: t09_later_session
+title: "A later session acts on what the operator said in an earlier one, without being told again"
+# Memory and the later session (Part 1, task 7). Owner: Aman Panigrahi. In an earlier session,
+# the operator said how to handle a request made for someone else: draft a manager
+# confirmation, and do not ask the manager on the channel. run.py resets the agent's stores
+# before each run, so the seed writes that record again, with its provenance. This session gets
+# the same kind of request as t05, and nobody repeats the preference: the session must read it
+# from the store before its first model call, and act on it.
+inputs:
+  - kind: memory
+    record:
+      kind: preference
+      text: "When a request is for someone else, do not ask their manager on the channel: draft a manager confirmation for me to send instead."
+      source: operator
+      confirmed: true
+      written_at: "2026-11-09T10:00:00Z"
+      session_id: s-earlier-session
+  - kind: request
+    thread: SYN-MSG-T09
+    from: arjun.mehta@syn-corp.example
+    text: >-
+      SYNTHETIC. Please add my new teammate Dev Rao to the GitHub engineers group, he started
+      on Monday. Arjun
+operator:
+  - "Please handle the new access requests."
+outside: []
+check: checks/t09_later_session.py
