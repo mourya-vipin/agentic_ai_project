@@ -16,6 +16,10 @@ seed(task) loads the base data (sandbox/base_data.py) and fixes "now" at
         {kind: fault, tool: access_grant, times: 2}
     kind: fact                    a small change to the base data, for one task's case:
         {kind: fact, table: employees, id: SYN-EMP-0150, set: {end_date: "2026-10-20"}}
+    kind: memory                  a record of an earlier session, with its provenance
+                                  (agent/memory.py; added by Aman Panigrahi):
+        {kind: memory, record: {kind: preference, text: "...", source: operator,
+         written_at: "2026-11-09T10:00:00Z", session_id: s-earlier}}
 
 Every record is synthetic and marked; every write is stamped ("seed" here).
 """
@@ -64,7 +68,8 @@ DEMO_FACTS = [{"kind": "fact", "table": "employees", "id": "SYN-EMP-0150", "set"
 
 # The agent's own stores under state_dir(), each emptied with the sandbox, so that no saved
 # run, conversation, approval or stop points at records the reset deleted.
-AGENT_STORES = ("agent.checkpoints", "agent.session", "agent.approvals", "agent.control", "agent.escalation")
+AGENT_STORES = ("agent.checkpoints", "agent.session", "agent.approvals", "agent.control", "agent.escalation",
+                "agent.memory")
 
 
 def reset() -> None:
@@ -90,7 +95,7 @@ def seed(task: dict | None) -> None:
 
 def _seed_one(item) -> None:
     if not isinstance(item, dict):
-        raise ValueError(f"each input is a mapping with a kind (request, fault or fact), not {item!r}")
+        raise ValueError(f"each input is a mapping with a kind (request, fault, fact or memory), not {item!r}")
     kind = item.get("kind", "request")
     if kind == "request":
         _request(item)
@@ -98,8 +103,10 @@ def _seed_one(item) -> None:
         access.set_fault(str(item["tool"]), int(item.get("times", 1)))
     elif kind == "fact":
         _fact(item)
+    elif kind == "memory":
+        importlib.import_module("agent.memory").seed_record(dict(item["record"]))
     else:
-        raise ValueError(f"an input's kind is request, fault or fact, not {kind!r}")
+        raise ValueError(f"an input's kind is request, fault, fact or memory, not {kind!r}")
 
 
 def _request(item: dict) -> None:
