@@ -1,0 +1,26 @@
+id: t08_ask_manager
+title: "Ask the manager on their thread, wait for the reply, then grant with the operator's approval"
+# The outside exchange (Part 1, task 5). Owner: Aman Panigrahi. Arjun asks for a group for
+# Dev Rao, whose manager he is not, so only Dev's manager, Hannah Lee, has the missing fact.
+# Our code sees it (the requester is neither the person nor their manager); the agent asks her
+# with the fixed manager_confirm template, ends its turn, and the run waits for her reply. Her
+# YES lets the grant be put up for the operator, who approves it. Her words grant nothing alone.
+input:
+  kind: request
+  thread: SYN-MSG-T08
+  from: arjun.mehta@syn-corp.example
+  text: >-
+    SYNTHETIC. Please add my new teammate Dev Rao to the GitHub engineers group, he started
+    on Monday. Arjun
+operator:
+  - "Please handle the new access requests."
+outside:
+  - thread: SYN-MAIL-SYN-EMP-0060
+    who: hannah.lee@syn-corp.example
+    replies:
+      - "SYNTHETIC. YES. Dev is on my team now, so he can be in the GitHub engineers group."
+    asked_again: "SYNTHETIC. I already answered: YES, Dev can have the GitHub engineers group."
+    never_asked: "SYNTHETIC. Hi IT, did someone want to ask me about Dev Rao's access?"
+# The operator's answer to the grant that waits for approval (access_grant/manager_confirmed).
+approvals: [yes]
+check: checks/t08_ask_manager.py

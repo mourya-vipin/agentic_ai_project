@@ -36,6 +36,10 @@ and a record of each call with its arguments, its key and its end reason. A writ
 fails with a transient or protocol error takes the three exits (agent/exits.py). carry_on() continues
 a saved run from there, after an approval, a reply, /resume or the operator's words
 (router.resume calls it). A new run and a resumed run use the same loop (_drive).
+
+A run that asks a stranger (channel_ask_template) carries on with its turn. When the model
+ends the turn, the run is saved as waiting for the reply, with the thread and a deadline
+(bounds.reply_deadline), and the LoopResult names the thread (waiting_for).
 """
 
 from __future__ import annotations
@@ -65,6 +69,7 @@ class LoopResult:
     actions: list[str] = field(default_factory=list)  # one line per effect
     end_reason: str = ""                              # one of the names in agent/bounds.py
     steps: int = 0
+    waiting_for: str | None = None                    # the thread of a stranger the run waits for
 
 
 def run_loop(session_id: str, *, use_case: str, system: str, user_content: str,
@@ -130,6 +135,7 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
     task = messages[0]["content"] if isinstance(messages[0].get("content"), str) else None
     first, start, start_tokens = step, time.monotonic(), client.total_tokens
     text, calls_made, protocol_errors = "", 0, 0
+    asked = None                                    # the thread of a question that this turn sent
 
     def end(reason: str, detail: str, said: str) -> LoopResult:
         trace.end(reason, detail)
@@ -160,6 +166,16 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
         trace.model_call(step, response, purpose=use_case, request_id=request_id)
         text = response.text or text
         calls = response.tool_calls
+        if not calls and asked is not None:
+            # the model asked a stranger and finished its turn: the run waits for the reply
+            messages.append(response.assistant_message())
+            wait = {"kind": "reply", "thread_id": asked, "deadline": bounds.reply_deadline()}
+            if cp is not None:
+                cp.messages = [dict(m) for m in messages]
+                cp.status, cp.waiting_for = checkpoints.WAITING_REPLY, wait
+                checkpoints.save(cp, mode="sync")
+            trace.end(bounds.WAITING_REPLY, f"asked on {asked}; the deadline is {wait['deadline']}")
+            return LoopResult(response.text, actions, bounds.WAITING_REPLY, step, waiting_for=asked)
         if not calls:
             return end(done, f"step {step}, stop_reason {response.stop_reason}", response.text)
 
@@ -202,6 +218,8 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
                     ended = bounds.PROTOCOL_ERROR
             elif not result.is_error and result.key is not None:
                 actions.append(action_line(name, call.input, result.data))
+                if name == "channel_ask_template" and isinstance(result.data, dict):
+                    asked = result.data.get("waiting_for") or result.data.get("thread_id") or asked
             if result.end_reason and ended is None:
                 ended = result.end_reason
             if result.is_error and control.stopped(run_key):
@@ -355,4 +373,7 @@ def action_line(tool: str, args: dict, data) -> str:
                 f"{data.get('pending_id')}")
     if tool == "requests_set_status":
         return f"set {args.get('request_id')} to {args.get('status')}"
+    if tool == "channel_ask_template":
+        return (f"asked {data.get('recipient_employee_id')} on {data.get('thread_id')} to confirm {group} for "
+                f"{person}: waiting for the reply")
     return f"{tool}: {data.get('status', 'done')}"

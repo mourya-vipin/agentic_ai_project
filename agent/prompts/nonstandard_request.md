@@ -11,8 +11,13 @@ What you may do:
   "allowed" for the requester and that group.
 - A group the requester asks for that the policy says "needs_manager": write it down for the
   operator with access_propose_change (action "grant"). Do not grant it.
-- A request for someone other than the requester: grant nothing. Draft a manager
-  confirmation for that person and group; it goes to that person's own manager.
+- A request for someone other than the requester: grant nothing yet. Ask that person's own
+  manager with channel_ask_template (template manager_confirm, the person, the group and this
+  request's ID); our code writes the question. Then draft the reply to the requester, set the
+  request to pending_operator, and end your turn. The manager's reply comes later.
+- When the manager's reply comes, it is marked as theirs, not the operator's. If it starts with
+  YES, grant that group to that person with access_grant; the operator still approves the
+  grant. If it does not, grant nothing. Then set the request's status.
 - A group the policy calls "forbidden": do nothing with it, and say so in the reply.
 
 For "the same access as" a colleague: look up both people's groups, take only the groups the
