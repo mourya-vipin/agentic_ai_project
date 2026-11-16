@@ -40,3 +40,24 @@ ANSWERED = "answered"
 WORKFLOW_DONE = "workflow_done"
 WORKFLOW_REFUSED = "workflow_refused"
 PROTOCOL_ERROR = "protocol_error"
+
+# The outside exchange (Milestone 2, Part 1, task 5). A run that asked a stranger ends its
+# turn waiting_reply. If no reply comes within REPLY_WORKING_DAYS on the sandbox's clock,
+# the operator's next turn ends it reply_deadline and leaves its request for the operator.
+WAITING_REPLY = "waiting_reply"
+REPLY_DEADLINE = "reply_deadline"
+REPLY_WORKING_DAYS = 2
+
+
+def reply_deadline(now: str | None = None) -> str:
+    """REPLY_WORKING_DAYS working days after `now` (the sandbox's clock, as "...Z"). A Saturday
+    and a Sunday do not count."""
+    from datetime import datetime, timedelta
+
+    from sandbox import clock
+    at = datetime.fromisoformat((now or clock.now()).replace("Z", "+00:00"))
+    days = 0
+    while days < REPLY_WORKING_DAYS:
+        at += timedelta(days=1)
+        days += at.weekday() < 5
+    return at.isoformat().replace("+00:00", "Z")

@@ -52,12 +52,13 @@ from pathlib import Path
 
 import channel
 from agent import approvals, checkpoints, context, control, executor, loop, session, workflows
+from agent import bounds
 from agent.bounds import Bound
 from agent.loop import LoopResult
 from agent.registry import CallContext, get_registry
 from harness import runtime
 from harness.turns import Reply
-from sandbox import catalog, db, directory, requests
+from sandbox import catalog, clock, db, directory, requests
 
 STANDARD_GRANT, ONBOARDING, OFFBOARDING = "standard_grant", "onboarding", "offboarding"
 NONSTANDARD, OPERATOR_REVIEW, BULK_CHANGE = "nonstandard_request", "operator_review", "bulk_change"
@@ -68,12 +69,15 @@ HISTORY_TURNS = 3                       # earlier messages the operator router s
 
 READS = ["directory_get_employee", "directory_search_employees", "access_list_memberships", "catalog_search_groups",
          "policy_check_access", "requests_get", "requests_list_today"]
+U4_WRITES = ["access_grant", "access_revoke", "access_propose_change", "reply_draft", "manager_confirmation_draft",
+             "requests_set_status"]
 TOOLS = {
     OPERATOR_REVIEW: READS + ["directory_list_contractors_ended"],
-    NONSTANDARD: READS + ["access_grant", "access_revoke", "access_propose_change", "reply_draft",
-                          "manager_confirmation_draft", "requests_set_status"],
+    # U4 asks the stranger who alone has the fact: the person's manager, on a request made on
+    # someone else's behalf (Milestone 2, Part 1, task 5). U6 asks no one.
+    NONSTANDARD: READS + U4_WRITES + ["channel_ask_template"],
+    BULK_CHANGE: READS + U4_WRITES + ["directory_list_contractors_ended", "access_revoke_all"],
 }
-TOOLS[BULK_CHANGE] = TOOLS[NONSTANDARD] + ["directory_list_contractors_ended", "access_revoke_all"]
 
 REQUEST_ID = re.compile(r"\bSYN-REQ-\d{4}\b", re.I)
 EMPLOYEE_ID = re.compile(r"\bSYN-EMP-\d{4}\b", re.I)
@@ -105,7 +109,7 @@ def handle_operator(session_id: str, text: str) -> Reply:
     """One operator message: a new task (process requests, a bulk change) or a
     question about work already done. First, each run of the session that a stopped
     process left as running carries on (_carry_on_crashed)."""
-    carried = _carry_on_crashed(session_id)
+    carried = _past_deadline(session_id) + _carry_on_crashed(session_id)
     earlier = session.history(session_id)[-HISTORY_TURNS:]
     session.add(session_id, "operator", text)
     intent, request_ids, reason = route_operator(session_id, text, earlier)
@@ -121,10 +125,33 @@ def handle_operator(session_id: str, text: str) -> Reply:
             session_id, use_case=OPERATOR_REVIEW, system=_prompt(OPERATOR_REVIEW), user_content=content,
             tools=TOOLS[OPERATOR_REVIEW], bound=BOUND, run_key=run_key), notice=text))
     if carried:
+        waits = [reply.waiting_for] + [r.waiting_for for r in carried]
         reply = Reply("\n".join([*(r.text for r in carried), reply.text]).strip(),
-                      [a for r in carried for a in r.actions] + list(reply.actions), reply.waiting_for)
+                      [a for r in carried for a in r.actions] + list(reply.actions),
+                      next((w for w in waits if w), None))
     session.add(session_id, "agent", reply.text)
     return reply
+
+
+def _past_deadline(session_id: str) -> list[Reply]:
+    """The operator's next turn ends each run that waited for a stranger's reply past its
+    deadline (bounds.REPLY_WORKING_DAYS on the sandbox's clock): it ends reply_deadline, its
+    request goes to the operator (pending_operator), and the reply says so. In the app, a
+    run of any console session counts; in a run.py run, only the runs of this run."""
+    now, in_run, out = clock.now(), runtime.current_run() is not None, []
+    for cp in checkpoints.waiting("reply"):
+        deadline = (cp.waiting_for or {}).get("deadline")
+        if (in_run and cp.session_id != session_id) or not deadline or now <= deadline:
+            continue
+        thread, rid = cp.waiting_for.get("thread_id"), (cp.findings or {}).get("request_id")
+        runtime.trace(cp.session_id).event("reply_deadline", run_key=cp.run_key, thread_id=thread,
+                                           deadline=deadline, now=now)
+        checkpoints.end_turn(cp, bounds.REPLY_DEADLINE)
+        left = _leave_for_operator(cp.session_id, rid, LoopResult("", [], bounds.REPLY_DEADLINE, cp.current_step or 0),
+                                   cp.run_key, use_case=cp.use_case) if rid else ""
+        out.append(Reply(f"Run {cp.run_no}{' for ' + rid if rid else ''} waited for a reply on {thread} until "
+                         f"{deadline}, and none came, so it ended. {left}".strip(), [f"ended run {cp.run_key}"]))
+    return out
 
 
 def _carry_on_crashed(session_id: str) -> list[Reply]:
@@ -199,6 +226,7 @@ def process_requests(session_id: str, request_ids: list[str]) -> Reply:
     if not todo and not lines:
         return Reply("There are no new requests.")
     actions: list[str] = []
+    waits: list[str] = []
     for item in todo:
         # claimed first, then read again: two console sessions at once must not both handle it,
         # and one that listed it earlier must not redo what the other has finished
@@ -220,9 +248,12 @@ def process_requests(session_id: str, request_ids: list[str]) -> Reply:
             result = handle_request(session_id, item)
             lines.append(result.text)
             actions += result.actions
+            if result.waiting_for:
+                waits.append(result.waiting_for)
         finally:
             requests.release(item["id"], session_id)
-    return Reply("\n".join(lines), actions)
+    # the turn names the first thread a run waits on: run.py lets that thread's stranger answer
+    return Reply("\n".join(lines), actions, waits[0] if waits else None)
 
 
 def handle_request(session_id: str, request: dict) -> LoopResult:
@@ -250,7 +281,7 @@ def handle_request(session_id: str, request: dict) -> LoopResult:
                                tools=TOOLS[NONSTANDARD], bound=BOUND, request_id=rid, run_key=run_key)
         left = _leave_for_operator(session_id, rid, result, run_key)
         text = " ".join(t for t in (f"{rid} (agent):", route.note, result.text, left) if t)
-        return LoopResult(text, result.actions, result.end_reason, result.steps)
+        return LoopResult(text, result.actions, result.end_reason, result.steps, waiting_for=result.waiting_for)
 
     return _in_run(session_id, NONSTANDARD, case, agent, **found)
 
@@ -355,7 +386,7 @@ def resume(cp, event: dict) -> Reply:
         path = "agent" if cp.use_case == NONSTANDARD else cp.use_case
         text = " ".join(t for t in (f"{rid} ({path}):", result.text, left) if t)
     _settle(cp, result.end_reason)
-    return Reply(text, result.actions)
+    return Reply(text, result.actions, result.waiting_for)
 
 
 def _again(cp, event: dict) -> LoopResult:
@@ -543,7 +574,7 @@ def _with_history(session_id: str, text: str) -> str:
 
 
 def _as_reply(result: LoopResult) -> Reply:
-    return Reply(result.text, result.actions)
+    return Reply(result.text, result.actions, result.waiting_for)
 
 
 def _json(text: str) -> dict:

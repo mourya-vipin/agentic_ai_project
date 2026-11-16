@@ -71,7 +71,10 @@ def per_run(arms: list[str], measured: Path, settings, prices) -> int:
     for name, entry in report["sets"].items():
         own, overhead = entry["per_tool_without_overhead"], entry["fixed_overhead_tokens"]
         named = (lambda t: first_draft_name.get(t, t)) if name == "first_draft" else (lambda t: t)
-        carried[name] = {uc: round(overhead + sum(own[named(t)] for t in tools)) for uc, tools in TOOLS.items()}
+        # only the tools that the measurement lists: a tool added after it (channel_ask_template
+        # for U4, Milestone 2) was not in the recorded runs that it prices
+        carried[name] = {uc: round(overhead + sum(own[named(t)] for t in tools if named(t) in own))
+                         for uc, tools in TOOLS.items()}
     price = prices.find(settings.model)
     print(f"priced from {measured.relative_to(ROOT)} ({report['date']}); a loop call carries, in tokens: "
           + "; ".join(f"{name} " + ", ".join(f"{uc} {n:,}" for uc, n in sets.items()) for name, sets in carried.items()))
