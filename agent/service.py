@@ -123,5 +123,9 @@ def pending_approvals() -> list[dict]:
 
 def decide_approval(approval_id: str, approved: bool, note: str = "") -> Reply | None:
     """The operator's answer to one approval: record it, and carry on the work that
-    waited for it. Written by Shruti Tewaney: the gate is agent/approvals.py."""
-    return approvals.decide(approval_id, approved, note)
+    waited for it. Written by Shruti Tewaney: the gate is agent/approvals.py. As in
+    operator_turn, the answer writes the async checkpoints before it replies."""
+    try:
+        return approvals.decide(approval_id, approved, note)
+    finally:
+        checkpoints.flush()

@@ -21,12 +21,13 @@ The person and their role come from the directory, never from the message.
 
 Milestone 2. The router opens the run (agent/checkpoints.py) and gives its key. Each step
 carries the run key and origin "workflow", so the hook reads the stop flag of the run and
-the registry derives the key of each write from the run.
+the registry derives the key of each write from the run. A step that the hook refuses
+because the run is stopped ends the workflow with "stopped", and no more steps run.
 """
 
 from __future__ import annotations
 
-from agent import bounds
+from agent import bounds, control
 from agent.loop import LoopResult, action_line
 from agent.registry import CallContext, get_registry
 from harness import runtime
@@ -68,6 +69,12 @@ def _run(session_id: str, use_case: str, request_id: str, gather, choose, post, 
         text = post(steps, gathered, chosen)
     except Refused as exc:
         reason = str(exc)
+        if control.stopped(run_key):
+            # the hook refused the step because the operator stopped the run: no more calls,
+            # and the run is saved as stopped, so /resume, /cancel or /rollback can follow
+            trace.end(control.END_STOPPED, reason[:300])
+            return LoopResult(f"{request_id} ({use_case}): stopped by the operator at step {steps.step}.",
+                              steps.actions, control.END_STOPPED, steps.step)
         try:
             steps.call("requests_set_status", request_id=request_id, status="pending_operator", note=reason[:300])
             if on_refused is not None:

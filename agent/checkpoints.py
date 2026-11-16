@@ -468,9 +468,13 @@ def resume(run_key: RunKey, event: dict) -> Reply:
 
 
 def _refusal(cp: Checkpoint, event: dict) -> str:
-    """Why this event must not continue this run, or "" if it can."""
+    """Why this event must not continue this run, or "" if it can. Only /resume
+    (stop_lifted) continues a stopped run. A reply that comes while the run is stopped
+    stays on its thread, and the resume of the path can read it there."""
     if cp.status in ENDED:
         return f"it is {cp.status}"
+    if event["kind"] != "stop_lifted" and _stop_flag(cp.run_key):
+        return "it is stopped, and /resume continues it"
     wait = cp.waiting_for or {}
     if event["kind"] == "reply":
         if wait.get("kind") != "reply":
@@ -483,6 +487,12 @@ def _refusal(cp: Checkpoint, event: dict) -> str:
         if wait.get("approval_id") and wait.get("approval_id") != event.get("approval_id"):
             return f"it waits for the approval {wait.get('approval_id')}, not {event.get('approval_id')}"
     return ""
+
+
+def _stop_flag(run_key: RunKey) -> bool:
+    """Whether the operator stopped or cancelled the run (agent/control.py)."""
+    from agent import control       # here, not at the top: control finds this module the same way
+    return control.stopped(run_key)
 
 
 def _resumer(cp: Checkpoint):

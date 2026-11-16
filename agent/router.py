@@ -114,7 +114,7 @@ def handle_operator(session_id: str, text: str) -> Reply:
         content = _with_history(session_id, text)
         reply = _as_reply(_in_run(session_id, OPERATOR_REVIEW, content, lambda run_key: loop.run_loop(
             session_id, use_case=OPERATOR_REVIEW, system=_prompt(OPERATOR_REVIEW), user_content=content,
-            tools=TOOLS[OPERATOR_REVIEW], bound=BOUND, run_key=run_key)))
+            tools=TOOLS[OPERATOR_REVIEW], bound=BOUND, run_key=run_key), notice=text))
     session.add(session_id, "agent", reply.text)
     return reply
 
@@ -158,7 +158,7 @@ def bulk_change(session_id: str, text: str) -> LoopResult:
     content = _with_history(session_id, text)
     return _in_run(session_id, BULK_CHANGE, content, lambda run_key: loop.run_loop(
         session_id, use_case=BULK_CHANGE, system=_prompt(BULK_CHANGE), user_content=content,
-        tools=TOOLS[BULK_CHANGE], bound=BOUND, run_key=run_key), path="loop")
+        tools=TOOLS[BULK_CHANGE], bound=BOUND, run_key=run_key), path="loop", notice=text)
 
 
 # -- the core task: the day's requests ----------------------------------------------------
@@ -207,7 +207,8 @@ def handle_request(session_id: str, request: dict) -> LoopResult:
     runtime.trace(session_id).event("route", scope="request", request_id=request["id"],
                                     route=f"{path}:{route.use_case}", why=route.why)
     case, rid = _case(request, route), request["id"]
-    found = dict(request_id=rid, route=f"{path}:{route.use_case}", group_id=route.group_id, fields=route.fields)
+    found = dict(request_id=rid, route=f"{path}:{route.use_case}", group_id=route.group_id, fields=route.fields,
+                 notice=f"{route.use_case} for {rid}")
     if path == "workflow" and route.use_case == STANDARD_GRANT:
         return _in_run(session_id, STANDARD_GRANT, case, lambda run_key: workflows.standard_grant(
             session_id, rid, route.group_id, run_key=run_key), **found)
@@ -238,22 +239,36 @@ def _paused_run(session_id: str, request_id: str):
                  and (not in_run or cp.session_id == session_id)), None)
 
 
-def _in_run(session_id: str, use_case: str, task: str, work, **findings) -> LoopResult:
-    """One run: open it, do the work with its key, and save the run when the turn
-    ends. `work(run_key)` gives the LoopResult. An error in the work saves the run as
-    failed, and the error goes on to the caller."""
+def _in_run(session_id: str, use_case: str, task: str, work, *, notice: str | None = None,
+            **findings) -> LoopResult:
+    """One run: open it, do the work with its key, and save the run when the turn ends.
+    `work(run_key)` gives the LoopResult.
+
+    The findings are saved before the work starts, so a path that loads the run keeps them.
+    `notice` names the run for the operator, with its /stop, before its first call
+    (control.notice). The planned path gives its own notice. During the turn, a path or the
+    approval gate can save the run itself (a plan, a wait for an approval). The router then
+    keeps that save, and does not write its own older copy over it. An error in the work
+    saves the run as failed, and the error goes on to the caller."""
     cp = checkpoints.new_run(session_id, use_case, task)
     cp.findings = {name: value for name, value in findings.items() if value not in (None, {}, "")}
     cp.conversation = session.history(session_id)
+    checkpoints.save(cp, mode="sync")
+    if notice:
+        control.notice(cp.run_key, notice)
     try:
         result = work(cp.run_key)
     except Exception:
         try:
-            checkpoints.end_turn(cp, "error")
+            latest = checkpoints.load(cp.run_key) or cp
+            if latest.status == checkpoints.RUNNING:
+                checkpoints.end_turn(latest, "error")
         except Exception:  # noqa: BLE001  (the first error is the one that the caller must see)
             pass
         raise
-    checkpoints.end_turn(cp, _end_of(cp.run_key, result.end_reason))
+    latest = checkpoints.load(cp.run_key) or cp
+    if latest.status == checkpoints.RUNNING:
+        checkpoints.end_turn(latest, _end_of(cp.run_key, result.end_reason))
     return result
 
 

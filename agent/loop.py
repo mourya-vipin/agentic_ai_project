@@ -21,7 +21,8 @@ reason (critique_held), or on the second protocol error in the loop.
 Milestone 2. The caller opens the run (agent/checkpoints.py) and gives its key. Before
 each model call, the loop also does these two steps:
   - It reads the stop flag (agent/control.py). A stopped run ends with "stopped" and
-    makes no more model calls. The hook refuses the tool calls of a stopped run too.
+    makes no more model calls. When the hook refuses a tool call because the run is
+    stopped, the loop ends with "stopped" at once, and the step makes no more calls.
   - It builds the call with context.assemble. A call that cannot fit ends the
     loop with budget_unfit. After a compaction, the loop keeps the compacted messages,
     so that the compaction holds. It does not keep the notes or the memory, because
@@ -122,7 +123,13 @@ def run_loop(session_id: str, *, use_case: str, system: str, user_content: str,
                 actions.append(action_line(registry.resolve(call.name) or call.name, call.input, result.data))
             if result.end_reason and ended is None:
                 ended = result.end_reason
+            if result.is_error and control.stopped(run_key):
+                ended = control.END_STOPPED          # the hook refused the call: the operator stopped this run
+                break
         messages.append({"role": "user", "content": results})
+        if ended == control.END_STOPPED:
+            return end(ended, f"step {step}: the hook refused a call of the stopped run",
+                       f"Stopped by the operator at step {step}." + (f" Last said: {text}" if text else ""))
         if ended is not None:
             return end(ended, f"step {step}", f"Stopped: {ended.replace('_', ' ')}. {text}".strip())
         if step % PROGRESS_EVERY == 0:

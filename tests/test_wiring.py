@@ -101,6 +101,8 @@ class EachRunCarriesItsKey(TaskRunTest):
         final = self.of("checkpoint_final")
         self.assertEqual([(f["run_key"], f["checkpoint"]["use_case"]) for f in final],
                          [(self.key(), "nonstandard_request")])
+        self.assertEqual([(x["run_key"], x["resumed"]) for x in self.of("run_notice")], [(self.key(), False)],
+                         "the operator's notice, before the run's first call")
 
     def test_a_workflow_run_carries_its_key_and_ends_done(self):
         self.run_on("t01_standard_jira", "RoutesStandardGrant")
@@ -122,6 +124,8 @@ class EachRunCarriesItsKey(TaskRunTest):
         self.assertTrue(planner)
         self.assertEqual({x["run_key"] for x in planner}, {self.key()})
         self.assertEqual(self.of("checkpoint_final")[-1]["checkpoint"]["findings"]["path"], "planned")
+        self.assertEqual([x["run_key"] for x in self.of("run_opened")], [self.key()], "the executor opens no run")
+        self.assertEqual([x["run_key"] for x in self.of("run_notice")], [self.key()], "one notice, the executor's")
 
     def test_every_model_call_is_built_by_assemble(self):
         self.run_on("t04_same_access_as", "RoutesToAgentThenNeverStops", overrides=["context_budget=400000"])
@@ -155,6 +159,7 @@ class TheStopEndsTheLoop(TaskRunTest):
         self.assertEqual((paused["run_key"], paused["checkpoint"]["status"], paused["checkpoint"]["waiting_for"]),
                          (key, "stopped", {"kind": "stop"}))
         self.assertEqual([x["run_key"] for x in self.of("run_opened")], [key], "a later turn starts no new run")
+        self.assertIn("Stopped by the operator at step 1.", self.of("reply")[0]["text"])
         later = [x["text"] for x in self.of("reply")][1:]
         self.assertTrue(any("run 1 is stopped (use /resume or /cancel)" in t for t in later), later)
 
@@ -165,6 +170,56 @@ class TheStopEndsTheLoop(TaskRunTest):
         checkpoints.end_turn(earlier, "stopped")
         record = self.run_on("t04_same_access_as", "RoutesToAgentThenSetsDone")
         self.assertEqual([x["run_key"] for x in self.of("run_opened")], [f"{record['run_id']}#1"])
+
+
+class TheStopEndsAWorkflow(ScratchTest):
+    def test_a_step_that_the_hook_refuses_for_a_stop_ends_the_workflow_stopped(self):
+        from agent import workflows
+        with fixed_run("tasks/t01_standard_jira.yaml", "wiring-wf-stop") as run:
+            control.stop("wiring-wf-stop", 1)
+            result = workflows.standard_grant("wiring-wf-stop", "SYN-REQ-0001", "SYN-GRP-JIRA-WRITE",
+                                              run_key="wiring-wf-stop#1")
+            lines = read_trace(run.trace_path)
+        self.assertEqual((result.end_reason, result.steps), (control.END_STOPPED, 1))
+        self.assertEqual(len([x for x in lines if x["type"] == "tool_call"]), 1, "no step after the refused one")
+
+
+class TheRouterKeepsThePathsOwnSave(ScratchTest):
+    def setUp(self):
+        super().setUp()
+        runtime.configure()
+
+    def tearDown(self):
+        checkpoints.flush()
+        super().tearDown()
+
+    def test_a_wait_for_an_approval_that_the_gate_saved_stays_as_the_gate_saved_it(self):
+        def gate(run_key):
+            cp = checkpoints.load(run_key)
+            cp.status, cp.plan = checkpoints.WAITING_APPROVAL, {"steps": []}
+            cp.waiting_for = {"kind": "approval", "approval_id": "SYN-APR-0001"}
+            checkpoints.save(cp, mode="sync")
+            return loop.LoopResult("Waiting for the operator.", [], "awaiting_approval", 1)
+
+        router._in_run(SID, "bulk_change", "the task", gate, path="planned")
+        saved = checkpoints.load(f"{SID}#1")
+        self.assertEqual((saved.status, saved.waiting_for, saved.plan, saved.findings),
+                         ("waiting_approval", {"kind": "approval", "approval_id": "SYN-APR-0001"}, {"steps": []},
+                          {"path": "planned"}))
+
+    def test_a_path_that_saves_nothing_is_saved_when_its_turn_ends(self):
+        router._in_run(SID, "nonstandard_request", "the task", lambda run_key: loop.LoopResult("Done.", [], "done", 1),
+                       request_id="SYN-REQ-0001", notice="nonstandard_request for SYN-REQ-0001")
+        saved = checkpoints.load(f"{SID}#1")
+        self.assertEqual((saved.status, saved.findings), ("done", {"request_id": "SYN-REQ-0001", "end_reason": "done"}))
+
+    def test_an_error_in_the_work_saves_the_run_as_failed_and_goes_on(self):
+        def broken(run_key):
+            raise RuntimeError("broken")
+
+        with self.assertRaises(RuntimeError):
+            router._in_run(SID, "nonstandard_request", "the task", broken)
+        self.assertEqual(checkpoints.load(f"{SID}#1").status, "failed")
 
 
 class TheRunStore(ScratchTest):
@@ -243,6 +298,13 @@ class TheOutsideReply(ScratchTest):
         cp = self.waiting_run()
         reply = service.on_outside_reply(THREAD, "SYNTHETIC. YES.")
         self.assertIn("cannot continue it yet", reply.text)
+        self.assertEqual(checkpoints.load(cp.run_key).status, "waiting_reply")
+
+    def test_a_reply_does_not_carry_on_a_stopped_run(self):
+        cp = self.waiting_run()
+        control.stop(SID, cp.run_no)
+        reply = service.on_outside_reply(THREAD, "SYNTHETIC. YES.")
+        self.assertIn("it is stopped, and /resume continues it", reply.text)
         self.assertEqual(checkpoints.load(cp.run_key).status, "waiting_reply")
 
     def test_in_a_run_the_notes_of_the_run_hear_of_a_reply_that_no_run_waits_on(self):
