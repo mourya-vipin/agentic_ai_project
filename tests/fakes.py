@@ -262,9 +262,16 @@ class FakeCheckpoints:
         return [self._copy(cp) for cp in self.runs.values() if cp.waiting_for and cp.status not in self._real.ENDED
                 and (kind is None or cp.waiting_for.get("kind") == kind)]
 
+    def crashed(self, session_id):
+        return []              # one process holds the fake store, so no run outlives its process
+
     def journaled(self, run_key, key):
         cp = self.runs.get(run_key)
         return (cp.completed or {}).get(key) if cp else None
+
+    def journal_of(self, run_key):
+        cp = self.runs.get(run_key)
+        return dict(cp.completed or {}) if cp else {}
 
     def record_completed(self, run_key, key, *, tool, args, result):
         self.runs[run_key].completed.setdefault(key, {"tool": tool, "args": args, "result": result, "at": "fake"})

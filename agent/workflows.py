@@ -25,7 +25,9 @@ the registry derives the key of each write from the run. A step that the hook re
 because the run is stopped ends the workflow with "stopped", and no more steps run.
 
 After each step, the workflow saves the run (checkpoints.save_step) with a record of the
-call. A step that the approval gate holds ends the workflow with "awaiting_approval". To
+call. A write that the run's journal holds is not made again: the workflow uses the saved
+result, so a resumed or restarted run repeats no completed write. A write that fails with a
+transient or protocol error takes the three exits (agent/exits.py). A step that the approval gate holds ends the workflow with "awaiting_approval". To
 continue a run, router.resume runs the workflow again under the same run key. Each write
 gets the same key as before, so the target keeps its first result, and the gate lets the
 approved call through once.
@@ -33,7 +35,7 @@ approved call through once.
 
 from __future__ import annotations
 
-from agent import bounds, checkpoints, control
+from agent import bounds, checkpoints, control, exits
 from agent.loop import LoopResult, action_line
 from agent.registry import AWAITING_APPROVAL, CallContext, get_registry
 from harness import runtime
@@ -50,6 +52,10 @@ class Waits(Exception):
     """The approval gate holds a step until the operator answers."""
 
 
+class Held(Exception):
+    """No one can tell if a write landed: the run holds for the operator (the third exit)."""
+
+
 class _Steps:
     """Numbers each step, calls it through the registry, and keeps one action line per effect."""
 
@@ -62,7 +68,21 @@ class _Steps:
         self.step += 1
         ctx = CallContext(self.session_id, self.step, "workflow", self.use_case, request_id=self.request_id,
                           run_key=self.run_key, origin="workflow")
+        found = exits.replayed(self.run_key, tool, args)
+        if found is not None:
+            # the run made this write before (it resumed, or the process stopped): use the result
+            key, entry = found
+            runtime.trace(self.session_id).event("write_replayed", tool=tool, run_key=self.run_key, key=key,
+                                                 step=self.step)
+            if tool != "requests_set_status":
+                self.actions.append(action_line(tool, args, entry.get("result")))
+            return entry.get("result")
         result = get_registry().call(tool, args, ctx)
+        if result.is_error and result.error_class in exits.IN_DOUBT and exits.is_write(tool):
+            settled = exits.settle(tool, args, ctx, first=result)
+            result = settled.result
+            if settled.outcome == exits.UNKNOWN:
+                raise Held(settled.packet_id or f"step {self.step}, {tool}")
         if self.cp is not None:
             checkpoints.save_step(self.cp, {"n": self.step, "tool": tool, "args": args, "key": result.key,
                                             "is_error": result.is_error, "end_reason": result.end_reason})
@@ -83,6 +103,12 @@ def _run(session_id: str, use_case: str, request_id: str, gather, choose, post, 
         gathered = gather(steps)
         chosen = choose(gathered)
         text = post(steps, gathered, chosen)
+    except Held as exc:
+        trace.end(exits._escalated(), str(exc))         # the escalation holds the run for the operator
+        from agent import escalation
+        packet = str(exc)
+        said = escalation.hold_reply(packet).text if packet.startswith("ESC-") else f"{request_id}: held. {exc}"
+        return LoopResult(said, steps.actions, exits._escalated(), steps.step)
     except Waits as exc:
         trace.end(AWAITING_APPROVAL, str(exc))       # the gate saved the run as waiting for the operator
         return LoopResult(f"{request_id} ({use_case}): waits for your approval at {exc}.", steps.actions,

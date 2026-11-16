@@ -14,9 +14,11 @@ number. The same key names the wait, the stop flag and the hold of the run.
     save(cp, mode=...)                        write the checkpoint: "sync", "async" or "exit"
     load(run_key)                             read the checkpoint, or None
     live(session_id)                          the runs that are not done, failed or cancelled
+    crashed(session_id)                       the runs that a stopped process left as running
     waiting(kind)                             the runs that wait for a reply, an approval, ...
     resume(run_key, event)                    continue a run from its checkpoint
     journaled(run_key, key)                   the recorded result of a completed call, or None
+    journal_of(run_key)                       the whole journal of the run, without a flush
     record_completed(run_key, key, ...)       add one completed call to the journal
     end_turn(cp, end_reason)                  save the run when its turn ends: done, paused or ended
     save_step(cp, step, messages=...)         save the run after one step of its path
@@ -43,9 +45,11 @@ import atexit
 import contextlib
 import importlib
 import json
+import os
 import sqlite3
 import threading
 import time
+import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -67,7 +71,12 @@ STATUSES = (RUNNING, *PAUSED, *ENDED)
 
 MODES = ("sync", "async", "exit")
 WAIT_KINDS = ("reply", "approval", "escalation", "stop")
-EVENT_KINDS = ("reply", "approval", "stop_lifted", "operator")
+EVENT_KINDS = ("reply", "approval", "stop_lifted", "operator", "restart")
+
+# The process that saves: each save writes it, so a run that is "running" but was last saved
+# by another process stopped with that process (a crash, or a restart of the app). The
+# token is new for each process, so a new process with the same PID is not the old one.
+PROCESS = f"{os.getpid()}-{uuid.uuid4().hex[:8]}"
 
 # A console run keeps the last 6 messages of its conversation: 3 exchanges, as the
 # router reads them (agent/router.py, HISTORY_TURNS). The task stays whole in `task`.
@@ -110,6 +119,7 @@ ENDS_PAUSED = {                       # end reason -> (status, wait kind)
     "awaiting_approval": (WAITING_APPROVAL, "approval"),
     "waiting_reply": (WAITING_REPLY, "reply"),
     "stopped": (STOPPED, "stop"),
+    "escalated": (HELD, "escalation"),
 }
 ENDS_CANCELLED = ("cancelled",)
 
@@ -124,7 +134,8 @@ CREATE TABLE IF NOT EXISTS journal (
 """
 
 # The fields of a checkpoint that go in the `state` column, as JSON.
-STATE_FIELDS = ("task", "plan", "steps", "findings", "current_step", "waiting_for", "conversation", "messages")
+STATE_FIELDS = ("task", "plan", "steps", "findings", "current_step", "waiting_for", "conversation", "messages",
+                "process")
 
 
 @dataclass
@@ -144,6 +155,7 @@ class Checkpoint:
                                       # | {"kind": "escalation", "packet_id"} | {"kind": "stop"}
     conversation: list[dict] | None = None            # console runs only, trimmed to CONVERSATION_TURNS
     messages: list[dict] | None = None                # the loop's own conversation, so that its resume carries it on
+    process: str = ""                                 # the process that saved it last (PROCESS)
     updated_at: str = ""
 
 
@@ -325,7 +337,7 @@ def new_run(session_id: str, use_case: str, task: str) -> Checkpoint:
     """Make a run with the next run number of its session, and write it at once (sync).
     The stop and the queue can then find the run before its first step."""
     at = now()
-    state = _json({"task": task}, "task")
+    state = _json({"task": task, "process": PROCESS}, "task")
     with _connect(write=True) as conn:
         cur = conn.execute(
             "INSERT INTO runs (run_key, session_id, run_no, use_case, status, wait_kind, state, updated_at, seq) "
@@ -333,7 +345,8 @@ def new_run(session_id: str, use_case: str, task: str) -> Checkpoint:
             "FROM (SELECT COALESCE(MAX(run_no), 0) + 1 AS n FROM runs WHERE session_id = ?)",
             (session_id, session_id, use_case, RUNNING, state, at, _next_seq(), session_id))
         run_no = conn.execute("SELECT run_no FROM runs WHERE rowid = ?", (cur.lastrowid,)).fetchone()["run_no"]
-    cp = Checkpoint(key_of(session_id, run_no), session_id, run_no, use_case, RUNNING, task, updated_at=at)
+    cp = Checkpoint(key_of(session_id, run_no), session_id, run_no, use_case, RUNNING, task, updated_at=at,
+                    process=PROCESS)
     runtime.trace(session_id).event("run_opened", run_key=cp.run_key, use_case=use_case)
     return cp
 
@@ -346,6 +359,7 @@ def save(cp: Checkpoint, *, mode: str) -> None:
     if cp.conversation is not None:
         cp.conversation = list(cp.conversation)[-CONVERSATION_TURNS:]
     cp.updated_at = now()
+    cp.process = PROCESS
     row = _row(cp)
     if mode == "exit" and cp.status == RUNNING:
         return
@@ -387,6 +401,12 @@ def live(session_id: str) -> list[Checkpoint]:
         return [_from_row(r, _journal(conn, r["run_key"])) for r in rows]
 
 
+def crashed(session_id: str) -> list[Checkpoint]:
+    """The runs of the session that are "running", but that another process saved last:
+    that process stopped during the run (a crash, or a restart of the app). By run number."""
+    return [cp for cp in live(session_id) if cp.status == RUNNING and cp.process and cp.process != PROCESS]
+
+
 def waiting(kind: str | None = None) -> list[Checkpoint]:
     """The runs that wait for something, of one kind (reply, approval, escalation, stop)
     or of all kinds. The oldest wait comes first."""
@@ -408,6 +428,13 @@ def journaled(run_key: RunKey, key: str) -> dict | None:
     A replay that finds it uses the result and does not make the call again."""
     with _connect() as conn:
         return _journal(conn, run_key).get(key)
+
+
+def journal_of(run_key: RunKey) -> dict:
+    """The journal of the run, key -> {"tool", "args", "result", "at"}. The registry writes it at
+    once (sync), so this reads it without a flush, and an async save of the run does not wait."""
+    with _connect() as conn:
+        return _journal(conn, run_key)
 
 
 def record_completed(run_key: RunKey, key: str, *, tool: str, args: dict, result) -> None:
@@ -448,7 +475,12 @@ def save_step(cp: Checkpoint, step: dict, *, messages: list[dict] | None = None)
     the run (a wait, a hold or the end). That status stays, with its wait: a step does not
     write "running" over it. The store is read here without a flush, because those
     writers save at once (sync)."""
-    cp.steps = [*(cp.steps or []), step]
+    steps = list(cp.steps or [])
+    if steps and steps[-1].get("n") is not None and steps[-1].get("n") == step.get("n"):
+        steps[-1] = step                 # the same step again: its record before the calls, now with their results
+    else:
+        steps.append(step)
+    cp.steps = steps
     cp.current_step = step.get("n", cp.current_step)
     if messages is not None:
         cp.messages = [dict(m) for m in messages]

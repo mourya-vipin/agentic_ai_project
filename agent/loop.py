@@ -30,8 +30,10 @@ each model call, the loop also does these two steps:
 Each tool call carries the run key and origin "agent". The text of a send passes
 disclosure.stamp_call before the registry.
 
-After each step, the loop saves the run (checkpoints.save_step): the messages, and a
-record of each call with its arguments, its key and its end reason. carry_on() continues
+Before the calls of a step run, the loop saves them with their arguments (a write-ahead
+record), and after the step it saves the run again (checkpoints.save_step): the messages,
+and a record of each call with its arguments, its key and its end reason. A write that
+fails with a transient or protocol error takes the three exits (agent/exits.py). carry_on() continues
 a saved run from there, after an approval, a reply, /resume or the operator's words
 (router.resume calls it). A new run and a resumed run use the same loop (_drive).
 """
@@ -41,7 +43,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
-from agent import bounds, checkpoints, context, control, disclosure
+from agent import bounds, checkpoints, context, control, disclosure, exits
 from agent.bounds import Bound
 from agent.detectors import RepeatTracker
 from agent.registry import AWAITING_APPROVAL, CallContext, get_registry
@@ -53,6 +55,8 @@ MAX_PROTOCOL_ERRORS = 2   # the second protocol error in one loop ends it
 NOT_RUN = "Not run: the operator stopped this run before this call."
 STOP_LIFTED = ("[from our code] The operator lifted the stop on this run. A call that the stop "
                "refused did not run: make it again if it is still needed.")
+RESTARTED = ("[from our code] The process stopped during this run (a crash, or a restart of the app). The run "
+             "carries on from its last saved step. Each write that it made is done once: do not make it again.")
 
 
 @dataclass
@@ -82,7 +86,10 @@ def carry_on(cp, event: dict, *, system: str, tools: list[str], bound: Bound) ->
         reply        the stranger's reply, labelled as theirs (context.label)
         stop_lifted  a line from our code: the stop is lifted, and a call that the stop
                      refused did not run. Then the operator's new words, if any
-        operator     the operator's words (the answer to an escalation, or the next turn)
+        operator     the operator's words (the answer to an escalation)
+        restart      the process stopped during the run. The step that was running when it
+                     stopped is finished first: each write takes the three exits
+                     (agent/exits.py), and each read is made again. Then a line from our code
 
     The bound is new: a resumed turn is a turn of its own."""
     findings = cp.findings or {}
@@ -93,6 +100,12 @@ def carry_on(cp, event: dict, *, system: str, tools: list[str], bound: Bound) ->
         if ended is not None:
             runtime.trace(cp.session_id).end(ended, f"step {step}: an approved call ended the turn again")
             return LoopResult(f"Stopped: {ended.replace('_', ' ')}.", actions, ended, step)
+    elif event.get("kind") == "restart":
+        messages, ended, held = _finish_the_step(cp, messages, actions)
+        if ended is not None:
+            runtime.trace(cp.session_id).end(ended, f"step {step}: the step that the stop of the process cut")
+            return LoopResult(held or f"Stopped: {ended.replace('_', ' ')}.", actions, ended, step)
+        messages = _with_text(messages, RESTARTED)
     else:
         messages = _with_text(messages, _event_text(event))
     return _drive(cp.session_id, use_case=cp.use_case, system=system, tools=tools, bound=bound,
@@ -151,25 +164,36 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
             return end(done, f"step {step}, stop_reason {response.stop_reason}", response.text)
 
         messages.append(response.assistant_message())
-        results, ended, record = [], None, {"n": step, "calls": []}
+        results, ended, held = [], None, None
+        record = {"n": step, "calls": []}
         for call in calls:
             name = registry.resolve(call.name) or call.name
+            record["calls"].append({"id": call.id, "tool": name, "args": disclosure.stamp_call(name, call.input),
+                                    "status": "pending"})
+        if cp is not None:
+            # before the calls run: the model's step and its arguments, so that a restart makes
+            # each write with these arguments, never with new ones from the model
+            checkpoints.save_step(cp, record, messages=messages)
+        for call, saved in zip(calls, record["calls"]):
+            name, args = saved["tool"], saved["args"]
             if ended == control.END_STOPPED:
                 # the stop refused an earlier call of this step: the rest do not run, and each
                 # still gets a result, so that the saved conversation stays whole for a resume
                 results.append(tool_result(call, NOT_RUN, True))
-                record["calls"].append({"id": call.id, "tool": name, "args": call.input, "key": None,
-                                        "is_error": True, "end_reason": "not_run"})
+                saved.update(status="not_run", key=None, is_error=True, end_reason="not_run")
                 continue
             earlier = repeats.see(call.name, call.input, step)
             if earlier is not None:
                 trace.event("repeat_call", step=step, tool=call.name, first_step=earlier["step"], hash=earlier["hash"])
             ctx = CallContext(session_id, step, "model", use_case, request_id=request_id, call_id=call.id,
                               run_key=run_key, origin="agent")
-            args = disclosure.stamp_call(name, call.input)
             result = registry.call(call.name, args, ctx)
-            record["calls"].append({"id": call.id, "tool": name, "args": args, "key": result.key,
-                                    "is_error": result.is_error, "end_reason": result.end_reason})
+            if result.is_error and result.error_class in exits.IN_DOUBT and exits.is_write(name):
+                settled = exits.settle(name, args, ctx, first=result, registry=registry)    # the three exits
+                result = settled.result
+                if settled.outcome == exits.UNKNOWN and settled.packet_id:
+                    held = _held(settled.packet_id)
+            saved.update(status="done", key=result.key, is_error=result.is_error, end_reason=result.end_reason)
             calls_made += 1
             results.append(tool_result(call, result.content, result.is_error))
             if result.error_class == "protocol":
@@ -188,6 +212,8 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
         if ended == control.END_STOPPED:
             return end(ended, f"step {step}: the hook refused a call of the stopped run",
                        f"Stopped by the operator at step {step}." + (f" Last said: {text}" if text else ""))
+        if held is not None:
+            return end(ended or exits._escalated(), f"step {step}: a write in doubt, held for the operator", held)
         if ended is not None:
             return end(ended, f"step {step}", f"Stopped: {ended.replace('_', ' ')}. {text}".strip())
         if step % PROGRESS_EVERY == 0:
@@ -210,6 +236,50 @@ def _make_approved_calls(cp, messages: list[dict], step: int, actions: list[str]
         _put_result(messages, saved["id"], result)
         ended = ended or result.end_reason
     return ended
+
+
+def _finish_the_step(cp, messages: list[dict], actions: list[str]) -> tuple[list[dict], str | None, str | None]:
+    """After a restart: finish the step that was running when the process stopped. Its record
+    holds the model's calls and their arguments, saved before they ran. A write takes the three
+    exits: the journal's result if the write happened, or the same call again (the same key) if
+    not, or a hold for the operator if no one can tell. A read is made again. Returns the
+    messages with the step's results, the end reason of a call that ends the turn, and the
+    operator's text for a hold."""
+    last = (cp.steps or [None])[-1]
+    pending = bool(last) and any(c.get("status") == "pending" for c in last.get("calls", []))
+    if not pending or not messages or messages[-1].get("role") != "assistant":
+        return messages, None, None                 # the step's results were saved: nothing is cut
+    registry, results, ended, held = get_registry(), [], None, None
+    runtime.trace(cp.session_id).event("step_finished_after_restart", run_key=cp.run_key, step=last.get("n"),
+                                       calls=[c["tool"] for c in last["calls"]])
+    for saved in last["calls"]:
+        ctx = CallContext(cp.session_id, last.get("n") or 0, "model", cp.use_case,
+                          request_id=(cp.findings or {}).get("request_id"), call_id=saved["id"],
+                          run_key=cp.run_key, origin="agent")
+        if exits.is_write(saved["tool"]):
+            settled = exits.settle(saved["tool"], saved["args"], ctx, registry=registry)
+            result = settled.result
+            if settled.outcome == exits.UNKNOWN and settled.packet_id:
+                held = _held(settled.packet_id)
+        else:
+            result = registry.call(saved["tool"], saved["args"], ctx)
+        if not result.is_error and result.key is not None:
+            actions.append(action_line(saved["tool"], saved["args"], result.data))
+        block = {"type": "tool_result", "tool_use_id": saved["id"], "content": result.content}
+        if result.is_error:
+            block["is_error"] = True
+        results.append(block)
+        saved.update(status="done", key=result.key, is_error=result.is_error, end_reason=result.end_reason)
+        ended = ended or result.end_reason
+    messages = messages + [{"role": "user", "content": results}]
+    checkpoints.save_step(cp, last, messages=messages)
+    return messages, ended, held
+
+
+def _held(packet_id: str) -> str:
+    """What the operator reads when a write in doubt holds the run (the third exit)."""
+    from agent import escalation
+    return escalation.hold_reply(packet_id).text
 
 
 def _put_result(messages: list[dict], call_id: str, result) -> None:

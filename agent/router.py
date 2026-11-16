@@ -85,6 +85,7 @@ LEVELS = {"read": ("read-only", "read only", "readonly", "read", "reader", "read
 SYSTEM_ALIASES = {"SYN-SYS-SSO": ("sso",), "SYN-SYS-DWH": ("dwh",), "SYN-SYS-AWSPROD": ("aws prod", "aws"),
                   "SYN-SYS-LEGAL": ("legal hold",)}
 HR_EVENTS = {"new_starter": ONBOARDING, "contract_ended": OFFBOARDING, "leaver": OFFBOARDING}
+PROCESS_STOPPED = "process_stopped"     # the end reason of a read-only run that a stopped process cut
 PAUSED_WORDS = {"stopped": "stopped (use /resume or /cancel)", "waiting_reply": "waiting for a reply",
                 "waiting_approval": "waiting for your approval", "held": "held for a person"}
 
@@ -102,7 +103,9 @@ class Route:
 
 def handle_operator(session_id: str, text: str) -> Reply:
     """One operator message: a new task (process requests, a bulk change) or a
-    question about work already done."""
+    question about work already done. First, each run of the session that a stopped
+    process left as running carries on (_carry_on_crashed)."""
+    carried = _carry_on_crashed(session_id)
     earlier = session.history(session_id)[-HISTORY_TURNS:]
     session.add(session_id, "operator", text)
     intent, request_ids, reason = route_operator(session_id, text, earlier)
@@ -117,8 +120,29 @@ def handle_operator(session_id: str, text: str) -> Reply:
         reply = _as_reply(_in_run(session_id, OPERATOR_REVIEW, content, lambda run_key: loop.run_loop(
             session_id, use_case=OPERATOR_REVIEW, system=_prompt(OPERATOR_REVIEW), user_content=content,
             tools=TOOLS[OPERATOR_REVIEW], bound=BOUND, run_key=run_key), notice=text))
+    if carried:
+        reply = Reply("\n".join([*(r.text for r in carried), reply.text]).strip(),
+                      [a for r in carried for a in r.actions] + list(reply.actions), reply.waiting_for)
     session.add(session_id, "agent", reply.text)
     return reply
+
+
+def _carry_on_crashed(session_id: str) -> list[Reply]:
+    """The operator's next turn in the session continues each run that a stopped process
+    left as running (checkpoints.crashed): a crash, or a restart of the app. Nothing does
+    this at start-up, so a person always starts it. A run in the exit mode (U5) only reads
+    and saved no step, so it ends, and the operator asks again."""
+    out = []
+    for cp in checkpoints.crashed(session_id):
+        runtime.trace(session_id).event("run_crashed", run_key=cp.run_key, use_case=cp.use_case,
+                                        current_step=cp.current_step, process=cp.process)
+        if checkpoints.mode_for(cp.use_case) == "exit":
+            checkpoints.end_turn(cp, PROCESS_STOPPED)
+            out.append(Reply(f"Run {cp.run_no} ({cp.use_case}) stopped when the process stopped. It only read, "
+                             "so ask again if you still need its answer."))
+        else:
+            out.append(checkpoints.resume(cp.run_key, {"kind": "restart"}))
+    return out
 
 
 def _agent_path(use_case: str) -> None:
