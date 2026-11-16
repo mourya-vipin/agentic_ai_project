@@ -415,6 +415,29 @@ class SlowPlanner(GoodPlanner):
         return super().create(system=system, messages=messages, tools=tools)
 
 
+class MidTaskOperator(GoodPlanner):
+    """Plans t06 with the hold; while the plan is being written, the operator types MESSAGE in
+    the same console session (agent/inbox.py: post). Every fill request is kept in `seen`."""
+    with_hold = True
+    MESSAGE = "Also say in each note that the removals were made today."
+    seen: list[str] = []
+
+    def plan(self, request):
+        from agent import inbox
+        from harness import runtime
+        session = runtime.current_run().run_id
+        inbox.post(session, self.MESSAGE, inbox.live_run(session))
+        return super().plan(request)
+
+    def fill(self, tool, request):
+        MidTaskOperator.seen.append(request)
+        return super().fill(tool, request)
+
+
+class MidTaskReplacer(MidTaskOperator):
+    MESSAGE = "Scratch that, remove nothing today."
+
+
 class SeeingFiller(GoodPlanner):
     """Plans t06 with the hold, as GoodPlannerWithHold, and keeps every fill request it is
     sent (`seen`), so a test can read what each note's call was given."""

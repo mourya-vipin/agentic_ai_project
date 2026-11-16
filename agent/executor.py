@@ -45,8 +45,8 @@ import json
 import re
 import time
 
-from agent import (approvals, checkpoints, context, control, critique, detectors, disclosure, escalation, exits,
-                   planner, reviser, validator)
+from agent import (approvals, bounds, checkpoints, context, control, critique, detectors, disclosure, escalation,
+                   exits, inbox, planner, reviser, validator)
 from agent.bounds import LOOP_TOKEN_BUDGET, STEP_LIMIT, WALL_CLOCK, Bound
 from agent.loop import LoopResult
 from agent.registry import CallContext, get_registry
@@ -79,7 +79,8 @@ AWAITING_APPROVAL = approvals.AWAITING_APPROVAL
 APPROVAL_DENIED = approvals.APPROVAL_DENIED
 STOPPED = control.END_STOPPED      # the hook refused a call because the operator stopped the run
 ESCALATED = escalation.ESCALATED   # a write in doubt that no one can settle: the run holds for the operator
-ENDED_WELL = (PLAN_DONE, NOTHING_TO_DO, UNSUPPORTED, APPROVAL_DENIED)   # the run is done, not failed
+REPLACED = bounds.REPLACED         # the operator's message mid-task replaced the task
+ENDED_WELL = (PLAN_DONE, NOTHING_TO_DO, UNSUPPORTED, APPROVAL_DENIED, REPLACED)   # done, not failed
 
 
 class _End(Exception):
@@ -145,6 +146,7 @@ class PlannedRun:
         self.ready: dict[int, dict] = {}        # a gated step's final arguments: filled, stamped, checked
         self.asked: dict | None = None          # the plan approval: {"approval_id", "version", "steps"}
         self.checked: list[str] = []            # the critique's verdict on each note, for the screen
+        self.added: list[str] = []              # what the operator added mid-task (agent/inbox.py)
 
     # -- the checkpoint of the run ------------------------------------------------------------
     def _state(self) -> dict:
@@ -153,7 +155,7 @@ class PlannedRun:
                 "results": {str(k): v for k, v in self.results.items()},
                 "revisions": self.revisions, "actions": self.actions,
                 "ready": {str(k): v for k, v in self.ready.items()}, "asked": self.asked,
-                "checked": self.checked, "line0": self.line0}
+                "checked": self.checked, "added": self.added, "line0": self.line0}
 
     @classmethod
     def restore(cls, cp, bound: Bound) -> "PlannedRun":
@@ -166,6 +168,8 @@ class PlannedRun:
         run.revisions, run.actions = state.get("revisions", 0), list(state.get("actions") or [])
         run.ready = {int(k): v for k, v in (state.get("ready") or {}).items()}
         run.asked, run.checked = state.get("asked"), list(state.get("checked") or [])
+        run.added = list(state.get("added") or [])
+        run.text = state.get("text") or run.text
         run.line0 = state.get("line0", run.line0)
         return run
 
@@ -210,6 +214,7 @@ class PlannedRun:
         manager saw the others' contractors and proposal, and the critique held it
         (pilot-m2-t06-plan-t06_bulk_ended_contractors-s02-fa6328, trace line 39)."""
         self._check_bound(model_call=True)
+        self._read_inbox()
         if purpose == "fill":
             names = [t["name"] for t in tools]
             built = context.assemble("executor", system=system, session_id=self.sid, run_key=self.run_key,
@@ -228,6 +233,19 @@ class PlannedRun:
         response = self.client.create(system=built.system, messages=built.messages, tools=tools)
         self.trace.model_call(self.n, response, purpose=purpose)
         return response
+
+    def _read_inbox(self) -> None:
+        """The operator's messages mid-task (agent/inbox.py), before every model call and every step.
+        One that replaces the task ends the run REPLACED: the router then lists what it wrote and starts
+        the new task. One that adds to it joins the operator's instruction, which every later model call
+        reads; the validated plan's steps stay as they are."""
+        for said in inbox.take(self.run_key):
+            if said["way"] == inbox.REPLACE:
+                raise _End(REPLACED, "the operator's message replaced the task"
+                           + (f" before step {self._next()['id']}" if self.plan and self._next() else ""))
+            self.text = f"{self.text}\n[the operator, mid-task, adding to it] {said['text']}"
+            self.added.append(said["text"])
+            self.trace.event("midtask_taken", run_key=self.run_key, way=said["way"], done=list(self.done))
 
     # -- the run ---------------------------------------------------------------------------
     def _bound_line(self) -> None:
@@ -333,6 +351,7 @@ class PlannedRun:
     # -- one step ----------------------------------------------------------------------------
     def _run_step(self, step: dict) -> None:
         self._check_bound(model_call=False)
+        self._read_inbox()
         sid, tool = step["id"], step["tool"]
         position = [s["id"] for s in self.plan["steps"]].index(sid) + 1
         self.trace.progress(f"Step {position} of {len(self.plan['steps'])}: {step['action']}")
@@ -603,11 +622,15 @@ class PlannedRun:
                 APPROVAL_DENIED: f"Stopped: {detail}. What ran before it stays.",
                 STOPPED: f"Stopped: {detail}. Its state is saved: /resume, /cancel or /rollback it.",
                 ESCALATED: f"Held for you: {detail}",
+                REPLACED: f"Stopped: {detail}.",
                 STEP_HALTED: f"I stopped: {detail}",
                 REVISION_BOUND: f"I stopped at the checkpoint: {detail}",
                 "critique_held": f"I held a note and did not send it: {detail}"}.get(
             reason, f"I stopped at our bound ({reason}): {detail}")
         lines = [head]
+        if self.added:
+            lines.append("You added, mid-task: " + "; ".join(f'"{a}"' for a in self.added)
+                         + ". The notes read it; the plan's steps stayed as validated.")
         if self.actions:
             lines.append("What was done:\n" + "\n".join(f"- {a}" for a in self.actions))
         else:
