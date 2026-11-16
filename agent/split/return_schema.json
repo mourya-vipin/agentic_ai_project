@@ -1,0 +1,24 @@
+{
+  "$comment": "What a role hands back to the coordinator, on the m2-split branch (Part 3; Lecture 6, slide 13). Validated on every return by agent/split/contract.py, and recorded in the trace. `searched` and `spent` are taken from the role's own trace lines, never from what its model says.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["role", "run_key", "parent", "task", "status", "result", "searched", "not_searched", "spent", "not_determined"],
+  "properties": {
+    "role": {"type": "string", "enum": ["access", "comms"], "description": "The role, by its tool surface."},
+    "run_key": {"type": "string", "description": "The role's own run key: its tool and model calls carry it in the trace."},
+    "parent": {"type": "string", "description": "The coordinator's run key: who waits on this return."},
+    "task": {"type": "string", "description": "What the coordinator asked of the role, in our code's words."},
+    "status": {"type": "string", "enum": ["found", "candidate", "out_of_budget"],
+               "description": "found: the result is complete and read from tool results. candidate: a result, with something not determined. out_of_budget: the shared budget ran out first."},
+    "result": {"type": "object", "description": "What the role did or found, built by our code from its tool results."},
+    "searched": {"type": "array", "description": "Every tool call the role made, in order: the tool and its arguments.",
+                 "items": {"type": "object", "additionalProperties": false, "required": ["tool", "args"],
+                           "properties": {"tool": {"type": "string"}, "args": {"type": "object"}}}},
+    "not_searched": {"type": "array", "items": {"type": "string"},
+                     "description": "What the role was asked about but did not look at."},
+    "spent": {"type": "object", "additionalProperties": false, "required": ["tool_calls", "tokens"],
+              "properties": {"tool_calls": {"type": "integer"}, "tokens": {"type": "integer"}}},
+    "not_determined": {"type": "array", "items": {"type": "string"},
+                       "description": "What the role could not settle, each in one line."}
+  }
+}
