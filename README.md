@@ -52,6 +52,8 @@ python run.py --tasks tasks/ --sweeps 3 --arm baseline            # every test t
 python -m harness.summarize results/baseline                       # the starter's summary table
 python experiments/analysis/analyze.py results/baseline            # every other number in our write-up
 python experiments/analysis/analyze.py results/pass1-before results/pass1-after   # Pass 1, both arms
+python experiments/analysis/asks.py results/m2-build --per-day 40 --minutes 30   # who reads what, and how often (Part 2, task 9)
+python experiments/analysis/pass3.py results/pass3-before results/pass3-after   # Pass 3's measures, both arms
 python scripts/definition_cost.py                                  # what the tool definitions cost (about $0.003)
 python scripts/definition_cost.py --per-run results/baseline --measured docs/milestones/m1_definition_cost_2026-10-25.json
                                                                    # their cost per run in an arm, no model call
@@ -83,7 +85,7 @@ runs it has finished, so repeat one under a new name.
 | `tasks/`, `checks/` | the test tasks and their checks |
 | `docs/milestones/M1.md`, `M2.md` | the Milestone 1 and Milestone 2 write-ups |
 | `docs/milestones/m1_*.json`, `m2_*.json` | the numbers M1.md and M2.md cite: the baseline, Pass 1, each definition-cost measurement and the strict-mode answer, by date |
-| `experiments/LEDGER.md`, `experiments/analysis/` | the pass's ledger entry, and our analysis script |
+| `experiments/LEDGER.md`, `experiments/analysis/` | the passes' ledger entries, and our analysis scripts (`analyze.py`, `asks.py`, `pass3.py`) |
 | `results/`, `traces/` | every run's record and trace, and the console sessions M1.md and CHANGES.md cite |
 | `mcp_server/`, `agent/mcp_client.py` | the MCP server that runs the tools, and the registry's client to it |
 | `scripts/definition_cost.py` | measures what the tool definitions cost |

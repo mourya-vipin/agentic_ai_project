@@ -1,0 +1,85 @@
+"""The two analysis scripts of Part 2, task 9 and Pass 3 (experiments/analysis/asks.py and
+pass3.py), on small arms built here: what they count, and what they leave out. No tokens.
+Owner: Vipin Mourya."""
+
+import json
+import sys
+from pathlib import Path
+
+from tests.support import ScratchTest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "experiments" / "analysis"))
+
+import asks  # noqa: E402
+import pass3  # noqa: E402
+
+
+def write_arm(folder: Path, runs: list[tuple[dict, list[dict]]]) -> Path:
+    folder.mkdir(parents=True, exist_ok=True)
+    for n, (fields, lines) in enumerate(runs, start=1):
+        run_id = f"{folder.name}-r{n}"
+        record = {"run_id": run_id, "arm": folder.name, "task": fields.get("task", f"t{n}"), "sweep": 1,
+                  "outcome": "completed", "passed": fields.get("passed", True),
+                  "tokens": {"total": fields.get("tokens", 1000)}, "model_calls": fields.get("model_calls", 2),
+                  "turn_latency_s": fields.get("turns", [1.0]), "switches": fields.get("switches", {})}
+        (folder / f"{run_id}.json").write_text(json.dumps(record))
+        (folder / f"{run_id}.trace.jsonl").write_text("".join(json.dumps(x) + "\n" for x in lines))
+    return folder
+
+
+class AsksTest(ScratchTest):
+    def test_asks_by_class_with_a_persons_seconds_only_and_sends_that_went_out(self):
+        lines = [
+            {"type": "approval_requested", "approval_id": "APR-1", "action_class": "reply_send/model_text"},
+            {"type": "approval_requested", "approval_id": "APR-1", "action_class": "reply_send/model_text"},  # again
+            {"type": "approval_decided", "approval_id": "APR-1", "decision": "approved", "who": "operator", "seconds": 12},
+            {"type": "approval_requested", "approval_id": "APR-2", "action_class": "reply_send/model_text"},
+            {"type": "approval_decided", "approval_id": "APR-2", "decision": "denied", "who": "scripted", "seconds": 0},
+            {"type": "tool_call", "name": "reply_send", "is_error": False, "awaiting_approval": "APR-1"},   # put up
+            {"type": "tool_call", "name": "reply_send", "is_error": False, "awaiting_approval": None},      # sent
+            {"type": "tool_call", "name": "reply_send", "is_error": True},                                 # refused
+            {"type": "escalation", "over_cap": False}, {"type": "escalation", "over_cap": True},
+            {"type": "run_notice", "resumed": False}, {"type": "run_notice", "resumed": True},
+        ]
+        folder = write_arm(self.tmp / "arm", [({}, lines), ({}, [])])
+        row = asks.count([lines for _, lines in asks.sessions([folder], [])])
+        a = row["approvals"]["reply_send/model_text"]
+        self.assertEqual((row["runs"], a["asks"], a["asks_per_run"]), (2, 2, 1.0))
+        self.assertEqual(a["decisions"], {"approved": 1, "denied": 1})
+        self.assertEqual(a["approval_rate"], 0.5)
+        self.assertEqual((a["median_seconds_person"], a["person_decisions"]), (12.0, 1))   # the script's 0 s left out
+        self.assertEqual(row["strangers"]["sent"], {"reply_send": 1})
+        self.assertEqual((row["escalation"]["packets"], row["escalation"]["over_cap"]), (2, 1))
+        self.assertEqual((row["stop_notice"]["first"], row["stop_notice"]["resumed"]), (1, 1))
+        d = asks.day(row, per_day=40, minutes=30)
+        self.assertEqual(d["asks_a_day"], 60.0)              # (2 approvals + 1 packet sent) / 2 runs x 40
+        self.assertEqual(d["seconds_per_ask"], 30.0)         # 30 x 60 / 60
+
+
+class Pass3Test(ScratchTest):
+    def test_the_fixs_measures_per_arm_and_the_switches_that_differ(self):
+        before = write_arm(self.tmp / "before", [
+            ({"tokens": 3000, "passed": False, "switches": {"strict.access_propose_change": "off", "x": 1}}, [
+                {"type": "model_call", "usage": {"input_tokens": 900}},
+                {"type": "tool_call", "name": "access_propose_change", "rejected": True, "is_error": True},
+                {"type": "tool_call", "name": "nope", "error_class": "protocol", "is_error": True},
+                {"type": "tool_call", "name": "access_grant", "is_error": True, "error_class": "permanent"},
+                {"type": "tool_call", "name": "access_grant", "is_error": True, "error_class": "permanent",
+                 "denied": True},                                                    # the hook's: not the arguments
+            ])])
+        after = write_arm(self.tmp / "after", [
+            ({"tokens": 2000, "switches": {"strict.access_propose_change": "on", "x": 1}}, [
+                {"type": "model_call", "usage": {"input_tokens": 500}},
+                {"type": "context", "tools_offered": 5, "definition_tokens": 700},
+                {"type": "tool_search", "matched": False}, {"type": "tool_call", "name": "code_run"},
+            ])])
+        arms = {f.name: pass3.arm(f) for f in (before, after)}
+        b, a = arms["before"], arms["after"]
+        self.assertEqual((b["passed"], b["tokens_total"], a["tokens_total"]), (0, 3000, 2000))
+        self.assertEqual(b["malformed_by_tool"], {"access_propose_change": 1, "nope": 1})
+        self.assertEqual(b["wrong_args_by_tool"], {"access_grant": 1})
+        self.assertEqual(b["context_lines_with_tools"], "0 of 0")
+        self.assertEqual((a["tools_offered_per_call"], a["definition_tokens_per_call"]), (5, 700))
+        self.assertEqual((a["searches"], a["searches_missed"], a["code_runs_per_run"]), (1, 1, 1.0))
+        self.assertEqual(pass3.differing(arms), {"strict.access_propose_change": {"before": "off", "after": "on"}})
+        self.assertEqual(pass3.arm(before, tool="access_grant")["malformed_by_tool"], {"access_grant": 0})

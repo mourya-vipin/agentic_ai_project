@@ -50,6 +50,8 @@ class ContextTest(ScratchTest):
         event = self.events()[-1]
         self.assertEqual((event["tokens"], event["budget"], event["over_budget"]),
                          (out.tokens, context.budget(), out.tokens > context.budget()))
+        self.assertEqual(event["tools_offered"], len(out.tools))                    # Pass 3's tools per call
+        self.assertEqual(event["definition_tokens"], context.tokens(out.tools))
 
     def test_an_unknown_kind_is_refused(self):
         with self.assertRaises(ValueError):
