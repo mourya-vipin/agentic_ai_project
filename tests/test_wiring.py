@@ -268,7 +268,7 @@ class TheRunStore(ScratchTest):
         cp.findings = {"path": "planned"}
         self.assertEqual(checkpoints._resumer(cp)[1], checkpoints.PLANNED_RESUMER)
         cp.findings = {"path": "loop"}
-        self.assertEqual(checkpoints._resumer(cp)[1], "agent.loop:resume")
+        self.assertEqual(checkpoints._resumer(cp)[1], "agent.router:resume")
 
 
 class TheOutsideReply(ScratchTest):
@@ -294,11 +294,12 @@ class TheOutsideReply(ScratchTest):
                                                     "text": "SYNTHETIC. YES, that is fine."})
         answered.assert_called_once_with(SID, THREAD)
 
-    def test_until_the_loop_can_resume_the_run_stays_saved_and_the_reply_says_so(self):
+    def test_the_reply_goes_to_the_resume_of_the_router(self):
         cp = self.waiting_run()
-        reply = service.on_outside_reply(THREAD, "SYNTHETIC. YES.")
-        self.assertIn("cannot continue it yet", reply.text)
-        self.assertEqual(checkpoints.load(cp.run_key).status, "waiting_reply")
+        with mock.patch.object(router, "resume", return_value=service.Reply("carried on")) as resume:
+            reply = service.on_outside_reply(THREAD, "SYNTHETIC. YES.")
+        self.assertEqual(reply.text, "carried on")
+        self.assertEqual(resume.call_args.args[0].run_key, cp.run_key)
 
     def test_a_reply_does_not_carry_on_a_stopped_run(self):
         cp = self.waiting_run()
