@@ -5,7 +5,7 @@
       <div class="who"><span><b>Operator</b> · message</span><span class="at">{{ at }}</span></div>
       <div class="text">{{ line.text }}</div></div></div>
   {% elif line.type == 'reply' %}
-    <div class="entry agent"><span class="avatar agent">AI</span><div class="card-body">
+    <div class="entry agent"><span class="avatar agent"><svg><use href="#bot-mini"/></svg></span><div class="card-body">
       <div class="who"><span><b>Agent</b> · {% if line.function != 'operator_turn' %}after {{ line.function }}{% else %}reply{% endif %}</span><span class="at">{{ at }}</span></div>
       <div class="text">{{ line.text }}</div>
       {% if line.actions %}<div class="done-list">{% for action in line.actions %}<span class="chip">{{ action }}</span>{% endfor %}</div>{% endif %}

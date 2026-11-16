@@ -5,7 +5,7 @@
 <div class="console{{ ' open' if session_id }}">
   <section class="box sessions">
     <div class="box-head">Sessions <span class="count">{{ sessions|length }}</span></div>
-    <div class="box-body"><form method="post" action="/console/new"><button class="primary block">New session</button></form></div>
+    <div class="box-body"><form method="post" action="/console/new"><button class="primary block">+ New session</button></form></div>
     {% for s in sessions %}
       <a class="session{{ ' here' if s.id == session_id }}" href="/console/{{ s.id }}">
         <span class="session-id">{{ s.id }}</span>
@@ -19,36 +19,40 @@
 
   <section class="chat">
     {% if session_id %}
-      <div class="record-head">
+      <div class="box hero">
+        {% include "_robot.html" %}
         <div>
-          <div class="kind">Console session</div>
-          <div class="title">{{ session_id }}</div>
+          <div class="kind">Console session · {{ session_id }}</div>
+          <div class="title">Access desk agent</div>
+          <div class="bubble" id="bubble" aria-live="polite"></div>
         </div>
         <div class="right">
+          <button type="button" class="icon" id="voice" title="The robot reads each reply aloud (your browser's own voice)">Voice: off</button>
           <a href="/traces/session/{{ session_id }}"><button type="button">Trace</button></a>
-          <form method="post" action="/console/new"><button type="submit">New session</button></form>
         </div>
       </div>
-      <div class="box fields">
-        <div><label>Messages</label>{{ history|selectattr('type', 'equalto', 'operator')|list|length }}</div>
-        <div><label>Runs</label>{{ panel.runs|length if panel else 0 }}</div>
-        <div><label>Waiting</label>{% if panel and panel.waiting %}<span class="chip waiting">{{ panel.waiting }}</span>{% else %}0{% endif %}</div>
-        <div><label>Memory records</label>{{ panel.memory|length if panel else 0 }}</div>
+      <div class="fields">
+        <div class="box stat tilt"><label>Messages</label><div class="n">{{ history|selectattr('type', 'equalto', 'operator')|list|length }}</div></div>
+        <div class="box stat tilt"><label>Runs</label><div class="n">{{ panel.runs|length if panel else 0 }}</div></div>
+        <div class="box stat tilt{{ ' warm' if panel and panel.waiting }}"><label>Waiting</label><div class="n">{{ panel.waiting if panel else 0 }}</div></div>
+        <div class="box stat tilt"><label>Memory records</label><div class="n">{{ panel.memory|length if panel else 0 }}</div></div>
       </div>
       <div class="box">
         <div class="box-head">Activity <span id="status" class="muted small"></span></div>
         <div id="history" class="history">{% include "_history.html" %}</div>
         <form id="turn" class="compose" method="post" action="/console/{{ session_id }}/turn">
-          <textarea name="text" rows="3" required placeholder="A message to the agent. Enter sends; Shift+Enter starts a new line."></textarea>
+          <span class="hints">
+            <span class="small muted">Shortcuts</span>
+            <button type="button" class="quick" data-fill="/stop" title="Puts /stop in the box: it stops every run of this session">Stop all runs</button>
+            <button type="button" class="quick" data-fill="/resume " data-hint="the run number to resume, such as 2" title="Puts /resume in the box: add the run number">Resume a run</button>
+            <button type="button" class="quick" data-fill="/cancel " data-hint="the run number to cancel, such as 2" title="Puts /cancel in the box: add the run number">Cancel a run</button>
+            <button type="button" class="quick" data-fill="/rollback " data-hint="the run number to undo, such as 2" title="Puts /rollback in the box: add the run number">Undo a run</button>
+            <button type="button" class="quick" data-fill="From now on, " title="Starts a preference that the agent keeps for later sessions">Save a preference</button>
+          </span>
+          <textarea name="text" rows="3" required placeholder="A message to the agent"></textarea>
           <div class="send-row">
             <button class="primary">Send</button>
-            <span class="hints small muted">Commands:
-              <button type="button" class="link" data-fill="/stop">/stop</button>
-              <button type="button" class="link" data-fill="/resume ">/resume n</button>
-              <button type="button" class="link" data-fill="/cancel ">/cancel n</button>
-              <button type="button" class="link" data-fill="/rollback ">/rollback n</button>
-              <button type="button" class="link" data-fill="From now on, ">From now on, ...</button>
-            </span>
+            <span class="small muted">Enter sends · Shift+Enter starts a new line</span>
           </div>
         </form>
       </div>
@@ -70,14 +74,97 @@
 <script>
   // Send a message without leaving the page. The form stays open while the agent works,
   // so a second message reaches operator_turn mid-task. The panel's buttons send the
-  // operator's commands by the same path.
+  // operator's commands by the same path. The robot only shows what the page knows: it
+  // says the reply that came back, or the error, and it never sends anything itself.
   const form = document.getElementById("turn");
   const field = form.querySelector("textarea");
   const box = document.getElementById("history");
   const side = document.getElementById("panel");
   const status = document.getElementById("status");
-  let pending = 0;
+  const robot = document.getElementById("robot");
+  const head = document.getElementById("robot-head");
+  const eyes = document.getElementById("robot-eyes");
+  const bubble = document.getElementById("bubble");
+  const voice = document.getElementById("voice");
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let pending = 0, typing = null, speaking = localStorage.getItem("robot-voice") === "on";
 
+  // -- the robot ------------------------------------------------------------------------
+  function mood(name) {
+    robot.classList.remove("thinking", "talking", "waiting", "alert", "happy");
+    if (name) robot.classList.add(name);
+  }
+
+  function facts() {
+    const f = document.getElementById("panel-facts");
+    return f ? {live: +f.dataset.live, waiting: +f.dataset.waiting, memory: +f.dataset.memory} : {live: 0, waiting: 0, memory: 0};
+  }
+
+  function rest() {
+    mood(facts().waiting ? "waiting" : null);
+  }
+
+  function say(text, {then = rest, alert = false} = {}) {
+    clearInterval(typing);
+    if (speaking && "speechSynthesis" in window) speechSynthesis.cancel();
+    text = (text || "").trim();
+    mood(alert ? "alert" : "talking");
+    const shown = text.length > 600 ? text.slice(0, 600) + "…" : text;
+    if (still) { bubble.textContent = shown; setTimeout(then, 800); return; }
+    let i = 0;
+    bubble.innerHTML = '<span class="caret"></span>';
+    const step = Math.max(1, Math.round(shown.length / 160));
+    typing = setInterval(() => {
+      i = Math.min(shown.length, i + step);
+      bubble.textContent = shown.slice(0, i);
+      if (i < shown.length) { bubble.insertAdjacentHTML("beforeend", '<span class="caret"></span>'); return; }
+      clearInterval(typing);
+      if (!(speaking && "speechSynthesis" in window)) setTimeout(then, 600);
+    }, 18);
+    if (speaking && "speechSynthesis" in window) {
+      const u = new SpeechSynthesisUtterance(shown.slice(0, 400));
+      u.rate = 1.05; u.pitch = 1.2;
+      u.onend = () => { if (pending === 0) then(); };
+      speechSynthesis.speak(u);
+    }
+  }
+
+  function think() {
+    clearInterval(typing);
+    mood("thinking");
+    bubble.innerHTML = 'Working on it <span class="dots"><span></span><span></span><span></span></span>';
+  }
+
+  function greet() {
+    const f = facts();
+    const parts = ["Hello. I am the access desk agent."];
+    if (f.live) parts.push(`${f.live} run${f.live > 1 ? "s" : ""} of this session ${f.live > 1 ? "are" : "is"} working.`);
+    if (f.waiting) parts.push(`${f.waiting} run${f.waiting > 1 ? "s" : ""} wait${f.waiting > 1 ? "" : "s"} for something: see the panel on the right.`);
+    if (f.memory) parts.push(`I keep ${f.memory} record${f.memory > 1 ? "s" : ""} from what you told me before.`);
+    parts.push("Type a request, or use a button on a run.");
+    say(parts.join(" "), {then: () => { mood("happy"); setTimeout(rest, 900); }});
+  }
+
+  voice.textContent = speaking ? "Voice: on" : "Voice: off";
+  voice.addEventListener("click", () => {
+    speaking = !speaking;
+    localStorage.setItem("robot-voice", speaking ? "on" : "off");
+    voice.textContent = speaking ? "Voice: on" : "Voice: off";
+    if (!speaking && "speechSynthesis" in window) speechSynthesis.cancel();
+  });
+
+  if (!still) {
+    // The head turns toward the pointer, and the eyes follow it.
+    document.addEventListener("mousemove", (event) => {
+      const r = robot.getBoundingClientRect();
+      const dx = Math.max(-1, Math.min(1, (event.clientX - (r.left + r.width / 2)) / 500));
+      const dy = Math.max(-1, Math.min(1, (event.clientY - (r.top + r.height / 2)) / 400));
+      head.style.transform = `rotateY(${(dx * 22).toFixed(1)}deg) rotateX(${(-dy * 16).toFixed(1)}deg)`;
+      eyes.style.transform = `translate(${(dx * 4).toFixed(1)}px, ${(dy * 3).toFixed(1)}px)`;
+    });
+  }
+
+  // -- the chat -------------------------------------------------------------------------
   function atBottom() { return box.scrollHeight - box.scrollTop - box.clientHeight < 40; }
   function toBottom() { box.scrollTop = box.scrollHeight; }
 
@@ -106,16 +193,25 @@
     if (!text.trim()) return;
     pending += 1;
     showStatus();
+    think();
     const poll = setInterval(refresh, 1000);
+    let said = null, failed = false;
     try {
-      await fetch(form.action, {method: "POST", body: new URLSearchParams({text: text}),
-                                headers: {"Accept": "application/json"}});
+      const response = await fetch(form.action, {method: "POST", body: new URLSearchParams({text: text}),
+                                                 headers: {"Accept": "application/json"}});
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data) { said = `The app answered ${response.status}. Nothing more is known.`; failed = true; }
+      else if (!data.ok) { said = data.error || "The agent gave an error."; failed = true; }
+      else { said = (data.reply && data.reply.text) || "Done."; }
+    } catch (exc) {
+      said = "I cannot reach the app. Is it still running?"; failed = true;
     } finally {
       clearInterval(poll);
       pending -= 1;
       showStatus();
       await refresh();
       toBottom();
+      if (pending > 0) think(); else say(said, {alert: failed});
     }
   }
 
@@ -137,6 +233,8 @@
   document.querySelectorAll("[data-fill]").forEach((b) => b.addEventListener("click", () => {
     field.value = b.dataset.fill;
     field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+    if (b.dataset.hint) say(`Type ${b.dataset.hint}, then press Enter.`);
   }));
 
   side.addEventListener("submit", (event) => {
@@ -149,6 +247,7 @@
 
   toBottom();
   field.focus();
+  greet();
   setInterval(refresh, 3000);
 </script>
 {% endif %}

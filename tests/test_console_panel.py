@@ -72,6 +72,16 @@ class ConsolePanelTest(ScratchTest):
         self.assertIn('value="/resume 2"', html)
         self.assertIn('value="/rollback 2"', html)
 
+    def test_a_waiting_run_that_the_operator_stops_shows_as_stopped_with_resume_and_cancel(self):
+        self.runs()
+        from agent import control
+        control.stop(SESSION, 1)
+        run = next(r for r in service.session_panel(SESSION)["runs"] if r["run_no"] == 1)
+        self.assertEqual(run["status"], checkpoints.WAITING_REPLY, "the run still waits for its reply")
+        self.assertEqual((run["shown"], run["stop_flag"]), (checkpoints.STOPPED, True))
+        self.assertEqual(run["commands"], ["/resume 1", "/cancel 1"])
+        self.assertIn("stopped (it was waiting for a reply)", self.client.get(f"/console/{SESSION}/panel").text)
+
     def test_the_panel_shows_what_the_memory_holds_with_its_source_and_age(self):
         memory.from_text(SESSION, PREFERENCE)
         html = self.client.get(f"/console/{SESSION}/panel").text

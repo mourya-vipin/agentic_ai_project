@@ -4,16 +4,17 @@
 {% if panel.error %}
   <div class="box"><div class="box-head">Runs</div><p class="muted empty">{{ panel.error }}</p></div>
 {% else %}
+  <span id="panel-facts" hidden data-live="{{ panel.live }}" data-waiting="{{ panel.waiting }}" data-memory="{{ panel.memory|length }}"></span>
   <div class="box">
     <div class="box-head"><span>Runs <span class="count">{{ panel.runs|length }}</span></span>
       <span>{% if panel.live %}<span class="chip running">{{ panel.live }} working</span>{% endif %}
       {% if panel.waiting %}<span class="chip waiting">{{ panel.waiting }} waiting</span>{% endif %}</span>
     </div>
     {% for run in panel.runs %}
-      <div class="card run {{ run.status }}">
+      <div class="card run tilt {{ run.shown }}">
         <div class="card-head">
           <strong>Run {{ run.run_no }}</strong>
-          <span class="chip {{ run.status }}">{{ run.words }}</span>
+          <span class="chip {{ run.shown }}">{{ run.words }}</span>
         </div>
         <div class="muted small">{{ run.use_case.replace('_', ' ') }}{% if run.steps %} · {{ run.steps }} step{{ 's' if run.steps != 1 }}{% endif %}{% if run.writes %} · {{ run.writes }} write{{ 's' if run.writes != 1 }}{% endif %}</div>
         {% if run.task %}<div class="task small">{{ run.task }}</div>{% endif %}
@@ -42,7 +43,7 @@
     <div class="box-head"><span>Memory <span class="count">{{ panel.memory|length }}</span></span>
       {% if not panel.memory_on %}<span class="chip">preferences off</span>{% endif %}</div>
     {% for record in panel.memory %}
-      <div class="card memory">
+      <div class="card memory tilt">
         <div class="card-head">
           <code>{{ record.id }}</code>
           <span class="chip {{ 'done' if record.confirmed else 'waiting' }}">{{ 'confirmed' if record.confirmed else 'not confirmed' }}</span>

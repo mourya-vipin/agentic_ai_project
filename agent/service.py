@@ -38,7 +38,7 @@ your model calls labelled as theirs.
 
 from __future__ import annotations
 
-from agent import approvals, checkpoints, commands, inbox, memory, notes, router, session
+from agent import approvals, checkpoints, commands, control, inbox, memory, notes, router, session
 from harness import runtime
 from harness.turns import Reply  # noqa: F401  (what each turn returns)
 from policy import limits
@@ -136,11 +136,19 @@ STATUS_WORDS = {
 PANEL_RUNS = 12
 
 
+def _flagged(cp) -> bool:
+    """Whether the operator's /stop flags this run (agent/control.py). A run that waits keeps
+    its status when it is stopped, so the panel reads the flag too."""
+    return cp.status not in checkpoints.ENDED and control.state(cp.run_key) == control.STOPPED
+
+
 def _commands_for(cp) -> list[str]:
     """The commands (agent/commands.py) that make sense for a run in its status, as the
     operator types them. Each button on the panel sends one, through operator_turn."""
     n = cp.run_no
-    if cp.status == checkpoints.RUNNING:
+    if _flagged(cp):
+        out = [f"/resume {n}", f"/cancel {n}"]
+    elif cp.status == checkpoints.RUNNING:
         out = [f"/stop {n}"]
     elif cp.status == checkpoints.STOPPED:
         out = [f"/resume {n}", f"/cancel {n}"]
@@ -155,9 +163,12 @@ def _commands_for(cp) -> list[str]:
 
 def _run_line(cp) -> dict:
     wait = cp.waiting_for or {}
+    flagged = _flagged(cp)
+    words = STATUS_WORDS.get(cp.status, cp.status)
     return {
         "run_no": cp.run_no, "run_key": cp.run_key, "use_case": cp.use_case, "status": cp.status,
-        "words": STATUS_WORDS.get(cp.status, cp.status),
+        "shown": checkpoints.STOPPED if flagged else cp.status, "stop_flag": flagged,
+        "words": (f"stopped (it was {words})" if cp.status != checkpoints.STOPPED else words) if flagged else words,
         "end_reason": (cp.findings or {}).get("end_reason"),
         "task": (cp.task or "")[:160],
         "thread_id": wait.get("thread_id"), "deadline": wait.get("deadline"),
@@ -179,7 +190,7 @@ def session_panel(session_id: str) -> dict:
             for r in memory.held()]
     return {"runs": runs, "memory": kept, "memory_on": memory.enabled(),
             "live": sum(1 for r in runs if r["status"] == checkpoints.RUNNING),
-            "waiting": sum(1 for r in runs if r["status"] in checkpoints.PAUSED)}
+            "waiting": sum(1 for r in runs if r["shown"] in checkpoints.PAUSED)}
 
 
 def sessions_waiting() -> dict[str, int]:

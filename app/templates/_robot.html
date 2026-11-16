@@ -1,0 +1,50 @@
+{# The console's robot: a head in 3D, drawn in SVG. The console's script sets its state
+   (thinking, talking, waiting, alert, happy) and turns it toward the pointer. #}
+<div class="robot" id="robot" aria-hidden="true">
+  <div class="float"><div class="head" id="robot-head">
+    <svg viewBox="0 0 120 120">
+      <defs>
+        <linearGradient id="rb-shell" x1="0" y1="0" x2="0.4" y2="1">
+          <stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#e8e9ff"/><stop offset="1" stop-color="#b9bdf5"/>
+        </linearGradient>
+        <linearGradient id="rb-rim" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#c7cafc"/><stop offset="1" stop-color="#7c7fe0"/>
+        </linearGradient>
+        <linearGradient id="rb-screen" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#1e1b4b"/><stop offset="1" stop-color="#0b1026"/>
+        </linearGradient>
+        <radialGradient id="rb-shine" cx=".3" cy=".2" r=".7">
+          <stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="rb-ear" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#6366f1"/>
+        </linearGradient>
+        <filter id="rb-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <!-- antenna -->
+      <line x1="60" y1="14" x2="60" y2="28" stroke="#7c7fe0" stroke-width="4" stroke-linecap="round"/>
+      <circle class="bulb-glow" cx="60" cy="12" r="7" fill="#5eead4" opacity=".4"/>
+      <circle class="bulb" cx="60" cy="12" r="5" fill="#5eead4" filter="url(#rb-glow)"/>
+      <!-- ears -->
+      <rect x="8" y="50" width="12" height="26" rx="6" fill="url(#rb-ear)"/>
+      <rect x="100" y="50" width="12" height="26" rx="6" fill="url(#rb-ear)"/>
+      <!-- head: a rim below for depth, then the shell -->
+      <rect x="16" y="31" width="88" height="70" rx="26" fill="url(#rb-rim)"/>
+      <rect x="16" y="27" width="88" height="70" rx="26" fill="url(#rb-shell)"/>
+      <ellipse cx="42" cy="38" rx="20" ry="7" fill="url(#rb-shine)"/>
+      <!-- face screen -->
+      <rect x="27" y="40" width="66" height="44" rx="16" fill="url(#rb-screen)"/>
+      <rect x="27" y="40" width="66" height="44" rx="16" fill="none" stroke="#4f46e5" stroke-opacity=".5"/>
+      <g class="eyes" id="robot-eyes" filter="url(#rb-glow)">
+        <ellipse class="eye" cx="47" cy="59" rx="6.5" ry="7.5" fill="#5eead4"/>
+        <ellipse class="eye" cx="73" cy="59" rx="6.5" ry="7.5" fill="#5eead4"/>
+        <rect class="mouth" x="53" y="72" width="14" height="3" rx="1.5" fill="#5eead4"/>
+      </g>
+      <circle cx="35" cy="73" r="3.5" fill="#f472b6" opacity=".45"/>
+      <circle cx="85" cy="73" r="3.5" fill="#f472b6" opacity=".45"/>
+    </svg>
+  </div></div>
+  <div class="shadow"></div>
+</div>
