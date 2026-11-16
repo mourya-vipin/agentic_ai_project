@@ -1,4 +1,4 @@
-"""The run store: one checkpoint for each run, in state_dir()/runs.sqlite3 (C3.1).
+"""The run store: one checkpoint for each run, in state_dir()/runs.sqlite3.
 
 Owner: Aman Panigrahi.
 
@@ -18,6 +18,8 @@ number. The same key names the wait, the stop flag and the hold of the run.
     resume(run_key, event)                    continue a run from its checkpoint
     journaled(run_key, key)                   the recorded result of a completed call, or None
     record_completed(run_key, key, ...)       add one completed call to the journal
+    end_turn(cp, end_reason)                  save the run when its turn ends: done, paused or ended
+    mode_for(use_case)                        the durability mode of the use case (DURABILITY)
 
 The durability modes (Lecture 4, slide 12):
 
@@ -27,7 +29,7 @@ The durability modes (Lecture 4, slide 12):
             A crash before that loses the whole run.
 
 The journal is a table of its own. The registry adds an entry after each successful
-write (C3.2), and save() only adds entries. Because of this, the save of an old copy
+write, and save() only adds entries. Because of this, the save of an old copy
 of a checkpoint cannot remove an entry that the registry wrote.
 
 Nothing resumes a run at start-up. A run continues only after one of these calls:
@@ -81,6 +83,32 @@ RESUMERS = {
     "bulk_change": "agent.loop:resume",
 }
 PLANNED_RESUMER = "agent.executor:resume"
+
+# The durability mode of each use case (Lecture 4, slide 12; M2.md, Part 1, task 2).
+# sync:  a run that can do an irreversible step. U2 issues a credential, U4 can send,
+#        and U6 can send manager notes.
+# async: a run whose writes all have a key and can be undone (U1, U3). A replay of a lost
+#        step gets the same key, and the sandbox keeps the first result of each key.
+# exit:  a run that only reads (U5). A crash loses only the answer, and the operator asks again.
+DURABILITY = {
+    "standard_grant": "async",
+    "onboarding": "sync",
+    "offboarding": "async",
+    "nonstandard_request": "sync",
+    "operator_review": "exit",
+    "bulk_change": "sync",
+}
+
+# The status that each end reason (trace.end) gives the run. Each name comes from the
+# module that ends the turn: agent/bounds.py, agent/executor.py, agent/registry.py and
+# agent/control.py. An end reason that is not here gives "failed".
+ENDS_DONE = ("done", "answered", "workflow_done", "plan_done", "nothing_to_do")
+ENDS_PAUSED = {                       # end reason -> (status, wait kind)
+    "awaiting_approval": (WAITING_APPROVAL, "approval"),
+    "waiting_reply": (WAITING_REPLY, "reply"),
+    "stopped": (STOPPED, "stop"),
+}
+ENDS_CANCELLED = ("cancelled",)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (
@@ -287,7 +315,7 @@ def _check(cp: Checkpoint, mode: str) -> None:
         raise ValueError(f"the run key {cp.run_key!r} does not agree with {key_of(cp.session_id, cp.run_no)!r}")
 
 
-# -- C3.1 -----------------------------------------------------------------------------------
+# -- the functions that the paths call ------------------------------------------------------
 
 def new_run(session_id: str, use_case: str, task: str) -> Checkpoint:
     """Make a run with the next run number of its session, and write it at once (sync).
@@ -379,12 +407,33 @@ def journaled(run_key: RunKey, key: str) -> dict | None:
 
 def record_completed(run_key: RunKey, key: str, *, tool: str, args: dict, result) -> None:
     """Add one completed call to the journal of the run, at once (sync). The registry
-    calls it after each successful write (C3.2). The first result of a key stays, as the
+    calls it after each successful write. The first result of a key stays, as the
     target keeps the first result of a key."""
     entry = (key, tool, _json(args, "args"), _json(result, "result"), now())
     with _connect(write=True) as conn:
         conn.execute("INSERT OR IGNORE INTO journal (run_key, key, tool, args, result, at) VALUES (?, ?, ?, ?, ?, ?)",
                      (run_key, *entry))
+
+
+def mode_for(use_case: str) -> str:
+    """The durability mode of the use case (DURABILITY). An unknown use case gets "sync"."""
+    return DURABILITY.get(use_case, "sync")
+
+
+def end_turn(cp: Checkpoint, end_reason: str, *, waiting_for: dict | None = None,
+             mode: str | None = None) -> Checkpoint:
+    """Save the run when its turn ends, with the status that the end reason gives:
+    done, paused (the run waits for a reply, an approval or /resume) or ended.
+    `waiting_for` adds the facts of the wait, for example the thread of a reply."""
+    if end_reason in ENDS_PAUSED:
+        cp.status, kind = ENDS_PAUSED[end_reason]
+        cp.waiting_for = {**(waiting_for or {}), "kind": kind}
+    else:
+        cp.status = DONE if end_reason in ENDS_DONE else CANCELLED if end_reason in ENDS_CANCELLED else FAILED
+        cp.waiting_for = None
+    cp.findings = {**(cp.findings or {}), "end_reason": end_reason}
+    save(cp, mode=mode or mode_for(cp.use_case))
+    return cp
 
 
 def resume(run_key: RunKey, event: dict) -> Reply:
@@ -419,9 +468,13 @@ def resume(run_key: RunKey, event: dict) -> Reply:
 
 
 def _refusal(cp: Checkpoint, event: dict) -> str:
-    """Why this event must not continue this run, or "" if it can."""
+    """Why this event must not continue this run, or "" if it can. Only /resume
+    (stop_lifted) continues a stopped run. A reply that comes while the run is stopped
+    stays on its thread, and the resume of the path can read it there."""
     if cp.status in ENDED:
         return f"it is {cp.status}"
+    if event["kind"] != "stop_lifted" and _stop_flag(cp.run_key):
+        return "it is stopped, and /resume continues it"
     wait = cp.waiting_for or {}
     if event["kind"] == "reply":
         if wait.get("kind") != "reply":
@@ -436,9 +489,18 @@ def _refusal(cp: Checkpoint, event: dict) -> str:
     return ""
 
 
+def _stop_flag(run_key: RunKey) -> bool:
+    """Whether the operator stopped or cancelled the run (agent/control.py)."""
+    from agent import control       # here, not at the top: control finds this module the same way
+    return control.stopped(run_key)
+
+
 def _resumer(cp: Checkpoint):
-    """(the function that continues this run or None, and the name of that function)."""
-    name = PLANNED_RESUMER if cp.use_case == "bulk_change" and cp.plan else RESUMERS.get(cp.use_case, "")
+    """(the function that continues this run or None, and the name of that function).
+    A U6 run continues in the executor if it has a plan, or if the router opened it on
+    the planned path (findings["path"])."""
+    planned = cp.use_case == "bulk_change" and (cp.plan or (cp.findings or {}).get("path") == "planned")
+    name = PLANNED_RESUMER if planned else RESUMERS.get(cp.use_case, "")
     module_name, _, function = name.partition(":")
     if not module_name:
         return None, f"a path for {cp.use_case}"

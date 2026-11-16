@@ -33,6 +33,13 @@ group needs no manager. Anything else goes to U4. The route is recorded on the r
 After an agent case, a request still new or in progress (the loop stopped at its
 bound, or the model never set a status) is set to pending_operator by our code, and
 the reply says so, so a later "process the requests" turn does not run it again.
+
+Milestone 2. Each request, each question and each bulk change is one run
+(agent/checkpoints.py). The router opens the run, gives its key to the path, and
+saves the run when the turn ends (checkpoints.end_turn). If the operator stopped or
+cancelled the run during the turn, and the run is not done, it is saved as stopped or
+cancelled. The two routing calls are built with context.assemble (kind "router"). They
+get no notes, and a call that cannot fit gives the safe route: a question, or U4.
 """
 
 from __future__ import annotations
@@ -42,7 +49,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from agent import executor, loop, session, workflows
+from agent import checkpoints, context, control, executor, loop, session, workflows
 from agent.bounds import Bound
 from agent.loop import LoopResult
 from agent.registry import CallContext, get_registry
@@ -76,6 +83,8 @@ LEVELS = {"read": ("read-only", "read only", "readonly", "read", "reader", "read
 SYSTEM_ALIASES = {"SYN-SYS-SSO": ("sso",), "SYN-SYS-DWH": ("dwh",), "SYN-SYS-AWSPROD": ("aws prod", "aws"),
                   "SYN-SYS-LEGAL": ("legal hold",)}
 HR_EVENTS = {"new_starter": ONBOARDING, "contract_ended": OFFBOARDING, "leaver": OFFBOARDING}
+PAUSED_WORDS = {"stopped": "stopped (use /resume or /cancel)", "waiting_reply": "waiting for a reply",
+                "waiting_approval": "waiting for your approval", "held": "held for a person"}
 
 
 @dataclass
@@ -102,9 +111,10 @@ def handle_operator(session_id: str, text: str) -> Reply:
         reply = _as_reply(bulk_change(session_id, text))
     else:
         _agent_path(OPERATOR_REVIEW)
-        reply = _as_reply(loop.run_loop(session_id, use_case=OPERATOR_REVIEW, system=_prompt(OPERATOR_REVIEW),
-                                        user_content=_with_history(session_id, text), tools=TOOLS[OPERATOR_REVIEW],
-                                        bound=BOUND))
+        content = _with_history(session_id, text)
+        reply = _as_reply(_in_run(session_id, OPERATOR_REVIEW, content, lambda run_key: loop.run_loop(
+            session_id, use_case=OPERATOR_REVIEW, system=_prompt(OPERATOR_REVIEW), user_content=content,
+            tools=TOOLS[OPERATOR_REVIEW], bound=BOUND, run_key=run_key), notice=text))
     session.add(session_id, "agent", reply.text)
     return reply
 
@@ -122,8 +132,11 @@ def route_operator(session_id: str, text: str, earlier: list[dict]) -> tuple[str
     """(intent, request IDs, why), from one traced model call."""
     past = "\n".join(f"{t['role']}: {t['text']}" for t in earlier) or "(none)"
     content = f"Earlier turns in this session:\n{past}\n\nThe operator's message:\n{text}"
-    response = runtime.client(session_id).create(system=_prompt("route_operator"),
-                                                 messages=[{"role": "user", "content": content}])
+    built = context.assemble("router", system=_prompt("route_operator"), session_id=session_id, run_key=None,
+                             task=content, history=[], tool_names=None)
+    if built.unfit:
+        return "question", [], "the routing call did not fit the context budget, so the read-only path"
+    response = runtime.client(session_id).create(system=built.system, messages=built.messages, tools=built.tools)
     runtime.trace(session_id).model_call(0, response, purpose="route_operator")
     answer = _json(response.text)
     intent = answer.get("intent") if isinstance(answer.get("intent"), str) else None
@@ -139,9 +152,13 @@ def bulk_change(session_id: str, text: str) -> LoopResult:
     """U6: planned if plan.bulk_change is on, else the bounded loop."""
     _agent_path(BULK_CHANGE)
     if runtime.switch("plan.bulk_change") == "on":
-        return executor.run_planned(session_id, text, bound=BOUND)
-    return loop.run_loop(session_id, use_case=BULK_CHANGE, system=_prompt(BULK_CHANGE),
-                         user_content=_with_history(session_id, text), tools=TOOLS[BULK_CHANGE], bound=BOUND)
+        return _in_run(session_id, BULK_CHANGE, text,
+                       lambda run_key: executor.run_planned(session_id, text, bound=BOUND, run_key=run_key),
+                       path="planned")
+    content = _with_history(session_id, text)
+    return _in_run(session_id, BULK_CHANGE, content, lambda run_key: loop.run_loop(
+        session_id, use_case=BULK_CHANGE, system=_prompt(BULK_CHANGE), user_content=content,
+        tools=TOOLS[BULK_CHANGE], bound=BOUND, run_key=run_key), path="loop", notice=text)
 
 
 # -- the core task: the day's requests ----------------------------------------------------
@@ -167,6 +184,12 @@ def process_requests(session_id: str, request_ids: list[str]) -> Reply:
             if item["status"] not in ("new", "in_progress"):
                 lines.append(f"{item['id']}: already {item['status']}, left as it is.")
                 continue
+            paused = _paused_run(session_id, item["id"])
+            if paused is not None:
+                where = f"run {paused.run_no}" if paused.session_id == session_id else f"run {paused.run_key}"
+                lines.append(f"{item['id']}: {where} is {PAUSED_WORDS.get(paused.status, paused.status)}, "
+                             "so this turn does not start it again.")
+                continue
             runtime.trace(session_id).progress(f"Working on {item['id']}.")
             result = handle_request(session_id, item)
             lines.append(result.text)
@@ -183,27 +206,92 @@ def handle_request(session_id: str, request: dict) -> LoopResult:
     requests.set_route(request["id"], f"{path}:{route.use_case}", stamp=db.current_stamp())
     runtime.trace(session_id).event("route", scope="request", request_id=request["id"],
                                     route=f"{path}:{route.use_case}", why=route.why)
+    case, rid = _case(request, route), request["id"]
+    found = dict(request_id=rid, route=f"{path}:{route.use_case}", group_id=route.group_id, fields=route.fields,
+                 notice=f"{route.use_case} for {rid}")
     if path == "workflow" and route.use_case == STANDARD_GRANT:
-        return workflows.standard_grant(session_id, request["id"], route.group_id)
+        return _in_run(session_id, STANDARD_GRANT, case, lambda run_key: workflows.standard_grant(
+            session_id, rid, route.group_id, run_key=run_key), **found)
     if path == "workflow" and route.use_case == ONBOARDING:
-        return workflows.onboarding(session_id, request["id"], route.fields)
+        return _in_run(session_id, ONBOARDING, case, lambda run_key: workflows.onboarding(
+            session_id, rid, route.fields, run_key=run_key), **found)
     if path == "workflow" and route.use_case == OFFBOARDING:
-        return workflows.offboarding(session_id, request["id"], route.fields)
-    result = loop.run_loop(session_id, use_case=NONSTANDARD, system=_prompt(NONSTANDARD),
-                           user_content=_case(request, route), tools=TOOLS[NONSTANDARD], bound=BOUND,
-                           request_id=request["id"])
-    left = _leave_for_operator(session_id, request["id"], result)
-    text = " ".join(t for t in (f"{request['id']} (agent):", route.note, result.text, left) if t)
-    return LoopResult(text, result.actions, result.end_reason, result.steps)
+        return _in_run(session_id, OFFBOARDING, case, lambda run_key: workflows.offboarding(
+            session_id, rid, route.fields, run_key=run_key), **found)
+
+    def agent(run_key: str) -> LoopResult:
+        result = loop.run_loop(session_id, use_case=NONSTANDARD, system=_prompt(NONSTANDARD), user_content=case,
+                               tools=TOOLS[NONSTANDARD], bound=BOUND, request_id=rid, run_key=run_key)
+        left = _leave_for_operator(session_id, rid, result, run_key)
+        text = " ".join(t for t in (f"{rid} (agent):", route.note, result.text, left) if t)
+        return LoopResult(text, result.actions, result.end_reason, result.steps)
+
+    return _in_run(session_id, NONSTANDARD, case, agent, **found)
 
 
-def _leave_for_operator(session_id: str, request_id: str, result: LoopResult) -> str:
+def _paused_run(session_id: str, request_id: str):
+    """The run of this request that is stopped or waits, or None. A turn does not start
+    such a request again: /resume, the reply or the approval continues it. In the app, a
+    run of any console session counts. In a run.py run, only the runs of this run count,
+    because each run.py run seeds the same request IDs again."""
+    in_run = runtime.current_run() is not None
+    return next((cp for cp in checkpoints.waiting() if (cp.findings or {}).get("request_id") == request_id
+                 and (not in_run or cp.session_id == session_id)), None)
+
+
+def _in_run(session_id: str, use_case: str, task: str, work, *, notice: str | None = None,
+            **findings) -> LoopResult:
+    """One run: open it, do the work with its key, and save the run when the turn ends.
+    `work(run_key)` gives the LoopResult.
+
+    The findings are saved before the work starts, so a path that loads the run keeps them.
+    `notice` names the run for the operator, with its /stop, before its first call
+    (control.notice). The planned path gives its own notice. During the turn, a path or the
+    approval gate can save the run itself (a plan, a wait for an approval). The router then
+    keeps that save, and does not write its own older copy over it. An error in the work
+    saves the run as failed, and the error goes on to the caller."""
+    cp = checkpoints.new_run(session_id, use_case, task)
+    cp.findings = {name: value for name, value in findings.items() if value not in (None, {}, "")}
+    cp.conversation = session.history(session_id)
+    checkpoints.save(cp, mode="sync")
+    if notice:
+        control.notice(cp.run_key, notice)
+    try:
+        result = work(cp.run_key)
+    except Exception:
+        try:
+            latest = checkpoints.load(cp.run_key) or cp
+            if latest.status == checkpoints.RUNNING:
+                checkpoints.end_turn(latest, "error")
+        except Exception:  # noqa: BLE001  (the first error is the one that the caller must see)
+            pass
+        raise
+    latest = checkpoints.load(cp.run_key) or cp
+    if latest.status == checkpoints.RUNNING:
+        checkpoints.end_turn(latest, _end_of(cp.run_key, result.end_reason))
+    return result
+
+
+def _end_of(run_key: str, end_reason: str) -> str:
+    """The end reason to save. A run that is not done, and that the operator stopped or
+    cancelled during the turn, is saved as stopped or cancelled, so that /resume finds it."""
+    if end_reason in checkpoints.ENDS_DONE:
+        return end_reason
+    if control.state(run_key) == control.CANCELLED:
+        return control.END_CANCELLED
+    if control.stopped(run_key):
+        return control.END_STOPPED
+    return end_reason
+
+
+def _leave_for_operator(session_id: str, request_id: str, result: LoopResult, run_key: str | None = None) -> str:
     """Our code, not the model, sets a request the agent did not finish to pending_operator."""
     status = requests.get(request_id)["status"]
     if status not in ("new", "in_progress"):
         return ""
     note = f"The agent ended ({result.end_reason}) with the request still {status}."
-    ctx = CallContext(session_id, result.steps + 1, "workflow", NONSTANDARD, request_id=request_id)
+    ctx = CallContext(session_id, result.steps + 1, "workflow", NONSTANDARD, request_id=request_id,
+                      run_key=run_key, origin="workflow")
     done = get_registry().call("requests_set_status", {"request_id": request_id, "status": "pending_operator",
                                                        "note": note}, ctx)
     if done.is_error:
@@ -228,8 +316,11 @@ def route_request(session_id: str, request: dict) -> Route:
 def describe_request(session_id: str, request: dict) -> dict:
     """The routing call's description of one request, or {} if it does not parse."""
     content = f'<request from="{request["requester_id"]}" trust="untrusted">\n{request["text"]}\n</request>'
-    response = runtime.client(session_id).create(system=_prompt("route_request"),
-                                                 messages=[{"role": "user", "content": content}])
+    built = context.assemble("router", system=_prompt("route_request"), session_id=session_id, run_key=None,
+                             task=content, history=[], tool_names=None)
+    if built.unfit:
+        return {}           # no description: decide() sends the request to U4, and the trace has the context line
+    response = runtime.client(session_id).create(system=built.system, messages=built.messages, tools=built.tools)
     runtime.trace(session_id).model_call(0, response, purpose="route_request", request_id=request["id"])
     return _json(response.text)
 

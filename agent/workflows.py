@@ -18,11 +18,16 @@ workflow with workflow_refused and leaves the request to the operator.
                     "removed" notice -> done
 
 The person and their role come from the directory, never from the message.
+
+Milestone 2. The router opens the run (agent/checkpoints.py) and gives its key. Each step
+carries the run key and origin "workflow", so the hook reads the stop flag of the run and
+the registry derives the key of each write from the run. A step that the hook refuses
+because the run is stopped ends the workflow with "stopped", and no more steps run.
 """
 
 from __future__ import annotations
 
-from agent import bounds
+from agent import bounds, control
 from agent.loop import LoopResult, action_line
 from agent.registry import CallContext, get_registry
 from harness import runtime
@@ -38,13 +43,14 @@ class Refused(Exception):
 class _Steps:
     """Numbers each step, calls it through the registry, and keeps one action line per effect."""
 
-    def __init__(self, session_id: str, use_case: str, request_id: str):
-        self.session_id, self.use_case, self.request_id = session_id, use_case, request_id
+    def __init__(self, session_id: str, use_case: str, request_id: str, run_key: str | None = None):
+        self.session_id, self.use_case, self.request_id, self.run_key = session_id, use_case, request_id, run_key
         self.step, self.actions = 0, []
 
     def call(self, tool: str, **args) -> dict:
         self.step += 1
-        ctx = CallContext(self.session_id, self.step, "workflow", self.use_case, request_id=self.request_id)
+        ctx = CallContext(self.session_id, self.step, "workflow", self.use_case, request_id=self.request_id,
+                          run_key=self.run_key, origin="workflow")
         result = get_registry().call(tool, args, ctx)
         if result.is_error:
             raise Refused(f"step {self.step}, {tool}: {result.content}")
@@ -53,8 +59,9 @@ class _Steps:
         return result.data
 
 
-def _run(session_id: str, use_case: str, request_id: str, gather, choose, post, on_refused=None) -> LoopResult:
-    steps = _Steps(session_id, use_case, request_id)
+def _run(session_id: str, use_case: str, request_id: str, gather, choose, post, on_refused=None,
+         run_key: str | None = None) -> LoopResult:
+    steps = _Steps(session_id, use_case, request_id, run_key)
     trace = runtime.trace(session_id)
     try:
         gathered = gather(steps)
@@ -62,6 +69,12 @@ def _run(session_id: str, use_case: str, request_id: str, gather, choose, post, 
         text = post(steps, gathered, chosen)
     except Refused as exc:
         reason = str(exc)
+        if control.stopped(run_key):
+            # the hook refused the step because the operator stopped the run: no more calls,
+            # and the run is saved as stopped, so /resume, /cancel or /rollback can follow
+            trace.end(control.END_STOPPED, reason[:300])
+            return LoopResult(f"{request_id} ({use_case}): stopped by the operator at step {steps.step}.",
+                              steps.actions, control.END_STOPPED, steps.step)
         try:
             steps.call("requests_set_status", request_id=request_id, status="pending_operator", note=reason[:300])
             if on_refused is not None:
@@ -81,7 +94,7 @@ def _first_name(person: dict) -> str:
 
 # -- U1 ------------------------------------------------------------------------------------
 
-def standard_grant(session_id: str, request_id: str, group_id: str) -> LoopResult:
+def standard_grant(session_id: str, request_id: str, group_id: str, run_key: str | None = None) -> LoopResult:
     """One group the role policy allows the requester without a manager; the router
     read it from the request."""
     facts = {}
@@ -109,12 +122,12 @@ def standard_grant(session_id: str, request_id: str, group_id: str) -> LoopResul
             steps.call("notices_send_template", thread_id=facts["thread"], request_id=request_id,
                        template_id="pending_review", facts={"name": facts["name"], "request_id": request_id})
 
-    return _run(session_id, "standard_grant", request_id, gather, choose, post, on_refused)
+    return _run(session_id, "standard_grant", request_id, gather, choose, post, on_refused, run_key=run_key)
 
 
 # -- U2 ------------------------------------------------------------------------------------
 
-def onboarding(session_id: str, request_id: str, fields: dict) -> LoopResult:
+def onboarding(session_id: str, request_id: str, fields: dict, run_key: str | None = None) -> LoopResult:
     """A new starter from the HR feed: the router parsed its fields."""
 
     def gather(steps):
@@ -143,7 +156,7 @@ def onboarding(session_id: str, request_id: str, fields: dict) -> LoopResult:
         return (f"{request_id} (onboarding): {person['name']} ({person['id']}) has {len(chosen['groups'])} groups "
                 f"for {person['role']}; credential {', '.join(issued)} waits for hand-over on /pending.")
 
-    return _run(session_id, "onboarding", request_id, gather, choose, post)
+    return _run(session_id, "onboarding", request_id, gather, choose, post, run_key=run_key)
 
 
 def _handover(steps: _Steps, employee_id: str, credential_id: str) -> None:
@@ -158,7 +171,7 @@ def _handover(steps: _Steps, employee_id: str, credential_id: str) -> None:
 
 # -- U3 ------------------------------------------------------------------------------------
 
-def offboarding(session_id: str, request_id: str, fields: dict) -> LoopResult:
+def offboarding(session_id: str, request_id: str, fields: dict, run_key: str | None = None) -> LoopResult:
     """A contract that ended, or a leaver, from the HR feed: the router parsed its fields."""
 
     def gather(steps):
@@ -186,4 +199,4 @@ def offboarding(session_id: str, request_id: str, fields: dict) -> LoopResult:
                 f"({person['id']})" + (f"; kept {', '.join(kept)}, its removal proposed for you" if kept else "")
                 + "; notice sent.")
 
-    return _run(session_id, "offboarding", request_id, gather, choose, post)
+    return _run(session_id, "offboarding", request_id, gather, choose, post, run_key=run_key)

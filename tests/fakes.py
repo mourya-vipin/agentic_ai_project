@@ -193,7 +193,7 @@ class RoutesToAgentThenSetsDone(RouterFake):
 
 
 class FakeCheckpoints:
-    """An in-memory stand-in for agent/checkpoints.py (C3.1). It has the same functions
+    """An in-memory stand-in for agent/checkpoints.py. It has the same functions
     and writes no file. It also keeps each save with its mode (`saves`) and each resume
     with its event (`resumed`), so that a test can read them.
 
