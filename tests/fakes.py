@@ -468,6 +468,8 @@ class SplitRoles:
             return self._say(json.dumps({"intent": "bulk_change", "request_ids": []}))
         if set(names) == {"reply_send"}:
             return self._use(names["reply_send"], {"recipient_employee_id": "x", "body": self.note(messages[-1]["content"])})
+        if set(names) != {"access_list_memberships", "access_revoke_all", "access_propose_change"}:
+            return self._say("Done.")                   # any other path's call: not a split role's
         text = json.dumps(messages)
         person = re.search(r"SYN-EMP-\d{4}", messages[0]["content"]).group(0)
         turns = sum(1 for m in messages if m.get("role") == "assistant")
@@ -493,6 +495,23 @@ class SplitRoles:
                 lines.append(f"{g} was kept for {r['employee_id']}" + (f"; a proposal to take it away ({pid}) is "
                                                                           "waiting for the operator's approval." if pid else "."))
         return " ".join(lines) + " IT access desk."
+
+
+class SplitEveryTask(SplitRoles):
+    """For running every test task with the switch on: the operator router sends a removal of ended
+    contractors to U6, a question to the question path, and anything else to the day's requests; the
+    request router reads every request as non-standard. Only the split's roles do any work."""
+
+    def create(self, *, system, messages, tools):
+        if tools:
+            return super().create(system=system, messages=messages, tools=tools)
+        if "groups_mentioned" in (system or ""):
+            return self._say(json.dumps({"intent": "other", "subject": "self", "groups_mentioned": []}))
+        said = json.dumps(messages).lower()
+        last = str(messages[-1].get("content") or "").lower()
+        intent = ("bulk_change" if "contract" in last and "remove all" in last
+                  else "question" if "?" in last else "process_requests")
+        return self._say(json.dumps({"intent": intent, "request_ids": []}))
 
 
 class SplitRolesNoProposal(SplitRoles):

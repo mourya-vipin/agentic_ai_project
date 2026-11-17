@@ -214,3 +214,34 @@ class SplitRunTest(ScratchTest):
             record = self.run_t06()
         self.assertEqual(record["end_reasons"][-1], checks.SPLIT_BUDGET)
         self.assertFalse(record["passed"])
+
+
+class EveryTaskTest(ScratchTest):
+    """The split runs every test task end to end on the branch, within the one budget, each check
+    read from the sandbox. Only U6 changes with the switch: every other task takes the same path and
+    ends the same way as with topology=single; t06 passes its check as a split."""
+
+    TASKS = sorted(str(p) for p in __import__("pathlib").Path("tasks").glob("*.yaml")) + \
+        ["tasks/sessions/s01_operator_day.yaml"]
+
+    def run_each(self, topology):
+        out = {}
+        for task in self.TASKS:
+            out[task] = self.run_task(task, f"every-{topology}", backend="tests.fakes:SplitEveryTask",
+                                      overrides=["plan.bulk_change=on", f"topology={topology}"])
+        return out
+
+    def test_every_task_runs_to_the_end_with_the_split_on(self):
+        split = self.run_each("split")
+        single = self.run_each("single")
+        self.assertEqual(len(split), 10)
+        for task, record in split.items():
+            with self.subTest(task=task):
+                self.assertEqual(record["outcome"], "completed", record.get("error"))
+                self.assertIn("passed", record)                               # its check read the sandbox
+                self.assertLessEqual(record["tokens"]["total"], Bound().token_budget)
+                if "t06_" not in task:
+                    self.assertEqual(record["end_reasons"], single[task]["end_reasons"])
+        t06 = split["tasks/t06_bulk_ended_contractors.yaml"]
+        self.assertTrue(t06["passed"], t06.get("reason"))
+        self.assertEqual(t06["end_reasons"][-1], "plan_done")
