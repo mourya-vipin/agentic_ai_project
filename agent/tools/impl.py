@@ -340,19 +340,21 @@ def access_propose_change(args, ctx, key):
             "group_id": group["id"]}
 
 
-_rounds: dict[tuple, int] = {}      # (stamp, recipient, request) -> critique rounds used
+_rounds: dict[tuple, int] = {}      # (stamp, recipient, request) -> failed critique rounds
 
 
 def _critique(recipient: dict, request: dict | None, body: str, ctx, tool: str) -> None:
     """The external critique on a reply's facts (critique.requester_reply=external): a failure comes
-    back to fix, and the second is held. The rounds are counted per (run, recipient, request)."""
+    back to fix, and the second is held. The failures are counted per (run, recipient, request); a
+    pass uses no round, so a reply sent after a passing holding draft still gets its second chance."""
     if runtime.switch("critique.requester_reply") != "external":
         return
     stamp = db.current_stamp()
     slot = (stamp, recipient["id"], request["id"] if request else None)
-    _rounds[slot] = _rounds.get(slot, 0) + 1
     verdict = critique.review_draft(recipient_employee_id=recipient["id"], request_id=slot[2], body=body,
-                                    stamp=stamp, round=_rounds[slot])
+                                    stamp=stamp, round=_rounds.get(slot, 0) + 1)
+    if not verdict.passed:
+        _rounds[slot] = verdict.round
     runtime.trace(ctx.session_id).event("critique", round=verdict.round, verdict="pass" if verdict.passed
                                         else "fail", reason=verdict.reason, changed=verdict.changed,
                                         recipient=recipient["id"], request_id=slot[2])
