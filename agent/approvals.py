@@ -312,6 +312,9 @@ def screen(tool: str, args: dict, action_class: str, facts: dict) -> dict:
                                          + f", status {request.get('status')}")
         out["the request's text (their words)"] = " ".join(str(request.get("text") or "").split())[:TEXT_CHARS]
     if tool == "reply_send":
+        answer = _answer_it_follows(request)
+        if answer is not None:
+            out["the answer it is written from (their words)"] = answer
         out["what still checks it"] = _critique_line()
     out["secrets (computed)"] = "none: the hook refuses any text or record that carries a credential's secret"
     return out
@@ -349,6 +352,30 @@ def plan_screen(steps: list[dict], facts: dict) -> dict:
     if facts.get("instruction"):
         out["the operator's instruction"] = facts["instruction"]
     return out
+
+
+def _answer_it_follows(request: dict | None) -> str | None:
+    """For a reply after our manager_confirm question on this request: the first message the manager
+    wrote after it, as they wrote it, the message the reply answers (read as policy/hook.py reads the yes)."""
+    import channel
+    from sandbox import db
+    if not request:
+        return None
+    with db.connect() as conn:
+        asked = conn.execute("SELECT thread_id, message_id FROM notices_sent WHERE template_id = 'manager_confirm' "
+                             "ORDER BY message_id").fetchall()
+    for row in reversed(asked):
+        messages = channel.messages(row["thread_id"])
+        question = next((m for m in messages if m.id == row["message_id"]), None)
+        if question is None or request["id"] not in question.text:
+            continue
+        answer = next((m for m in messages if m.id > question.id and m.sender not in channel.OURS), None)
+        if answer is not None:
+            from sandbox import directory
+            who = directory.get_employee(row["thread_id"].removeprefix("SYN-MAIL-")) or {}
+            name = f"{who['name']} ({who['id']})" if who else answer.sender
+            return f"{name}, on {row['thread_id']}: " + " ".join(answer.text.split())[:TEXT_CHARS]
+    return None
 
 
 def _group(group_id: str) -> dict:

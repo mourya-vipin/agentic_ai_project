@@ -198,3 +198,23 @@ class GateTest(ScratchTest):
         approvals.reset()
         self.assertEqual(approvals.pending(), [])
         self.assertEqual(approvals.log(), [])
+
+
+class PerActionTest(ScratchTest):
+    """Approval per action (Part 2, task 4): t10, a reply written from the manager's NO, waits for the
+    operator's approval, and the screen shows the answer it is written from, as she wrote it."""
+
+    def test_t10_passes_with_run_py_playing_the_manager_and_the_operator(self):
+        record = self.run_task("tasks/t10_gated_reply.yaml", "t10", backend="tests.fakes:AsksTheManagerHearsNo")
+        self.assertTrue(record["passed"], record["check"])
+        self.assertEqual(record["end_reasons"], ["waiting_reply", "awaiting_approval", "done"])
+        self.assertEqual(record["approvals"], {"asked": 1, "answered": 1, "unanswered": 0})
+        decided = approvals.log()
+        self.assertEqual([(d["action_class"], d["decision"], d["who"]) for d in decided],
+                         [("reply_send/model_text", "approved", "scripted")])
+        shown = decided[0]["shown"]
+        self.assertIn("SYN-EMP-0007", shown["dry run"])                       # to Arjun, exactly as sent
+        self.assertIn(disclosure.LINE, shown["dry run"])
+        self.assertIn("NO.", shown["the answer it is written from (their words)"])
+        self.assertIn("Hannah Lee", shown["the answer it is written from (their words)"])
+        self.assertIn("their words", " ".join(shown))
