@@ -1,37 +1,71 @@
 {% extends "base.html" %}
 {% block title %}Threads{% endblock %}
 {% block content %}
+{# The outside channel's conversations: the people who wrote to the help desk, the agent's
+   questions to them, and their replies. A message written here as that person reaches the
+   agent once, through on_outside_reply (or a turn that waits in wait_for_reply). #}
 <h1>Threads</h1>
-<div class="split">
-  <section>
+<p class="muted lead">The help desk's conversations with people outside: their requests, the agent's questions and their replies.</p>
+{% set current = threads|selectattr('thread_id', 'equalto', thread)|first if thread else None %}
+<div class="inbox">
+  <section class="box inbox-list">
+    <div class="box-head"><span>Conversations <span class="count">{{ threads|length }}</span></span></div>
     {% for t in threads %}
-      <p><a href="/threads?thread={{ t.thread_id | urlencode }}">{{ t.thread_id }}</a><br>
-      <span class="muted">{{ t.messages }} messages{% if t.waiting_for_outside %} · waiting for a reply{% endif %}</span></p>
+      {% set name = t.them|person if t.them else 'Someone outside' %}
+      <a class="inbox-item{{ ' here' if t.thread_id == thread }}" href="/threads?thread={{ t.thread_id | urlencode }}" title="{{ t.thread_id }}">
+        <span class="avatar outside">{{ name|initials }}</span>
+        <span class="inbox-main">
+          <span class="inbox-top"><b>{{ name }}</b><span class="muted small">{{ t.last_at|when }}</span></span>
+          <span class="small inbox-preview">{% if t.last_sender == 'agent' %}<span class="muted">Agent:</span> {% elif t.last_sender == 'operator' %}<span class="muted">You:</span> {% endif %}{{ t.last_text|plain }}</span>
+          <span class="inbox-tags">
+            {% if t.waiting_for_outside %}<span class="chip waiting">waits for their reply</span>{% endif %}
+            {% if t.request_id %}<span class="chip">{{ t.request_id }}</span>{% endif %}
+            <span class="muted small">{{ t.messages }} message{{ 's' if t.messages != 1 }}</span>
+          </span>
+        </span>
+      </a>
     {% else %}
-      <p class="muted">No conversations yet.</p>
+      <p class="muted empty">No conversations yet.</p>
     {% endfor %}
   </section>
-  <section>
-    {% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
+
+  <section class="box inbox-thread">
     {% if thread %}
-      <h2>{{ thread }}</h2>
-      {% for m in messages %}
-        <div class="line {{ 'reply' if m.sender in ('agent', 'operator') else 'outside' }}"><div class="who">{{ m.sender }} · {{ m.at[:19] }}{% if m.seeded %} · seeded input{% endif %}{% if m.handled_by %} · to {{ m.handled_by }}{% endif %}</div>{{ m.text }}</div>
-      {% else %}
-        <p class="muted">No messages on this thread.</p>
-      {% endfor %}
-      <h2>Write as the stranger</h2>
-      <p class="muted">To try a conversation by hand. In experiments, the task file plays this person.
-      The message goes to the agent once: through <code>on_outside_reply</code>, or to a turn waiting
-      on this thread in <code>wait_for_reply</code>.</p>
-      <form method="post" action="/threads/reply">
+      {% set them = (messages|rejectattr('sender', 'in', ['agent', 'operator'])|map(attribute='sender')|first) or 'outside' %}
+      <div class="box-head"><span>{{ them|person }} <span class="muted small" style="text-transform: none; letter-spacing: 0">· {{ thread }}</span></span>
+        {% if current and current.request_id %}<a class="small" href="/requests/{{ current.request_id }}">Open request {{ current.request_id }}</a>{% endif %}</div>
+      {% if notice %}<div class="notice inbox-notice">{{ notice }}</div>{% endif %}
+      <div class="inbox-messages">
+        {% for m in messages %}
+          <div class="entry {{ 'agent' if m.sender == 'agent' else ('operator' if m.sender == 'operator' else 'outside') }}">
+            {% if m.sender == 'agent' %}<span class="avatar agent"><svg><use href="#bot-mini"/></svg></span>
+            {% elif m.sender == 'operator' %}<span class="avatar operator">OP</span>
+            {% else %}<span class="avatar outside">{{ m.sender|person|initials }}</span>{% endif %}
+            <div class="card-body">
+              <div class="who"><span><b>{{ m.sender|person }}</b>{% if m.seeded %} · the first message{% endif %}</span><span class="at">{{ m.at|when }}</span></div>
+              <div class="text">{{ m.text|plain }}</div>
+            </div>
+          </div>
+        {% else %}
+          <p class="muted empty">No messages on this thread.</p>
+        {% endfor %}
+      </div>
+      <form class="compose" method="post" action="/threads/reply">
         <input type="hidden" name="thread_id" value="{{ thread }}">
-        <p><input type="text" name="sender" value="{{ (messages | rejectattr('sender', 'in', ['agent', 'operator']) | map(attribute='sender') | first) or 'outside' }}" aria-label="Sender"></p>
-        <textarea name="text" rows="3" required></textarea>
-        <p><button>Send</button></p>
+        <div class="compose-head small muted">
+          <span>Reply as</span>
+          <input type="text" name="sender" value="{{ them }}" aria-label="Sender" title="Who writes this message">
+          <span>to try the conversation by hand. The agent gets the message once.</span>
+        </div>
+        <textarea name="text" rows="2" required placeholder="Write as {{ them|person }}"></textarea>
+        <div class="send-row"><button class="primary">Send</button></div>
       </form>
     {% else %}
-      <p class="muted">Choose a thread.</p>
+      <div class="inbox-empty">
+        <div class="inbox-empty-mark" aria-hidden="true">&#9993;</div>
+        <p><b>Choose a conversation</b></p>
+        <p class="muted small">Pick one on the left to read it, or to reply as that person.</p>
+      </div>
     {% endif %}
   </section>
 </div>

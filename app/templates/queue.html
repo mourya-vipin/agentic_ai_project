@@ -1,31 +1,111 @@
 {% extends "base.html" %}
 {% block title %}Queue{% endblock %}
 {% block content %}
+{# The work waiting, in four groups, by what each item needs. The items come from sandbox/queue.py
+   (Shruti Tewaney's); this page only puts them in words. A held item has "needs", a run's ID holds
+   "#", an open request has "thread", and an open pending record has "request". #}
+{% set held = items|selectattr('needs', 'defined')|list %}
+{% set runs = items|rejectattr('needs', 'defined')|selectattr('id', 'run_key')|list %}
+{% set requests = items|selectattr('thread', 'defined')|list %}
+{% set records = items|selectattr('request', 'defined')|list %}
 <h1>Queue</h1>
-<h2>Waiting in the sandbox</h2>
+<p class="muted lead">Everything that waits: first what needs your answer, then the agent's paused work, then the new requests.</p>
 {% if item_error %}<p class="error">{{ item_error }}</p>{% endif %}
-{% if items %}
-  <div class="scroll"><table>
-    <tr><th>ID</th><th>Summary</th><th>Status</th><th>Since</th><th>More</th></tr>
-    {% for i in items %}
-      <tr><td>{{ i.id }}</td><td>{{ i.summary }}</td><td>{{ i.status }}</td><td>{{ i.since }}</td>
-          <td class="muted">{% for k, v in i.items() if k not in ('id', 'summary', 'status', 'since') %}{{ k }}: {{ v }}{% if not loop.last %}; {% endif %}{% endfor %}</td></tr>
-    {% endfor %}
-  </table></div>
-{% elif not item_error %}
-  <p class="muted">Nothing is waiting. <code>sandbox/queue.py</code> says what goes here.</p>
+
+<section class="box q-group">
+  <div class="box-head"><span>Needs your answer <span class="count">{{ held|length + approvals|length }}</span></span></div>
+  {% if approval_error %}<p class="error empty">{{ approval_error }}</p>{% endif %}
+  {% if approvals %}
+    <a class="q-item" href="/approvals">
+      <span class="q-mark wait" aria-hidden="true">&#10003;</span>
+      <span class="q-main"><b>{{ approvals|length }} action{{ 's' if approvals|length != 1 }} wait{{ 's' if approvals|length == 1 }} for your approval</b>
+        <span class="muted small">Open Approvals to see each one before it runs, then approve or deny it.</span></span>
+      <span class="q-side"><span class="chip waiting">approval</span></span>
+    </a>
+  {% endif %}
+  {% for i in held %}
+    {% set session = i.run.rsplit('#', 1)[0] if i.run else None %}
+    <div class="q-item">
+      <span class="q-mark alert" aria-hidden="true">!</span>
+      <span class="q-main"><b>The agent stopped and needs you: {{ i.needs }}</b>
+        <span class="small">{{ i.summary.split(': ', 1)[-1] }}</span>
+        <span class="muted small">Packet {{ i.id }}{% if i.run %} · {{ i.run|run_names|capitalize }}{% endif %}{% if i['ends held at'] %} · held until {{ i['ends held at']|when }}{% endif %}.
+          To answer, type <code>/answer {{ i.id }}</code> and your answer in its console session.</span></span>
+      <span class="q-side"><span class="chip held">held</span><span class="muted small">{{ i.since|when }}</span>
+        {% if session %}<a href="/console/{{ session }}"><button class="tool small">Open the session</button></a>{% endif %}</span>
+    </div>
+  {% endfor %}
+  {% if not held and not approvals and not approval_error %}<p class="muted empty">Nothing needs your answer.</p>{% endif %}
+</section>
+
+<section class="box q-group">
+  <div class="box-head"><span>The agent's paused work <span class="count">{{ runs|length }}</span></span></div>
+  {% for i in runs %}
+    {% set session, run_no = i.id.rsplit('#', 1) %}
+    {% set use_case, task = (i.summary.split(': ', 1) + [''])[:2] if ': ' in i.summary else ('', i.summary) %}
+    {% set status = i.status %}
+    <div class="q-item">
+      <span class="q-mark {{ 'stop' if status.startswith('stopped') else 'wait' }}" aria-hidden="true">{{ '&#10074;&#10074;'|safe if status.startswith('stopped') else '&#8987;'|safe }}</span>
+      <span class="q-main"><b>Run {{ run_no }}{% if use_case %} · {{ use_case|use_case_words }}{% endif %}</b>
+        <span class="small">{{ task or i.summary }}</span>
+        <span class="muted small">
+          {% if status.startswith('waits for a reply on ') %}{% set thread = status[21:] %}Waits for a reply on <a href="/threads?thread={{ thread|urlencode }}">{{ thread }}</a>.
+          {% elif status.startswith("waits for the operator's approval") %}Waits for your approval: see <a href="/approvals">Approvals</a>.
+          {% elif status.startswith('stopped') %}You stopped it. Open the session to resume, cancel or undo it.
+          {% else %}{{ status|capitalize }}.{% endif %}
+          Session {{ session|session_label }}.</span></span>
+      <span class="q-side"><span class="chip {{ 'stopped' if status.startswith('stopped') else 'waiting' }}">{{ 'stopped' if status.startswith('stopped') else 'waiting' }}</span>
+        <span class="muted small">{{ i.since|when }}</span>
+        <a href="/console/{{ session }}" title="{{ i.id }}"><button class="tool small">Open the session</button></a></span>
+    </div>
+  {% else %}
+    <p class="muted empty">No run of the agent is paused.</p>
+  {% endfor %}
+</section>
+
+<section class="box q-group">
+  <div class="box-head"><span>New requests <span class="count">{{ requests|length }}</span></span>
+    <a class="small" href="/">All requests</a></div>
+  {% for i in requests %}
+    <a class="q-item" href="/requests/{{ i.id }}">
+      <span class="q-mark" aria-hidden="true">&#9993;</span>
+      <span class="q-main"><span>{{ i.summary|plain }}{{ '…' if i.summary|length >= 90 }}</span>
+        <span class="muted small">{{ i.id }}{% if i.thread %} · thread {{ i.thread }}{% endif %}</span></span>
+      <span class="q-side"><span class="chip {{ 'running' if i.status == 'new' else 'waiting' }}">{{ i.status }}</span>
+        <span class="muted small">{{ i.since|when }}</span></span>
+    </a>
+  {% else %}
+    <p class="muted empty">No request is open.</p>
+  {% endfor %}
+</section>
+
+{% if records %}
+<section class="box q-group">
+  <div class="box-head"><span>For you to do by hand <span class="count">{{ records|length }}</span></span>
+    <a class="small" href="/pending">All pending records</a></div>
+  {% for i in records %}
+    <a class="q-item" href="/pending">
+      <span class="q-mark" aria-hidden="true">&#9998;</span>
+      <span class="q-main"><span>{{ i.summary|capitalize }}</span>
+        <span class="muted small">{{ i.id }}{% if i.request %} · for request {{ i.request }}{% endif %}</span></span>
+      <span class="q-side"><span class="chip waiting">for you</span><span class="muted small">{{ i.since|when }}</span></span>
+    </a>
+  {% endfor %}
+</section>
 {% endif %}
-<h2>Waiting for an outside reply</h2>
-{% for t in waiting %}
-  <p><a href="/threads?thread={{ t.thread_id | urlencode }}">{{ t.thread_id }}</a> <span class="muted">since {{ t.last_at }}: {{ t.last_text[:140] }}</span></p>
-{% else %}
-  <p class="muted">No thread waits for a reply.</p>
-{% endfor %}
-<h2>Waiting for approval</h2>
-{% if approval_error %}<p class="error">{{ approval_error }}</p>{% endif %}
-{% if approvals %}
-  <p><a href="/approvals">{{ approvals | length }} waiting</a></p>
-{% elif not approval_error %}
-  <p class="muted">Nothing waits for approval.</p>
-{% endif %}
+
+<section class="box q-group">
+  <div class="box-head"><span>Waiting for someone outside <span class="count">{{ waiting|length }}</span></span>
+    <a class="small" href="/threads">All threads</a></div>
+  {% for t in waiting %}
+    <a class="q-item" href="/threads?thread={{ t.thread_id | urlencode }}">
+      <span class="q-mark wait" aria-hidden="true">&#8987;</span>
+      <span class="q-main"><b>No reply yet on {{ t.thread_id }}</b>
+        <span class="muted small">Last message, from {{ 'the agent' if t.last_sender == 'agent' else 'you' }}: {{ t.last_text[:140]|plain }}</span></span>
+      <span class="q-side"><span class="chip waiting">waiting</span><span class="muted small">{{ t.last_at|when }}</span></span>
+    </a>
+  {% else %}
+    <p class="muted empty">Nobody outside owes a reply.</p>
+  {% endfor %}
+</section>
 {% endblock %}
