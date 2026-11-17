@@ -121,6 +121,23 @@ class SendToolsTest(ScratchTest):
         self.assertIn("reply was not sent", result.content)
         self.assertEqual(self.agent_messages(LEO_THREAD), [])
 
+    def test_a_reply_after_a_passing_draft_still_gets_its_second_round(self):
+        # t08 and t10: the holding draft passes, the reply after the manager's answer fails once;
+        # a pass uses no round, so the reply comes back to fix, and only a second failure is held
+        draft = self.registry.call("reply_draft", {"recipient_employee_id": LEO, "request_id": REQ,
+                                                   "body": "SYNTHETIC. Hi Leo, your request is with the IT team."},
+                                   ctx())
+        self.assertFalse(draft.is_error, draft.content)
+        with approvals(covers=True):
+            first = self.reply("SYNTHETIC. Hi Leo, I granted you SYN-GRP-FINREP-WRITE.")
+            held = self.reply("SYNTHETIC. Hi Leo, SYN-GRP-FINREP-WRITE was granted to you.")
+        self.assertIsNone(first.end_reason)
+        self.assertIn("round 1 of 2", first.content)
+        self.assertEqual(held.end_reason, "critique_held")
+        self.assertEqual([(x["round"], x["verdict"]) for x in self.lines("critique")],
+                         [(1, "pass"), (1, "fail"), (2, "fail")])
+        self.assertEqual(self.agent_messages(LEO_THREAD), [])
+
     def test_a_reply_built_without_the_line_is_refused_and_logged(self):
         with approvals(covers=True):
             result = self.registry.call("reply_send", {"recipient_employee_id": LEO, "request_id": REQ,
