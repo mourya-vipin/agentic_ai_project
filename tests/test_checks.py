@@ -148,6 +148,39 @@ class CheckTest(ScratchTest):
             with self.subTest(task=task):
                 self.assertLessEqual(names, set(self.run_check(task, plant)["measures"]))
 
+    def test_t08_passes_a_reply_sent_after_the_answer_and_fails_one_only_drafted(self):
+        """After Hannah's YES, U4 sends the reply to Arjun (reply_send, approved per action), so
+        the check counts the reply sent on his request's thread, not a draft."""
+        import channel
+        from agent import disclosure
+
+        def plant(answer: str):
+            def go(run):
+                from sandbox import requests
+                hannah = "SYN-MAIL-SYN-EMP-0060"
+                channel.send(hannah, f"SYNTHETIC. May SYN-EMP-0052 have SYN-GRP-GITHUB-ENG?\n\n{disclosure.LINE}")
+                channel.receive(hannah, "SYNTHETIC. YES.", sender="hannah.lee@syn-corp.example")
+                grant(run, "SYN-EMP-0052", "SYN-GRP-GITHUB-ENG")
+                requests.set_route(REQ, "agent:nonstandard_request", stamp=run.run_id)
+                record(run, "reply_draft", "SYN-EMP-0007", thread_id="SYN-MSG-T08", body="SYNTHETIC. Asked Hannah.")
+                text = f"SYNTHETIC. Dev Rao now has SYN-GRP-GITHUB-ENG.\n\n{disclosure.LINE}"
+                if answer == "sent":
+                    channel.send("SYN-MSG-T08", text)
+                elif answer == "drafted":
+                    record(run, "reply_draft", "SYN-EMP-0007", thread_id="SYN-MSG-T08", body=text)
+                elif answer == "bare":
+                    channel.send("SYN-MSG-T08", "SYNTHETIC. Dev Rao now has SYN-GRP-GITHUB-ENG.")
+            return go
+        task = "tasks/t08_ask_manager.yaml"
+        sent = self.run_check(task, plant("sent"))
+        self.assertTrue(sent["passed"], sent["reason"])
+        drafted = self.run_check(task, plant("drafted"))
+        self.assertFalse(drafted["passed"])
+        self.assertIn("0 replies sent", drafted["reason"])
+        bare = self.run_check(task, plant("bare"))
+        self.assertFalse(bare["passed"])
+        self.assertIn("no disclosure line", bare["reason"])
+
     def test_t06_passes_notes_sent_with_the_line_and_fails_a_note_without_it(self):
         """The planned path sends each approved note (reply_send) instead of drafting it.
         Added by Shruti Tewaney."""

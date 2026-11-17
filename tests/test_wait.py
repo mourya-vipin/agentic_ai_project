@@ -46,7 +46,8 @@ class AsksTheManagerThenGrants(fakes.RouterFake):
         1. ask Dev's manager (channel_ask_template), draft the reply to Arjun, and set the
            request to pending_operator, in one step; then end the turn
         2. when the manager's reply is in the conversation, grant the group (the operator
-           approves it), then say Done."""
+           approves it), then send the reply to Arjun with reply_send (the operator approves
+           it too), then say Done."""
 
     def create(self, *, system, messages, tools):
         if not tools:
@@ -69,20 +70,20 @@ class AsksTheManagerThenGrants(fakes.RouterFake):
             return ([{"type": "tool_use", "id": "toolu_grant", "name": "access_grant",
                       "input": {"employee_id": DEV, "group_id": GITHUB_ENG, "request_id": REQ}}],
                     "tool_use", self.name, Usage(40, 10))
-        return [{"type": "text", "text": "Done."}], "end_turn", self.name, Usage(40, 2)
-
-
-class SendsTheReplyAfterTheAnswer(AsksTheManagerThenGrants):
-    """As above, and after the grant, U4 sends the reply to Arjun with reply_send, as the prompt
-    says after a manager's answer. The send waits for the operator's approval."""
-
-    def create(self, *, system, messages, tools):
-        if tools and _tool_uses(messages, "access_grant") and not _tool_uses(messages, "reply_send"):
-            return ([{"type": "tool_use", "id": "toolu_send", "name": "reply_send",
+        if not _tool_uses(messages, self.answer_tool):
+            return ([{"type": "tool_use", "id": "toolu_answer", "name": self.answer_tool,
                       "input": {"recipient_employee_id": ARJUN, "request_id": REQ,
                                 "body": f"SYNTHETIC. Hi Arjun, Hannah Lee agreed, so Dev Rao now has {GITHUB_ENG}."}}],
                     "tool_use", self.name, Usage(40, 20))
-        return super().create(system=system, messages=messages, tools=tools)
+        return [{"type": "text", "text": "Done."}], "end_turn", self.name, Usage(40, 2)
+
+    answer_tool = "reply_send"
+
+
+class DraftsAfterTheAnswer(AsksTheManagerThenGrants):
+    """As above, but after the manager's answer it drafts the reply, as U4 did before t10."""
+
+    answer_tool = "reply_draft"
 
 
 CHILD = r"""
@@ -98,8 +99,11 @@ with fixed_run(task, rid, backend=backend, fresh=fresh == "fresh"):
     else:
         turns.outside_reply(thread, text, sender=sender)
         from agent import approvals
-        for item in approvals.pending():
-            turns.decide_approval(item["id"], True, "the operator approves the grant")
+        for _ in range(5):                   # the grant, then the reply to Arjun
+            waiting = approvals.pending()
+            if not waiting:
+                break
+            turns.decide_approval(waiting[0]["id"], True, "the operator approves it")
 """
 
 
@@ -114,7 +118,7 @@ class TheWait(ScratchTest):
         self.assertIn("reply_send", TOOLS[NONSTANDARD])
         self.assertNotIn("reply_send", TOOLS[BULK_CHANGE], "U6's loop sends nothing")
         self.assertIn("reply_send", (PROMPTS / "nonstandard_request.md").read_text(encoding="utf-8"))
-        record = self.run_task(T08, "aman-send", backend="tests.test_wait:SendsTheReplyAfterTheAnswer")
+        record = self.run_task(T08, "aman-send", backend=BACKEND)
         self.assertTrue(record["passed"], record["check"])
         self.assertEqual(record["approvals"]["answered"], 2, "the grant, then the reply")
         sent = [c for c in record["tool_calls"] if c["name"] == "reply_send"]
@@ -123,6 +127,11 @@ class TheWait(ScratchTest):
         self.assertTrue(any('"status": "sent"' in o for o in outputs), outputs)
         to_arjun = [m for m in channel.messages("SYN-MSG-T08") if m.sender in channel.OURS]
         self.assertTrue(to_arjun and "Hannah Lee agreed" in to_arjun[-1].text, "the reply is on Arjun's thread")
+
+    def test_t08_fails_a_run_that_drafts_the_reply_after_the_answer_instead_of_sending_it(self):
+        record = self.run_task(T08, "aman-draft", backend="tests.test_wait:DraftsAfterTheAnswer")
+        self.assertFalse(record["passed"])
+        self.assertIn("0 replies sent", record["check"]["reason"])
 
     def test_the_wait_survives_a_restart_the_reply_comes_in_a_new_process(self):
         rid = "wait-restart"
