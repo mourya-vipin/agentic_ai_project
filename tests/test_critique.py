@@ -270,3 +270,54 @@ class PlannedNotesTest(ScratchTest):
         self.assertEqual(found, [f"The draft asks Grace Okafor to approve, but nothing waits for their approval: "
                                  f"{hold['id']} still waits for the operator. Say who it waits for, and keep the rest "
                                  "of the draft as it was."])
+
+
+class AskedManagerTest(ScratchTest):
+    """A question to the manager (channel_ask_template) waits for her until she answers, so a holding
+    reply may say so: the two drafts the critique held in a live t10 run
+    (m2-u4-check-t10_gated_reply-s01-525bce, trace lines 28 and 33) pass. Once she answers, it waits no more."""
+
+    HELD = ("Your request to add your teammate Dev Rao to the GitHub engineers group is pending approval from his "
+            "manager. We have asked the manager for confirmation and will update you once we receive a response.",
+            "Your request to add your teammate Dev Rao (SYN-EMP-0052) to the GitHub engineers group (SYN-GRP-GITHUB-ENG) "
+            "is currently pending his manager's approval. We have contacted his manager to confirm this access and will "
+            "update you once we receive a response. Thank you for your patience.")
+
+    def test_a_question_to_the_manager_waits_until_she_answers(self):
+        import channel
+        from agent.registry import CallContext, get_registry
+        run_id = f"crit-ask-{uuid.uuid4().hex[:8]}"
+        with fixed_run("tasks/t10_gated_reply.yaml", run_id):
+            ctx = CallContext(run_id, 1, "model", "nonstandard_request", request_id="SYN-REQ-0001",
+                              run_key=f"{run_id}#1")
+            asked = get_registry().call("channel_ask_template", {"template": "manager_confirm", "employee_id": "SYN-EMP-0052",
+                                                                 "group_id": "SYN-GRP-GITHUB-ENG", "request_id": "SYN-REQ-0001"}, ctx)
+            self.assertFalse(asked.is_error, asked.content)
+            check = lambda body: critique.check_draft(recipient_employee_id="SYN-EMP-0007", request_id="SYN-REQ-0001",
+                                                      body=body, stamp=run_id)
+            for body in self.HELD:
+                self.assertEqual(check(body), [], body[:60])
+            channel.receive(asked.data["thread_id"], "SYNTHETIC. NO. Not yet for Dev.", sender="hannah.lee@syn-corp.example")
+            self.assertTrue(check(self.HELD[1]), "after her answer, the group waits no more")
+            self.assertEqual(check("Hannah Lee did not agree for now, so SYN-GRP-GITHUB-ENG was not added for Dev Rao."), [])
+
+    def test_the_managers_yes_is_an_approval_on_record(self):
+        """m2-critique-check2-t08_ask_manager-s01-d08b3c, trace lines 80 and 81: after Hannah's YES the reply
+        "approved by manager Hannah Lee" was held, as if no approval were on record."""
+        import channel
+        from agent.registry import CallContext, get_registry
+        from sandbox import access
+        run_id = f"crit-yes-{uuid.uuid4().hex[:8]}"
+        said = ("Your request has been approved by manager Hannah Lee, and Dev Rao has been granted the GitHub "
+                "engineers group (SYN-GRP-GITHUB-ENG).")
+        with fixed_run("tasks/t08_ask_manager.yaml", run_id):
+            ctx = CallContext(run_id, 1, "model", "nonstandard_request", request_id="SYN-REQ-0001",
+                              run_key=f"{run_id}#1")
+            asked = get_registry().call("channel_ask_template", {"template": "manager_confirm", "employee_id": "SYN-EMP-0052",
+                                                                 "group_id": "SYN-GRP-GITHUB-ENG", "request_id": "SYN-REQ-0001"}, ctx)
+            access.grant("SYN-EMP-0052", "SYN-GRP-GITHUB-ENG", request_id="SYN-REQ-0001", key=None, stamp=run_id, actor="agent")
+            check = lambda: critique.check_draft(recipient_employee_id="SYN-EMP-0007", request_id="SYN-REQ-0001",
+                                                 body=said, stamp=run_id)
+            self.assertTrue(any("no approval is on record" in w for w in check()), "before her answer")
+            channel.receive(asked.data["thread_id"], "SYNTHETIC. YES. Dev is on my team now.", sender="hannah.lee@syn-corp.example")
+            self.assertEqual(check(), [])

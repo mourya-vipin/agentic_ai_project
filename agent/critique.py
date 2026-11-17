@@ -124,6 +124,9 @@ def _case(recipient: str, request_id: str | None, stamp: str) -> dict:
         text = req.get("text") or ""
         approved = [p["id"] for p in pending.by_request(request_id)
                     if p["stamp"] == stamp and p["kind"] in WAITING_KINDS and p["status"] == "done"]
+        approved += _confirmed(request_id, stamp)              # the manager's YES to our question
+        asked = _asked_unanswered(request_id, stamp)          # a manager_confirm question still open
+        people |= {q["manager"] for q in asked} | {q["employee_id"] for q in asked}
     else:
         # An operator's bulk change: what this run did to the recipient's own reports.
         def reports(employee_id):
@@ -134,22 +137,75 @@ def _case(recipient: str, request_id: str | None, stamp: str) -> dict:
         affected = sorted({c["employee_id"] for c in changes} | {p["employee_id"] for p in waiting})
         people, text = {recipient}, ""
         approved = []                      # a bulk change's proposals are approved after its run
+        asked = []
     people = {p for p in people | set(affected) if p}
     active = {m["group_id"] for person in affected or [recipient] for m in access.memberships(person)}
     # Who may approve what waits: a manager confirmation waits for that employee's manager.
-    approvers = {(directory.manager_of(p["employee_id"]) or {}).get("id") for p in waiting
-                 if p["kind"] == "manager_confirmation" and p["employee_id"]}
+    approvers = {(directory.manager_of(p["employee_id"]) or {}).get("id") for p in waiting + asked
+                 if p["kind"] in ("manager_confirmation", "manager_question") and p["employee_id"]}
     return {"granted": {c["group_id"] for c in changes if c["change"] == "granted"},
             "removed": {c["group_id"] for c in changes if c["change"] == "removed"},
             "waiting": {p["group_id"]: p["id"] for p in waiting if p["group_id"]},
-            "waits_for": [(p["id"], _approver(p)) for p in sorted(waiting, key=lambda p: p["id"])],
+            "waits_for": [(p["id"], _approver(p)) for p in sorted(waiting, key=lambda p: p["id"]) + asked],
+            # an open question to the manager: a draft may call its group waiting, and need not name it
+            "asked": {q["group_id"]: q["id"] for q in asked},
             "approved": approved, "approvers": approvers,
             "active": active, "affected": affected, "people": people, "request_text": text.lower(),
             "bulk": request_id is None}
 
 
+def _questions(request_id: str, stamp: str) -> list[dict]:
+    """The manager_confirm questions this run sent under the request (channel_ask_template), each with
+    the manager's first answer after it, if any: "yes", "no" or "" (read by its first word, as
+    policy/hook.py reads it)."""
+    import channel
+    from policy import hook
+    from sandbox import db
+    with db.connect() as conn:
+        rows = conn.execute("SELECT thread_id, message_id FROM notices_sent WHERE template_id = 'manager_confirm' "
+                            "AND stamp = ? ORDER BY message_id", (stamp,)).fetchall()
+    out = []
+    for row in rows:
+        messages = channel.messages(row["thread_id"])
+        question = next((m for m in messages if m.id == row["message_id"]), None)
+        if question is None or request_id not in question.text:
+            continue
+        reply = next((m for m in messages if m.id > question.id and m.sender not in channel.OURS), None)
+        said = re.sub(r"^\s*SYNTHETIC\.\s*", "", reply.text).strip() if reply else None
+        answer = None if said is None else "yes" if hook.YES.match(said) else "no" if hook.NO.match(said) else ""
+        out.append({"question": question, "thread_id": row["thread_id"], "answer": answer})
+    return out
+
+
+def _confirmed(request_id: str, stamp: str) -> list[str]:
+    """The questions under this request that the manager answered YES: an approval on record."""
+    return [f"the YES of {q['thread_id'].removeprefix('SYN-MAIL-')} (message {q['question'].id})"
+            for q in _questions(request_id, stamp) if q["answer"] == "yes"]
+
+
+def _asked_unanswered(request_id: str, stamp: str) -> list[dict]:
+    """The questions under this request that no reply has followed yet, each as a record that waits for
+    that manager: what a holding reply may truly call waiting. Once the manager answers, it waits no more."""
+    out = []
+    for q in _questions(request_id, stamp):
+        if q["answer"] is not None:
+            continue                                                   # answered: it waits no more
+        question, row = q["question"], q
+        groups = GROUP_ID.findall(question.text)
+        people = [p for p in re.findall(r"SYN-EMP-\d{4}", question.text)]
+        manager = row["thread_id"].removeprefix("SYN-MAIL-")
+        employee = next((p for p in people if p != manager), None)
+        if groups and employee:
+            out.append({"id": f"the question to {manager} (message {question.id})", "kind": "manager_question",
+                        "group_id": groups[0].upper(), "employee_id": employee, "status": "open", "manager": manager})
+    return out
+
+
 def _approver(record: dict) -> str:
     """Who approves an open record: the operator a proposal, the manager a confirmation."""
+    if record["kind"] == "manager_question":
+        who = directory.get_employee(record["manager"]) or {}
+        return who.get("name") or record["manager"]
     if record["kind"] == "manager_confirmation":
         manager = directory.manager_of(record["employee_id"]) if record["employee_id"] else None
         return manager["name"] if manager else "the manager"
@@ -200,7 +256,7 @@ def check_draft(*, recipient_employee_id: str, request_id: str | None, body: str
             continue
         mentioned.add(gid)
         claim = _claim(body, start, end)
-        pend = case["waiting"].get(gid)
+        pend = case["waiting"].get(gid) or case["asked"].get(gid)
         if claim == "granted" and gid not in case["granted"]:
             wrong.append(f"The draft says {gid} was granted, but "
                          + (f"it is waiting for approval ({pend})." if pend
