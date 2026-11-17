@@ -438,6 +438,41 @@ class MidTaskReplacer(MidTaskOperator):
     MESSAGE = "Scratch that, remove nothing today."
 
 
+class AsksTheManagerHearsNo(RouterFake):
+    """t10: routes Arjun's request to U4; asks Dev's manager by template, drafts the holding reply and
+    sets the request pending, then ends the turn. After Hannah's NO, it grants nothing and sends Arjun
+    the reply with reply_send, written from her answer; the operator approves it; then Done."""
+    REPLY = ("SYNTHETIC. Hi Arjun, Hannah Lee, Dev's manager, did not agree for now, so SYN-GRP-GITHUB-ENG "
+             "was not added for Dev Rao.")
+
+    def create(self, *, system, messages, tools):
+        from harness.client import Usage
+        if not tools:
+            return super().create(system=system, messages=messages, tools=tools)
+        used = [b.get("name") for m in messages if m["role"] == "assistant" and isinstance(m["content"], list)
+                for b in m["content"] if b.get("type") == "tool_use"]
+        heard = "not the operator]" in json.dumps(messages)
+        arjun, dev, req = "SYN-EMP-0007", "SYN-EMP-0052", "SYN-REQ-0001"
+        if "channel_ask_template" not in used:
+            calls = [("toolu_ask", "channel_ask_template", {"template": "manager_confirm", "employee_id": dev,
+                                                            "group_id": "SYN-GRP-GITHUB-ENG", "request_id": req}),
+                     ("toolu_draft", "reply_draft", {"recipient_employee_id": arjun, "request_id": req,
+                                                     "body": "SYNTHETIC. Hi Arjun, we have asked Dev's manager to "
+                                                             "confirm this request."}),
+                     ("toolu_status", "requests_set_status", {"request_id": req, "status": "pending_operator",
+                                                              "note": "waiting for Dev's manager"})]
+            return ([{"type": "tool_use", "id": i, "name": n, "input": a} for i, n, a in calls], "tool_use",
+                    self.name, Usage(40, 30))
+        if not heard:
+            return [{"type": "text", "text": "I asked Hannah Lee and wait for her reply."}], "end_turn", self.name, \
+                Usage(40, 12)
+        if "reply_send" not in used:
+            return ([{"type": "tool_use", "id": "toolu_answer", "name": "reply_send",
+                      "input": {"recipient_employee_id": arjun, "request_id": req, "body": self.REPLY}}],
+                    "tool_use", self.name, Usage(40, 20))
+        return [{"type": "text", "text": "Done."}], "end_turn", self.name, Usage(40, 2)
+
+
 class SeeingFiller(GoodPlanner):
     """Plans t06 with the hold, as GoodPlannerWithHold, and keeps every fill request it is
     sent (`seen`), so a test can read what each note's call was given."""

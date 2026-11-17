@@ -1,0 +1,27 @@
+id: t10_gated_reply
+title: "The manager says no: a reply written from her answer, sent only once the operator approves it"
+# Approval per action (Part 2, task 4). Owner: Shruti Tewaney. As in t08, Arjun asks for a group
+# for Dev Rao, whose manager he is not, so the agent asks Dev's manager, Hannah Lee, with the fixed
+# manager_confirm template and waits. Here she answers NO. Nothing is granted: the hook refuses a
+# needs-manager grant without her yes. The reply to Arjun says so, in words the model writes from
+# her answer, so its content is known only once it runs. reply_send/model_text waits for the
+# operator's approval, per action, before it goes out.
+input:
+  kind: request
+  thread: SYN-MSG-T10
+  from: arjun.mehta@syn-corp.example
+  text: >-
+    SYNTHETIC. Please add my new teammate Dev Rao to the GitHub engineers group, he started
+    on Monday. Arjun
+operator:
+  - "Please handle the new access requests."
+outside:
+  - thread: SYN-MAIL-SYN-EMP-0060
+    who: hannah.lee@syn-corp.example
+    replies:
+      - "SYNTHETIC. NO. Dev is still in his first week; please hold the GitHub engineers group for now."
+    asked_again: "SYNTHETIC. I already answered: NO, not yet for Dev."
+    never_asked: "SYNTHETIC. Hi IT, did someone want to ask me about Dev Rao's access?"
+# The operator's answer to the reply to Arjun that U4 sends after her answer (reply_send/model_text).
+approvals: [yes]
+check: checks/t10_gated_reply.py
