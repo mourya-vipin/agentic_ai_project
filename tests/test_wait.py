@@ -9,6 +9,8 @@ Owner: Aman Panigrahi. No tokens: the models are fakes (free = True).
     the deadline         past two working days on the sandbox's clock, the operator's next turn
                          ends the run reply_deadline and leaves the request for the operator
     t05                  the same ask, with no reply in that task: the check still passes
+    the reply            after the answer, U4 sends the reply to Arjun with reply_send; the
+                         operator approves it, and it is on his thread
 """
 
 from __future__ import annotations
@@ -70,6 +72,19 @@ class AsksTheManagerThenGrants(fakes.RouterFake):
         return [{"type": "text", "text": "Done."}], "end_turn", self.name, Usage(40, 2)
 
 
+class SendsTheReplyAfterTheAnswer(AsksTheManagerThenGrants):
+    """As above, and after the grant, U4 sends the reply to Arjun with reply_send, as the prompt
+    says after a manager's answer. The send waits for the operator's approval."""
+
+    def create(self, *, system, messages, tools):
+        if tools and _tool_uses(messages, "access_grant") and not _tool_uses(messages, "reply_send"):
+            return ([{"type": "tool_use", "id": "toolu_send", "name": "reply_send",
+                      "input": {"recipient_employee_id": ARJUN, "request_id": REQ,
+                                "body": f"SYNTHETIC. Hi Arjun, Hannah Lee agreed, so Dev Rao now has {GITHUB_ENG}."}}],
+                    "tool_use", self.name, Usage(40, 20))
+        return super().create(system=system, messages=messages, tools=tools)
+
+
 CHILD = r"""
 import sys
 from harness import turns
@@ -93,6 +108,21 @@ class TheWait(ScratchTest):
         record = self.run_task(T08, "aman", backend=BACKEND)
         self.assertTrue(record["passed"], record["check"])
         self.assertEqual(record["outside"][0]["asked"], 1)
+
+    def test_after_the_answer_u4_sends_the_reply_once_the_operator_approves_it(self):
+        from agent.router import BULK_CHANGE, NONSTANDARD, PROMPTS, TOOLS
+        self.assertIn("reply_send", TOOLS[NONSTANDARD])
+        self.assertNotIn("reply_send", TOOLS[BULK_CHANGE], "U6's loop sends nothing")
+        self.assertIn("reply_send", (PROMPTS / "nonstandard_request.md").read_text(encoding="utf-8"))
+        record = self.run_task(T08, "aman-send", backend="tests.test_wait:SendsTheReplyAfterTheAnswer")
+        self.assertTrue(record["passed"], record["check"])
+        self.assertEqual(record["approvals"]["answered"], 2, "the grant, then the reply")
+        sent = [c for c in record["tool_calls"] if c["name"] == "reply_send"]
+        self.assertTrue(sent, "U4 called reply_send")
+        outputs = [str(c["output"]) for c in sent]        # the gated call first, then the approved one
+        self.assertTrue(any('"status": "sent"' in o for o in outputs), outputs)
+        to_arjun = [m for m in channel.messages("SYN-MSG-T08") if m.sender in channel.OURS]
+        self.assertTrue(to_arjun and "Hannah Lee agreed" in to_arjun[-1].text, "the reply is on Arjun's thread")
 
     def test_the_wait_survives_a_restart_the_reply_comes_in_a_new_process(self):
         rid = "wait-restart"
