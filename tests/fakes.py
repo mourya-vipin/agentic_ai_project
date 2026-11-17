@@ -438,6 +438,69 @@ class MidTaskReplacer(MidTaskOperator):
     MESSAGE = "Scratch that, remove nothing today."
 
 
+class SplitRoles:
+    """The split's model, on m2-split: the operator router's call says bulk change; an access role
+    (offered the identity tools) lists, removes all, then proposes each protected group kept; a comms
+    role (offered reply_send alone) writes a true note from the returns it is given."""
+    free = True
+    name = "split-roles"
+    SKIP: tuple = ()          # contractors whose access role says "Done." without removing anything
+    PROPOSES = True           # an access role proposes the removal of each protected group kept
+
+    def __init__(self, settings=None):
+        self.calls = 0
+
+    def _use(self, name, args):
+        from harness.client import Usage
+        self.calls += 1
+        return ([{"type": "tool_use", "id": f"split_{self.calls:03d}", "name": name, "input": args}], "tool_use",
+                self.name, Usage(input_tokens=200, output_tokens=40))
+
+    def _say(self, text):
+        from harness.client import Usage
+        self.calls += 1
+        return [{"type": "text", "text": text}], "end_turn", self.name, Usage(input_tokens=150, output_tokens=5)
+
+    def create(self, *, system, messages, tools):
+        from agent.registry import get_registry
+        names = {get_registry().resolve(t["name"]) or t["name"]: t["name"] for t in tools or []}
+        if not names:
+            return self._say(json.dumps({"intent": "bulk_change", "request_ids": []}))
+        if set(names) == {"reply_send"}:
+            return self._use(names["reply_send"], {"recipient_employee_id": "x", "body": self.note(messages[-1]["content"])})
+        text = json.dumps(messages)
+        person = re.search(r"SYN-EMP-\d{4}", messages[0]["content"]).group(0)
+        turns = sum(1 for m in messages if m.get("role") == "assistant")
+        if person in self.SKIP or turns >= 3 or (turns == 2 and '"kept_protected": []' in text.replace('\\"', '"')):
+            return self._say("Done.")
+        if turns == 0:
+            return self._use(names["access_list_memberships"], {"employee_id": person})
+        if turns == 1:
+            return self._use(names["access_revoke_all"], {"employee_id": person, "reason": "contract ended"})
+        kept = re.findall(r"SYN-GRP-LEGAL-HOLD", text)
+        if not kept or not self.PROPOSES:
+            return self._say("Done.")
+        return self._use(names["access_propose_change"], {"action": "revoke", "employee_id": person, "group_id": LEGAL_HOLD,
+                                                           "request_id": None, "reason": "contract ended"})
+
+    def note(self, request: str) -> str:
+        results = json.loads(request.split("for their contractors:\n", 1)[1].split("\n\nYour last call", 1)[0])
+        lines = []
+        for r in results:
+            lines.append(f"{r['employee_id']}'s contract has ended: I removed {', '.join(r['removed'])}.")
+            for g in r["kept_protected"]:
+                pid = (r.get("proposals") or {}).get(g)
+                lines.append(f"{g} was kept for {r['employee_id']}" + (f"; a proposal to take it away ({pid}) is "
+                                                                          "waiting for the operator's approval." if pid else "."))
+        return " ".join(lines) + " IT access desk."
+
+
+class SplitRolesNoProposal(SplitRoles):
+    """No access role proposes the protected group it kept: Victor's role returns a candidate, its
+    note says the hold was kept, every return keeps the contract, and the end state is still wrong."""
+    PROPOSES = False
+
+
 class SeeingFiller(GoodPlanner):
     """Plans t06 with the hold, as GoodPlannerWithHold, and keeps every fill request it is
     sent (`seen`), so a test can read what each note's call was given."""

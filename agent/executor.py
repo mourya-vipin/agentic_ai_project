@@ -643,6 +643,9 @@ class PlannedRun:
 def resume(cp, event: dict) -> Reply:
     """checkpoints.resume's way back into a U6 run with a plan: after the operator's answer to
     its approval, /resume after a stop, or the next turn after a crash."""
+    if (cp.findings or {}).get("split"):                # m2-split: the coordinator's run
+        from agent.split import coordinator
+        return coordinator.resume(cp, event)
     result = PlannedRun.restore(cp, Bound()).resume(event)
     return Reply(result.text, actions=list(result.actions))
 

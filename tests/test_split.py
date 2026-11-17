@@ -154,3 +154,63 @@ class EndStateTest(ScratchTest):
             wrong = checks.end_state(expected, run_id)
         self.assertIn(f"0 notes to {HANNAH}, not one", wrong)
         self.assertIn(f"the note to {GRACE} has no disclosure line", wrong)
+
+
+class SplitRunTest(ScratchTest):
+    """U6 as a split, end to end through the router: a coordinator, an access role per contractor
+    (identity tools alone) and a comms role per manager (reply_send alone)."""
+
+    def lines(self, record):
+        return read_trace(self.tmp / "traces" / f"{record['run_id']}.trace.jsonl") \
+            if (self.tmp / "traces" / f"{record['run_id']}.trace.jsonl").exists() else \
+            read_trace(next((self.tmp / "results").rglob(f"{record['run_id']}.trace.jsonl")))
+
+    def run_t06(self, backend="SplitRoles", overrides=()):
+        return self.run_task("tasks/t06_bulk_ended_contractors.yaml", "split-e2e", backend=f"tests.fakes:{backend}",
+                             overrides=["plan.bulk_change=on", "topology=split", *overrides])
+
+    def test_t06_passes_its_check_as_a_split_within_the_one_budget(self):
+        record = self.run_t06()
+        self.assertTrue(record["passed"], record.get("reason"))
+        lines = self.lines(record)
+        starts = [x for x in lines if x["type"] == "agent_start"]
+        self.assertEqual([x["role"] for x in starts], ["access"] * 3 + ["comms"] * 2)
+        parents = {x["parent"] for x in starts}
+        self.assertEqual(len(parents), 1)                                       # one coordinator over all
+        returns = [x for x in lines if x["type"] == "role_return"]
+        self.assertEqual((len(returns), all(x["valid"] for x in returns)), (5, True))
+        self.assertEqual([x["passed"] for x in lines if x["type"] == "end_state"], [True])
+        used = [x for x in lines if x["type"] == "split_budget_used"][-1]
+        self.assertLessEqual(used["used"], used["total"])
+        self.assertEqual(set(used["by_agent"]), {x["agent"] for x in starts})
+        self.assertEqual(record["approvals"]["asked"], 1)                       # one review at the plan
+
+    def test_each_role_calls_only_its_own_tools(self):
+        lines = self.lines(self.run_t06())
+        roles = {x["agent"]: x["role"] for x in lines if x["type"] == "agent_start"}
+        for x in lines:
+            if x["type"] == "tool_call" and x.get("run_key") in roles:
+                allowed = {"access": {"access_list_memberships", "access_revoke_all", "access_propose_change"},
+                           "comms": set()}[roles[x["run_key"]]]
+                self.assertIn(x["name"], allowed, x["name"])
+        sends = [x for x in lines if x["type"] == "tool_call" and x["name"] == "reply_send"]
+        self.assertEqual((len(sends), all(x["approved"] for x in sends)), (2, True))   # sent by the coordinator
+
+    def test_a_wrong_combined_result_is_caught_by_the_end_state_check(self):
+        record = self.run_t06("SplitRolesNoProposal")
+        lines = self.lines(record)
+        returns = [x for x in lines if x["type"] == "role_return"]
+        self.assertTrue(all(x["valid"] for x in returns))                       # every role's return holds
+        self.assertIn("candidate", [x["status"] for x in returns])
+        end = [x for x in lines if x["type"] == "end_state"][-1]
+        self.assertFalse(end["passed"])
+        self.assertEqual(end["problems"], [f"no proposal to remove {VICTOR}'s protected {fakes.LEGAL_HOLD}"])
+        self.assertEqual(record["end_reasons"][-1], "split_divergent")
+
+    def test_the_shared_budget_ends_the_split(self):
+        from unittest import mock
+        from agent import router
+        with mock.patch.object(router, "BOUND", Bound(token_budget=300)):
+            record = self.run_t06()
+        self.assertEqual(record["end_reasons"][-1], checks.SPLIT_BUDGET)
+        self.assertFalse(record["passed"])

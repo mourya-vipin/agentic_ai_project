@@ -267,6 +267,11 @@ def route_operator(session_id: str, text: str, earlier: list[dict]) -> tuple[str
 def bulk_change(session_id: str, text: str) -> LoopResult:
     """U6: planned if plan.bulk_change is on, else the bounded loop."""
     _agent_path(BULK_CHANGE)
+    if runtime.switch("topology", "single") == "split":         # m2-split only: a coordinator and two roles
+        from agent.split import coordinator
+        return _in_run(session_id, BULK_CHANGE, text,
+                       lambda run_key: coordinator.run_split(session_id, text, bound=BOUND, run_key=run_key),
+                       path="split")
     if runtime.switch("plan.bulk_change") == "on":
         return _in_run(session_id, BULK_CHANGE, text,
                        lambda run_key: executor.run_planned(session_id, text, bound=BOUND, run_key=run_key),

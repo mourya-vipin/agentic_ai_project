@@ -177,7 +177,7 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
 
         step += 1
         response = client.create(system=built.system, messages=built.messages, tools=built.tools)
-        trace.model_call(step, response, purpose=use_case, request_id=request_id)
+        trace.model_call(step, response, purpose=use_case, request_id=request_id, run_key=run_key)
         text = response.text or text
         calls = response.tool_calls
         if not calls and asked is not None:

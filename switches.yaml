@@ -26,6 +26,10 @@ plan:
 approval:
   bulk_change: {setting: plan, values: [per_action, plan], added: 2026-11-15, about: "U6's gated steps are its notes to managers (manager_note/plan_listed). plan: once every note's recipient and text is filled and checked, after the reversible removals and before the first send, one approval lists them all and they then run unasked; any other gated step, or a changed text, asks again. per_action asks once per note. plan by the test: the plan fixes each gated step's recipient and text, and one review replaces one per manager."}
 
+# One agent or a split, per Part 3's gates (Lecture 6, slides 9 and 46). Owner: Shruti Tewaney.
+# On m2-split only: split runs U6 as a coordinator, an access role and a comms role (agent/split/).
+topology: {setting: single, values: [single, split], added: 2026-11-17, about: "m2-split: U6 as a coordinator with an access role (identity tools alone) and a comms role (reply_send alone), every call through the one registry and hook, within one shared budget. single, the default here as on main, is one agent: an arm runs the split with --set topology=split. The gates give one agent for every component (M2.md, Part 3); this branch builds the closest, split by tool surface, so a pass can measure it."}
+
 # The critique loop on an outgoing action (Lecture 2, slide 43). Owner: Shruti Tewaney.
 critique:
   requester_reply: {setting: external, values: ["off", "external"], about: "reply_draft checked against the sandbox's records before it is written."}
