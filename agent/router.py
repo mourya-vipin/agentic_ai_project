@@ -74,8 +74,10 @@ U4_WRITES = ["access_grant", "access_revoke", "access_propose_change", "reply_dr
 TOOLS = {
     OPERATOR_REVIEW: READS + ["directory_list_contractors_ended"],
     # U4 asks the stranger who alone has the fact: the person's manager, on a request made on
-    # someone else's behalf (Milestone 2, Part 1, task 5). U6 asks no one.
-    NONSTANDARD: READS + U4_WRITES + ["channel_ask_template"],
+    # someone else's behalf (Milestone 2, Part 1, task 5). After the manager's answer, it sends
+    # the reply to the requester with reply_send, which the operator approves first (t10's
+    # per-action approval); otherwise it drafts the reply. U6's loop asks no one and sends nothing.
+    NONSTANDARD: READS + U4_WRITES + ["channel_ask_template", "reply_send"],
     BULK_CHANGE: READS + U4_WRITES + ["directory_list_contractors_ended", "access_revoke_all"],
 }
 
