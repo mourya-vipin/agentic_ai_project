@@ -56,6 +56,28 @@ class AsksTest(ScratchTest):
         self.assertEqual(d["seconds_per_ask"], 30.0)         # 30 x 60 / 60
 
 
+    def test_a_step_a_stop_withdrew_and_put_up_again_after_resume_is_one_ask(self):
+        lines = [
+            {"type": "approval_requested", "approval_id": "APR-1", "action_class": "manager_note/plan_listed",
+             "run_key": "s#1"},
+            {"type": "stop_flag", "run_keys": ["s#1"]},                                   # withdrawn, never answered
+            {"type": "approval_requested", "approval_id": "APR-2", "action_class": "manager_note/plan_listed",
+             "run_key": "s#1"},                                                           # after /resume
+            {"type": "approval_decided", "approval_id": "APR-2", "decision": "approved", "who": "operator",
+             "seconds": 8, "run_key": "s#1"},
+            {"type": "stop_flag", "run_keys": ["s#1"]},                                   # nothing waits now
+        ]
+        a = asks.count([lines])["approvals"]["manager_note/plan_listed"]
+        self.assertEqual((a["asks"], a["withdrawn_by_stop"], a["decisions"]), (1, 1, {"approved": 1}))
+
+    def test_escalation_answers_are_a_persons_seconds_in_console_sessions_only(self):
+        lines = [{"type": "escalation", "over_cap": False}, {"type": "escalation_answered", "seconds": 90.0}]
+        console, scripted = asks.count([lines], console=True), asks.count([lines])
+        self.assertEqual((console["escalation"]["median_seconds_person"], console["escalation"]["person_answers"]),
+                         (90.0, 1))
+        self.assertEqual((scripted["escalation"]["answered"], scripted["escalation"]["median_seconds_person"]),
+                         (1, None))
+
 class Pass3Test(ScratchTest):
     def test_the_fixs_measures_per_arm_and_the_switches_that_differ(self):
         before = write_arm(self.tmp / "before", [
