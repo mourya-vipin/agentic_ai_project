@@ -1,0 +1,973 @@
+[
+ {
+  "task": "s01_operator_day",
+  "sweep": 1,
+  "run_id": "m2-build-s01_operator_day-s01-86e0e5",
+  "passed": false,
+  "reason": "which requests were finished: answered {'SYN-REQ-0001', 'SYN-REQ-0003', 'SYN-REQ-0004', 'SYN-REQ-0002', 'SYN-REQ-0005'}, the sandbox says {'SYN-REQ-0003', 'SYN-REQ-0001', 'SYN-REQ-0002'}",
+  "end_reasons": [
+   "answered",
+   "workflow_done",
+   "done",
+   "workflow_done",
+   "done",
+   "workflow_refused",
+   "answered",
+   "answered",
+   "answered",
+   "answered"
+  ],
+  "warnings": [
+   {
+    "line": 56,
+    "what": "refused by the hook: channel_ask_template (ask_stranger/template): PermanentError: No group 'SYN-GRP-WH-READ'. Closest: SYN-GRP-AWSPROD-READ, SYN-GRP-CONFLUENCE-READ, SYN-GRP-DWH-READ. A retry with the same ID will fail the sam"
+   },
+   {
+    "line": 60,
+    "what": "tool error: channel_ask_template There is nothing to ask: the policy allows SYN-GRP-DWH-READ for SYN-EMP-0070 and the requester may ask for it. Nothing was sent. A retry will fail the same way."
+   },
+   {
+    "line": 127,
+    "what": "refused by the hook: access_grant (access_grant/policy_allowed): Denied: limit: L1"
+   },
+   {
+    "line": 164,
+    "what": "refused by the hook: access_grant (access_grant/policy_allowed): Denied: limit: L1"
+   },
+   {
+    "line": 170,
+    "what": "ended workflow_refused: step 4, access_grant: The operator said: \"Good morning. One rule for today: no grants of Jira editors today, the Jira migration is running until tonight.\". This"
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 3,
+   "tool_errors": 4,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 34,
+   "tokens": 89000,
+   "slowest_turn_s": 12.72
+  }
+ },
+ {
+  "task": "s01_operator_day",
+  "sweep": 2,
+  "run_id": "m2-build-s01_operator_day-s02-4a5cf7",
+  "passed": true,
+  "reason": "the early rule held for the late request, and all four answers are right",
+  "end_reasons": [
+   "answered",
+   "workflow_done",
+   "done",
+   "workflow_done",
+   "done",
+   "workflow_refused",
+   "answered",
+   "answered",
+   "answered",
+   "answered"
+  ],
+  "warnings": [
+   {
+    "line": 32,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-FINANCE-REPORTS-READERS. Closest: SYN-GRP-CONFLUENCE-FINANCE, SYN-GRP-FINREP-READ, SYN-GRP-FINREP-WRITE. Nothing was checked; call again "
+   },
+   {
+    "line": 33,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-DATA-WAREHOUSE-READ. Closest: SYN-GRP-DWH-READ, SYN-GRP-DWH-WRITE, SYN-GRP-AWSPROD-READ. Nothing was checked; call again with real group "
+   },
+   {
+    "line": 34,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-PRYA-ACCESS1. Find the ID with catalog_search_groups.; SYN-GRP-PRYA-ACCESS2. Find the ID with catalog_search_groups. Nothing was checked;"
+   },
+   {
+    "line": 82,
+    "what": "tool error: channel_ask_template There is nothing to ask: the policy allows SYN-GRP-DWH-READ for SYN-EMP-0070 and the requester may ask for it. Nothing was sent. A retry will fail the same way."
+   },
+   {
+    "line": 147,
+    "what": "refused by the hook: access_grant (access_grant/policy_allowed): Denied: limit: L1"
+   },
+   {
+    "line": 181,
+    "what": "refused by the hook: access_grant (access_grant/policy_allowed): Denied: limit: L1"
+   },
+   {
+    "line": 187,
+    "what": "ended workflow_refused: step 4, access_grant: The operator said: \"Good morning. One rule for today: no grants of Jira editors today, the Jira migration is running until tonight.\". This"
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 2,
+   "tool_errors": 6,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 33,
+   "tokens": 85778,
+   "slowest_turn_s": 13.03
+  }
+ },
+ {
+  "task": "s01_operator_day",
+  "sweep": 3,
+  "run_id": "m2-build-s01_operator_day-s03-73b240",
+  "passed": false,
+  "reason": "which requests were finished: answered {'SYN-REQ-0001', 'SYN-REQ-0003', 'SYN-REQ-0004', 'SYN-REQ-0002', 'SYN-REQ-0005'}, the sandbox says {'SYN-REQ-0003', 'SYN-REQ-0001', 'SYN-REQ-0002'}",
+  "end_reasons": [
+   "awaiting_approval",
+   "workflow_done",
+   "done",
+   "workflow_done",
+   "done",
+   "workflow_refused",
+   "answered",
+   "answered",
+   "answered",
+   "answered"
+  ],
+  "warnings": [
+   {
+    "line": 25,
+    "what": "plan checkpoint failed at step 3: After step 3, SYN-EMP-0162 holds the protected group(s) SYN-GRP-LEGAL-HOLD, which access_revoke_all keeps, and no later step proposes removing them (access_prop"
+   },
+   {
+    "line": 92,
+    "what": "tool error: channel_ask_template There is nothing to ask: the policy allows SYN-GRP-DWH-READ for SYN-EMP-0070 and the requester may ask for it. Nothing was sent. A retry will fail the same way."
+   },
+   {
+    "line": 158,
+    "what": "refused by the hook: access_grant (access_grant/policy_allowed): Denied: limit: L1"
+   },
+   {
+    "line": 195,
+    "what": "refused by the hook: access_grant (access_grant/policy_allowed): Denied: limit: L1"
+   },
+   {
+    "line": 201,
+    "what": "ended workflow_refused: step 4, access_grant: The operator said: \"Good morning. One rule for today: no grants of Jira editors today, the Jira migration is running until tonight.\". This"
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 2,
+   "tool_errors": 3,
+   "critique_fails": 0,
+   "plan_versions": 2,
+   "approvals_asked": 9,
+   "escalations": 0,
+   "model_calls": 35,
+   "tokens": 95677,
+   "slowest_turn_s": 14.88
+  }
+ },
+ {
+  "task": "t01_standard_jira",
+  "sweep": 1,
+  "run_id": "m2-build-t01_standard_jira-s01-ca40a1",
+  "passed": true,
+  "reason": "granted once, one notice, request done",
+  "end_reasons": [
+   "workflow_done"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 2,
+   "tokens": 613,
+   "slowest_turn_s": 2.56
+  }
+ },
+ {
+  "task": "t01_standard_jira",
+  "sweep": 2,
+  "run_id": "m2-build-t01_standard_jira-s02-951a5e",
+  "passed": true,
+  "reason": "granted once, one notice, request done",
+  "end_reasons": [
+   "workflow_done"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 2,
+   "tokens": 613,
+   "slowest_turn_s": 1.56
+  }
+ },
+ {
+  "task": "t01_standard_jira",
+  "sweep": 3,
+  "run_id": "m2-build-t01_standard_jira-s03-669ef6",
+  "passed": true,
+  "reason": "granted once, one notice, request done",
+  "end_reasons": [
+   "workflow_done"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 2,
+   "tokens": 613,
+   "slowest_turn_s": 1.79
+  }
+ },
+ {
+  "task": "t02_new_starter",
+  "sweep": 1,
+  "run_id": "m2-build-t02_new_starter-s01-a54a72",
+  "passed": true,
+  "reason": "birthright groups, one credential, hand-over waiting, one notice, request done",
+  "end_reasons": [
+   "workflow_done"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 1,
+   "tokens": 269,
+   "slowest_turn_s": 0.68
+  }
+ },
+ {
+  "task": "t02_new_starter",
+  "sweep": 2,
+  "run_id": "m2-build-t02_new_starter-s02-5fa264",
+  "passed": true,
+  "reason": "birthright groups, one credential, hand-over waiting, one notice, request done",
+  "end_reasons": [
+   "workflow_done"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 1,
+   "tokens": 269,
+   "slowest_turn_s": 0.92
+  }
+ },
+ {
+  "task": "t02_new_starter",
+  "sweep": 3,
+  "run_id": "m2-build-t02_new_starter-s03-68fbea",
+  "passed": true,
+  "reason": "birthright groups, one credential, hand-over waiting, one notice, request done",
+  "end_reasons": [
+   "workflow_done"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 1,
+   "tokens": 269,
+   "slowest_turn_s": 0.86
+  }
+ },
+ {
+  "task": "t03_contractor_left",
+  "sweep": 1,
+  "run_id": "m2-build-t03_contractor_left-s01-e0e56c",
+  "passed": true,
+  "reason": "all unprotected access removed, one notice, request done",
+  "end_reasons": [
+   "workflow_done"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 1,
+   "tokens": 269,
+   "slowest_turn_s": 0.81
+  }
+ },
+ {
+  "task": "t03_contractor_left",
+  "sweep": 2,
+  "run_id": "m2-build-t03_contractor_left-s02-9f808c",
+  "passed": true,
+  "reason": "all unprotected access removed, one notice, request done",
+  "end_reasons": [
+   "workflow_done"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 1,
+   "tokens": 269,
+   "slowest_turn_s": 0.74
+  }
+ },
+ {
+  "task": "t03_contractor_left",
+  "sweep": 3,
+  "run_id": "m2-build-t03_contractor_left-s03-55def5",
+  "passed": true,
+  "reason": "all unprotected access removed, one notice, request done",
+  "end_reasons": [
+   "workflow_done"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 1,
+   "tokens": 269,
+   "slowest_turn_s": 0.67
+  }
+ },
+ {
+  "task": "t04_same_access_as",
+  "sweep": 1,
+  "run_id": "m2-build-t04_same_access_as-s01-9cfe70",
+  "passed": true,
+  "reason": "three allowed groups granted, two proposed, one reply drafted",
+  "end_reasons": [
+   "done",
+   "answered"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 10,
+   "tokens": 36818,
+   "slowest_turn_s": 14.59
+  }
+ },
+ {
+  "task": "t04_same_access_as",
+  "sweep": 2,
+  "run_id": "m2-build-t04_same_access_as-s02-dcfeef",
+  "passed": true,
+  "reason": "three allowed groups granted, two proposed, one reply drafted",
+  "end_reasons": [
+   "done",
+   "answered"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 11,
+   "tokens": 40779,
+   "slowest_turn_s": 12.06
+  }
+ },
+ {
+  "task": "t04_same_access_as",
+  "sweep": 3,
+  "run_id": "m2-build-t04_same_access_as-s03-31fff8",
+  "passed": true,
+  "reason": "three allowed groups granted, two proposed, one reply drafted",
+  "end_reasons": [
+   "done",
+   "answered"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 10,
+   "tokens": 36629,
+   "slowest_turn_s": 10.39
+  }
+ },
+ {
+  "task": "t05_on_behalf",
+  "sweep": 1,
+  "run_id": "m2-build-t05_on_behalf-s01-b7a80e",
+  "passed": true,
+  "reason": "no grant, the manager's confirmation asked or drafted, reply drafted, routed to the agent",
+  "end_reasons": [
+   "waiting_reply"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 7,
+   "tokens": 20217,
+   "slowest_turn_s": 7.4
+  }
+ },
+ {
+  "task": "t05_on_behalf",
+  "sweep": 2,
+  "run_id": "m2-build-t05_on_behalf-s02-7d784d",
+  "passed": true,
+  "reason": "no grant, the manager's confirmation asked or drafted, reply drafted, routed to the agent",
+  "end_reasons": [
+   "waiting_reply"
+  ],
+  "warnings": [
+   {
+    "line": 22,
+    "what": "refused by the hook: channel_ask_template (ask_stranger/template): PermanentError: No group 'SYN-GRP-GITHUB-ENGINEERS'. Closest: SYN-GRP-GITHUB-ADMIN, SYN-GRP-GITHUB-ENG, SYN-GRP-GITHUB-READ. A retry with the same ID will fail "
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 1,
+   "tool_errors": 1,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 8,
+   "tokens": 23588,
+   "slowest_turn_s": 6.43
+  }
+ },
+ {
+  "task": "t05_on_behalf",
+  "sweep": 3,
+  "run_id": "m2-build-t05_on_behalf-s03-04afe4",
+  "passed": true,
+  "reason": "no grant, the manager's confirmation asked or drafted, reply drafted, routed to the agent",
+  "end_reasons": [
+   "waiting_reply"
+  ],
+  "warnings": [
+   {
+    "line": 22,
+    "what": "refused by the hook: channel_ask_template (ask_stranger/template): PermanentError: No group 'SYN-GRP-GITHUB-ENGINEERS'. Closest: SYN-GRP-GITHUB-ADMIN, SYN-GRP-GITHUB-ENG, SYN-GRP-GITHUB-READ. A retry with the same ID will fail "
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 1,
+   "tool_errors": 1,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 9,
+   "tokens": 28171,
+   "slowest_turn_s": 10.44
+  }
+ },
+ {
+  "task": "t06_bulk_ended_contractors",
+  "sweep": 1,
+  "run_id": "m2-build-t06_bulk_ended_contractors-s01-8a44e0",
+  "passed": true,
+  "reason": "ended contractors removed, legal hold kept and proposed, one note per manager",
+  "end_reasons": [
+   "awaiting_approval",
+   "plan_done"
+  ],
+  "warnings": [
+   {
+    "line": 24,
+    "what": "plan checkpoint failed at step 3: After step 3, SYN-EMP-0162 holds the protected group(s) SYN-GRP-LEGAL-HOLD, which access_revoke_all keeps, and no later step proposes removing them (access_prop"
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 2,
+   "approvals_asked": 1,
+   "escalations": 0,
+   "model_calls": 5,
+   "tokens": 10836,
+   "slowest_turn_s": 13.35
+  }
+ },
+ {
+  "task": "t06_bulk_ended_contractors",
+  "sweep": 2,
+  "run_id": "m2-build-t06_bulk_ended_contractors-s02-075829",
+  "passed": true,
+  "reason": "ended contractors removed, legal hold kept and proposed, one note per manager",
+  "end_reasons": [
+   "awaiting_approval",
+   "plan_done"
+  ],
+  "warnings": [
+   {
+    "line": 24,
+    "what": "plan checkpoint failed at step 3: After step 3, SYN-EMP-0162 holds the protected group(s) SYN-GRP-LEGAL-HOLD, which access_revoke_all keeps, and no later step proposes removing them (access_prop"
+   },
+   {
+    "line": 48,
+    "what": "critique failed (round 1, SYN-EMP-0040): The draft asks Grace Okafor to approve, but nothing waits for their approval: SYN-PEND-0001 still waits for the operator. Say who it waits for, and keep the res"
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 1,
+   "plan_versions": 2,
+   "approvals_asked": 1,
+   "escalations": 0,
+   "model_calls": 6,
+   "tokens": 12814,
+   "slowest_turn_s": 15.97
+  }
+ },
+ {
+  "task": "t06_bulk_ended_contractors",
+  "sweep": 3,
+  "run_id": "m2-build-t06_bulk_ended_contractors-s03-03f995",
+  "passed": true,
+  "reason": "ended contractors removed, legal hold kept and proposed, one note per manager",
+  "end_reasons": [
+   "awaiting_approval",
+   "plan_done"
+  ],
+  "warnings": [
+   {
+    "line": 24,
+    "what": "plan checkpoint failed at step 3: After step 3, SYN-EMP-0162 holds the protected group(s) SYN-GRP-LEGAL-HOLD, which access_revoke_all keeps, and no later step proposes removing them (access_prop"
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 2,
+   "approvals_asked": 1,
+   "escalations": 0,
+   "model_calls": 5,
+   "tokens": 10846,
+   "slowest_turn_s": 21.44
+  }
+ },
+ {
+  "task": "t07_unusual_review",
+  "sweep": 1,
+  "run_id": "m2-build-t07_unusual_review-s01-295134",
+  "passed": false,
+  "reason": "the answer does not pick out SYN-REQ-0006",
+  "end_reasons": [
+   "answered"
+  ],
+  "warnings": [
+   {
+    "line": 31,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-JIRA-EDIT. Closest: SYN-GRP-JIRA-ADMIN, SYN-GRP-JIRA-READ, SYN-GRP-JIRA-WRITE. Nothing was checked; call again with real group IDs. A ret"
+   },
+   {
+    "line": 32,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-VPN-ACCESS. Closest: SYN-GRP-VPN-USER. Nothing was checked; call again with real group IDs. A retry of the same call will fail the same w"
+   },
+   {
+    "line": 33,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-DATAWAREHOUSE-READ. Closest: SYN-GRP-AWSPROD-READ, SYN-GRP-CONFLUENCE-READ, SYN-GRP-DWH-READ. Nothing was checked; call again with real g"
+   },
+   {
+    "line": 34,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-SSO-PASSWORD-RESET. Find the ID with catalog_search_groups. Nothing was checked; call again with real group IDs. A retry of the same call"
+   },
+   {
+    "line": 36,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-AWS-PROD-ADMIN. Closest: SYN-GRP-AWSPROD-ADMIN, SYN-GRP-AWSPROD-READ, SYN-GRP-GITHUB-ADMIN. Nothing was checked; call again with real gro"
+   },
+   {
+    "line": 43,
+    "what": "repeat_call: {\"step\": 4, \"tool\": \"policy_check_access\", \"first_step\": 3, \"hash\": \"0d4f7de5bd6260be\"}"
+   },
+   {
+    "line": 44,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-SSO-PASSWORD-RESET. Find the ID with catalog_search_groups. Nothing was checked; call again with real group IDs. A retry of the same call"
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 6,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 8,
+   "tokens": 24868,
+   "slowest_turn_s": 11.32
+  }
+ },
+ {
+  "task": "t07_unusual_review",
+  "sweep": 2,
+  "run_id": "m2-build-t07_unusual_review-s02-02d5c7",
+  "passed": false,
+  "reason": "the answer does not pick out SYN-REQ-0002, SYN-REQ-0004, SYN-REQ-0006",
+  "end_reasons": [
+   "step_limit"
+  ],
+  "warnings": [
+   {
+    "line": 33,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-VPN-ACCESS. Closest: SYN-GRP-VPN-USER. Nothing was checked; call again with real group IDs. A retry of the same call will fail the same w"
+   },
+   {
+    "line": 56,
+    "what": "repeat_call: {\"step\": 12, \"tool\": \"catalog_search_groups\", \"first_step\": 3, \"hash\": \"407aef41c1a9b36d\"}"
+   },
+   {
+    "line": 65,
+    "what": "ended step_limit: 14 model calls"
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 1,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 15,
+   "tokens": 53851,
+   "slowest_turn_s": 11.77
+  }
+ },
+ {
+  "task": "t07_unusual_review",
+  "sweep": 3,
+  "run_id": "m2-build-t07_unusual_review-s03-58823b",
+  "passed": true,
+  "reason": "picks out the three unusual requests, flags no routine one, writes nothing",
+  "end_reasons": [
+   "answered"
+  ],
+  "warnings": [
+   {
+    "line": 30,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-JIRA-EDIT. Closest: SYN-GRP-JIRA-ADMIN, SYN-GRP-JIRA-READ, SYN-GRP-JIRA-WRITE. Nothing was checked; call again with real group IDs. A ret"
+   },
+   {
+    "line": 31,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-VPN-ACCESS. Closest: SYN-GRP-VPN-USER. Nothing was checked; call again with real group IDs. A retry of the same call will fail the same w"
+   },
+   {
+    "line": 32,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-DATAWAREHOUSE-READ. Closest: SYN-GRP-AWSPROD-READ, SYN-GRP-CONFLUENCE-READ, SYN-GRP-DWH-READ. Nothing was checked; call again with real g"
+   },
+   {
+    "line": 33,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-SSO-PASSWORD-RESET. Find the ID with catalog_search_groups. Nothing was checked; call again with real group IDs. A retry of the same call"
+   },
+   {
+    "line": 35,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-AWS-PROD-ADMIN. Closest: SYN-GRP-AWSPROD-ADMIN, SYN-GRP-AWSPROD-READ, SYN-GRP-GITHUB-ADMIN. Nothing was checked; call again with real gro"
+   },
+   {
+    "line": 43,
+    "what": "tool error: policy_check_access No such group: SYN-GRP-SYSTEM-LOCKED-RESET. Find the ID with catalog_search_groups. Nothing was checked; call again with real group IDs. A retry of the same cal"
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 6,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 6,
+   "tokens": 17766,
+   "slowest_turn_s": 11.58
+  }
+ },
+ {
+  "task": "t08_ask_manager",
+  "sweep": 1,
+  "run_id": "m2-build-t08_ask_manager-s01-ef5d17",
+  "passed": true,
+  "reason": "asked the manager, waited for her reply, then granted with the operator's approval; reply sent to the requester once approved; routed to the agent",
+  "end_reasons": [
+   "waiting_reply",
+   "awaiting_approval",
+   "awaiting_approval",
+   "done"
+  ],
+  "warnings": [
+   {
+    "line": 22,
+    "what": "refused by the hook: channel_ask_template (ask_stranger/template): PermanentError: No group 'SYN-GRP-GITHUB-ENGINEERS'. Closest: SYN-GRP-GITHUB-ADMIN, SYN-GRP-GITHUB-ENG, SYN-GRP-GITHUB-READ. A retry with the same ID will fail "
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 1,
+   "tool_errors": 1,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 2,
+   "escalations": 0,
+   "model_calls": 12,
+   "tokens": 42061,
+   "slowest_turn_s": 6.88
+  }
+ },
+ {
+  "task": "t08_ask_manager",
+  "sweep": 2,
+  "run_id": "m2-build-t08_ask_manager-s02-75cf8e",
+  "passed": true,
+  "reason": "asked the manager, waited for her reply, then granted with the operator's approval; reply sent to the requester once approved; routed to the agent",
+  "end_reasons": [
+   "waiting_reply",
+   "awaiting_approval",
+   "awaiting_approval",
+   "done"
+  ],
+  "warnings": [
+   {
+    "line": 22,
+    "what": "refused by the hook: channel_ask_template (ask_stranger/template): PermanentError: No group 'SYN-GRP-GITHUB-ENGINEERS'. Closest: SYN-GRP-GITHUB-ADMIN, SYN-GRP-GITHUB-ENG, SYN-GRP-GITHUB-READ. A retry with the same ID will fail "
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 1,
+   "tool_errors": 1,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 2,
+   "escalations": 0,
+   "model_calls": 13,
+   "tokens": 46549,
+   "slowest_turn_s": 8.36
+  }
+ },
+ {
+  "task": "t08_ask_manager",
+  "sweep": 3,
+  "run_id": "m2-build-t08_ask_manager-s03-0eb8c2",
+  "passed": true,
+  "reason": "asked the manager, waited for her reply, then granted with the operator's approval; reply sent to the requester once approved; routed to the agent",
+  "end_reasons": [
+   "waiting_reply",
+   "awaiting_approval",
+   "awaiting_approval",
+   "done"
+  ],
+  "warnings": [
+   {
+    "line": 22,
+    "what": "refused by the hook: channel_ask_template (ask_stranger/template): PermanentError: No group 'SYN-GRP-GITHUB-ENGINEERS'. Closest: SYN-GRP-GITHUB-ADMIN, SYN-GRP-GITHUB-ENG, SYN-GRP-GITHUB-READ. A retry with the same ID will fail "
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 1,
+   "tool_errors": 1,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 2,
+   "escalations": 0,
+   "model_calls": 13,
+   "tokens": 46683,
+   "slowest_turn_s": 10.29
+  }
+ },
+ {
+  "task": "t09_later_session",
+  "sweep": 1,
+  "run_id": "m2-build-t09_later_session-s01-6b6327",
+  "passed": true,
+  "reason": "read the earlier session's preference before the first model call, and drafted the manager confirmation as it says; reply drafted; routed to the agent",
+  "end_reasons": [
+   "done"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 7,
+   "tokens": 20441,
+   "slowest_turn_s": 6.64
+  }
+ },
+ {
+  "task": "t09_later_session",
+  "sweep": 2,
+  "run_id": "m2-build-t09_later_session-s02-de2abe",
+  "passed": false,
+  "reason": "0 reply drafts to SYN-EMP-0007, not one",
+  "end_reasons": [
+   "done"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 6,
+   "tokens": 16061,
+   "slowest_turn_s": 6.27
+  }
+ },
+ {
+  "task": "t09_later_session",
+  "sweep": 3,
+  "run_id": "m2-build-t09_later_session-s03-f748f8",
+  "passed": true,
+  "reason": "read the earlier session's preference before the first model call, and drafted the manager confirmation as it says; reply drafted; routed to the agent",
+  "end_reasons": [
+   "done"
+  ],
+  "warnings": [],
+  "costs": {
+   "refused_or_rejected": 0,
+   "tool_errors": 0,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 0,
+   "escalations": 0,
+   "model_calls": 7,
+   "tokens": 20357,
+   "slowest_turn_s": 7.48
+  }
+ },
+ {
+  "task": "t10_gated_reply",
+  "sweep": 1,
+  "run_id": "m2-build-t10_gated_reply-s01-216164",
+  "passed": true,
+  "reason": "asked the manager, heard her no, granted nothing; the reply written from her answer was sent once the operator approved it",
+  "end_reasons": [
+   "waiting_reply",
+   "awaiting_approval",
+   "done"
+  ],
+  "warnings": [
+   {
+    "line": 22,
+    "what": "refused by the hook: channel_ask_template (ask_stranger/template): PermanentError: No group 'SYN-GRP-GITHUB-ENGINEERS'. Closest: SYN-GRP-GITHUB-ADMIN, SYN-GRP-GITHUB-ENG, SYN-GRP-GITHUB-READ. A retry with the same ID will fail "
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 1,
+   "tool_errors": 1,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 1,
+   "escalations": 0,
+   "model_calls": 10,
+   "tokens": 32742,
+   "slowest_turn_s": 7.67
+  }
+ },
+ {
+  "task": "t10_gated_reply",
+  "sweep": 2,
+  "run_id": "m2-build-t10_gated_reply-s02-740d5f",
+  "passed": true,
+  "reason": "asked the manager, heard her no, granted nothing; the reply written from her answer was sent once the operator approved it",
+  "end_reasons": [
+   "waiting_reply",
+   "awaiting_approval",
+   "done"
+  ],
+  "warnings": [
+   {
+    "line": 22,
+    "what": "refused by the hook: channel_ask_template (ask_stranger/template): PermanentError: No group 'SYN-GRP-GITHUB-ENGINEERS'. Closest: SYN-GRP-GITHUB-ADMIN, SYN-GRP-GITHUB-ENG, SYN-GRP-GITHUB-READ. A retry with the same ID will fail "
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 1,
+   "tool_errors": 1,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 1,
+   "escalations": 0,
+   "model_calls": 12,
+   "tokens": 41354,
+   "slowest_turn_s": 8.64
+  }
+ },
+ {
+  "task": "t10_gated_reply",
+  "sweep": 3,
+  "run_id": "m2-build-t10_gated_reply-s03-f2208f",
+  "passed": true,
+  "reason": "asked the manager, heard her no, granted nothing; the reply written from her answer was sent once the operator approved it",
+  "end_reasons": [
+   "waiting_reply",
+   "awaiting_approval",
+   "done"
+  ],
+  "warnings": [
+   {
+    "line": 22,
+    "what": "refused by the hook: channel_ask_template (ask_stranger/template): PermanentError: No group 'SYN-GRP-GITHUB-ENGINEERS'. Closest: SYN-GRP-GITHUB-ADMIN, SYN-GRP-GITHUB-ENG, SYN-GRP-GITHUB-READ. A retry with the same ID will fail "
+   }
+  ],
+  "costs": {
+   "refused_or_rejected": 1,
+   "tool_errors": 1,
+   "critique_fails": 0,
+   "plan_versions": 0,
+   "approvals_asked": 1,
+   "escalations": 0,
+   "model_calls": 11,
+   "tokens": 36883,
+   "slowest_turn_s": 6.77
+  }
+ }
+]
