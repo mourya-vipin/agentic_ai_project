@@ -136,6 +136,13 @@ class EachRunCarriesItsKey(TaskRunTest):
         self.assertEqual(len(built), len(loop_calls), "one context line for each model call of the loop")
         self.assertEqual({x["run_key"] for x in built}, {self.key()})
 
+    def test_the_loops_model_calls_carry_the_run_key(self):
+        """So a run's tokens can be read from the trace, per run (added by Shruti Tewaney)."""
+        self.run_on("t04_same_access_as", "RoutesToAgentThenNeverStops", overrides=["context_budget=400000"])
+        loop_calls = [x for x in self.of("model_call") if x.get("purpose") == "nonstandard_request"]
+        self.assertTrue(loop_calls)
+        self.assertEqual({x.get("run_key") for x in loop_calls}, {self.key()})
+
     def test_a_call_that_cannot_fit_ends_the_turn_before_any_model_call(self):
         record = self.run_on("t04_same_access_as", "RoutesToAgent", overrides=["context_budget=50"])
         self.assertEqual(self.of("model_call"), [])
