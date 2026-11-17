@@ -1,18 +1,25 @@
 {% for line in history %}
   {% set at = (line.at or '')[11:16] %}
   {% if line.type == 'operator' %}
+    {% set words = line.text|command_words %}
+    {% if words %}
+    <div class="entry operator command" title="Sent as {{ line.text }}"><span class="avatar operator">OP</span><div class="card-body">
+      <div class="who"><span><b>Operator</b> · command</span><span class="at">{{ at }}</span></div>
+      <div class="text">{{ words }}</div></div></div>
+    {% else %}
     <div class="entry operator"><span class="avatar operator">OP</span><div class="card-body">
       <div class="who"><span><b>Operator</b> · message</span><span class="at">{{ at }}</span></div>
       <div class="text">{{ line.text }}</div></div></div>
+    {% endif %}
   {% elif line.type == 'reply' %}
     <div class="entry agent"><span class="avatar agent"><svg><use href="#bot-mini"/></svg></span><div class="card-body">
       <div class="who"><span><b>Agent</b> · {% if line.function != 'operator_turn' %}after {{ line.function }}{% else %}reply{% endif %}</span><span class="at">{{ at }}</span></div>
-      <div class="text">{{ line.text }}</div>
-      {% if line.actions %}<div class="done-list">{% for action in line.actions %}<span class="chip">{{ action }}</span>{% endfor %}</div>{% endif %}
+      <div class="text">{{ line.text|run_names }}</div>
+      {% if line.actions %}<div class="done-list">{% for action in line.actions %}<span class="chip" title="{{ action }}">{{ action|run_names }}</span>{% endfor %}</div>{% endif %}
       {% if line.waiting_for %}<div class="wait-line small"><span class="chip waiting">waiting</span> for a reply on <a href="/threads?thread={{ line.waiting_for }}">{{ line.waiting_for }}</a></div>{% endif %}
     </div></div>
   {% elif line.type == 'progress' %}
-    <div class="entry progress">{{ line.text }}</div>
+    <div class="entry progress">{{ line.text|run_names }}</div>
   {% elif line.type == 'outside' %}
     <div class="entry outside"><span class="avatar outside">{{ (line.sender or '?')[:2]|upper }}</span><div class="card-body">
       <div class="who"><span><b>{{ line.sender }}</b> · on thread {{ line.thread_id }}</span><span class="at">{{ at }}</span></div>

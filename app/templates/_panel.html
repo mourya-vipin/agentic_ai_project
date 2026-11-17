@@ -11,13 +11,14 @@
       {% if panel.waiting %}<span class="chip waiting">{{ panel.waiting }} waiting</span>{% endif %}</span>
     </div>
     {% for run in panel.runs %}
-      <div class="card run tilt {{ run.shown }}">
+      <div class="card run {{ run.shown }}">
         <div class="card-head">
           <strong>Run {{ run.run_no }}</strong>
-          <span class="chip {{ run.shown }}">{{ run.words }}</span>
+          <span class="chip {{ run.shown }}" title="{{ run.words }}">{{ 'stopped' if run.stop_flag else run.words }}</span>
         </div>
         <div class="muted small">{{ run.use_case.replace('_', ' ') }}{% if run.steps %} · {{ run.steps }} step{{ 's' if run.steps != 1 }}{% endif %}{% if run.writes %} · {{ run.writes }} write{{ 's' if run.writes != 1 }}{% endif %}</div>
         {% if run.task %}<div class="task small">{{ run.task }}</div>{% endif %}
+        {% if run.stop_flag and run.status != 'stopped' %}<div class="small muted">You stopped it while it was {{ {'waiting_reply': 'waiting for a reply', 'waiting_approval': 'waiting for your approval', 'held': 'held for a person', 'running': 'working'}.get(run.status, run.status.replace('_', ' ')) }}.</div>{% endif %}
         {% if run.crashed %}<div class="small warn">Its process stopped during the run. Your next message carries it on.</div>{% endif %}
         {% if run.thread_id %}<div class="small">Thread <a href="/threads?thread={{ run.thread_id }}">{{ run.thread_id }}</a>{% if run.deadline %}, until {{ run.deadline[:16].replace('T', ' ') }}{% endif %}</div>{% endif %}
         {% if run.approval_id %}<div class="small">Approval <a href="/approvals">{{ run.approval_id }}</a></div>{% endif %}
@@ -28,7 +29,7 @@
             {% for command in run.commands %}
               <form class="cmd" method="post" action="/console/{{ session_id }}/turn">
                 <input type="hidden" name="text" value="{{ command }}">
-                <button class="small{{ ' primary' if command.startswith('/resume') }}{{ ' danger' if command.startswith(('/stop', '/cancel', '/rollback')) }}" title="Sends {{ command }}">{{ command.split()[0][1:]|capitalize }}</button>
+                <button class="small{{ ' primary' if command.startswith('/resume') }}{{ ' danger' if command.startswith('/cancel') }}" title="Sends {{ command }}">{{ command.split()[0][1:]|capitalize }}</button>
               </form>
             {% endfor %}
           </div>
@@ -40,19 +41,32 @@
   </div>
 
   <div class="box">
-    <div class="box-head"><span>Memory <span class="count">{{ panel.memory|length }}</span></span>
-      {% if not panel.memory_on %}<span class="chip">preferences off</span>{% endif %}</div>
-    {% for record in panel.memory %}
-      <div class="card memory tilt">
-        <div class="card-head">
-          <code>{{ record.id }}</code>
-          <span class="chip {{ 'done' if record.confirmed else 'waiting' }}">{{ 'confirmed' if record.confirmed else 'not confirmed' }}</span>
-        </div>
-        <div class="small">{{ record.text }}</div>
-        <div class="muted small">{{ record.kind }}, from the {{ record.source }}, {{ record.age }}{% if record.subject %} · {{ record.subject }}{% endif %}{% if record.mine %} · this session{% endif %}</div>
-      </div>
-    {% else %}
-      <p class="muted small empty">The memory holds nothing yet. Say "From now on, ..." or "Remember that ..." to keep a preference or a fact.</p>
+    <div class="box-head"><span>What the agent remembers <span class="count">{{ panel.memory|length }}</span></span>
+      {% if not panel.memory_on %}<span class="chip" title="The switch memory.preferences is off">preferences off</span>{% endif %}</div>
+    <p class="muted small mem-intro">What you told the agent to keep. It reads this in every later session, before it starts work.</p>
+    {% for kind, title, mark in [('preference', 'Your preferences', '&#9733;'), ('fact', 'Facts', '&#9432;')] %}
+      {% set records = panel.memory|selectattr('kind', 'equalto', kind)|list %}
+      {% if records %}
+        <div class="mem-group">{{ title }}</div>
+        {% for record in records %}
+          <div class="card memory {{ kind }}" title="Memory record {{ record.id }}">
+            <div class="mem-row">
+              <span class="mem-mark" aria-hidden="true">{{ mark|safe }}</span>
+              <div class="mem-body">
+                <div class="mem-text">{{ record.text }}</div>
+                <div class="muted small mem-meta">
+                  {% if record.confirmed %}<span class="ok">&#10003; confirmed</span>{% else %}<span class="chip waiting">not confirmed</span>{% endif %}
+                  · from the {{ record.source }}{% if record.mine %} in this session{% endif %} · {{ record.age }}
+                  {% if record.subject %}· about {% if record.subject.startswith('SYN-EMP-') %}<a href="/people/{{ record.subject }}">{{ record.subject }}</a>{% else %}{{ record.subject }}{% endif %}{% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      {% endif %}
     {% endfor %}
+    {% if not panel.memory %}
+      <p class="muted small empty">Nothing yet. Start a message with "From now on, ..." to keep a preference, or "Remember that ..." to keep a fact.</p>
+    {% endif %}
   </div>
 {% endif %}

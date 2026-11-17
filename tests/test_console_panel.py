@@ -6,6 +6,7 @@ holds (source and age). Owner: Aman Panigrahi. No tokens: no model is called.
     the memory     each record shows its source, its age and whether it is confirmed
     the buttons    each one sends its command through operator_turn, as a typed message does
     the list       a session with a waiting run says so
+    the words      the chat shows "/stop 1" as "Stop run 1", and a run key as "run 1"; the trace keeps the command
     no side effect reading the panel writes no trace line and changes no run
 """
 
@@ -113,6 +114,48 @@ class ConsolePanelTest(ScratchTest):
             self.client.get(f"/console/{SESSION}")
         self.assertEqual(len(read_trace(path)), before)
         self.assertEqual([(c.run_key, c.status) for c in checkpoints.runs_of(SESSION)], runs)
+
+    def test_the_chat_shows_a_command_and_a_run_key_in_words(self):
+        from app.main import command_words, run_names, session_label
+        self.assertEqual(command_words("/stop 1"), "Stop run 1")
+        self.assertEqual(command_words("/stop"), "Stop all runs")
+        self.assertEqual(command_words("/rollback #2"), "Undo run 2")
+        self.assertEqual(command_words("/packet ESC-4"), "Open packet ESC-4")
+        self.assertIsNone(command_words("Please stop the Jira grant."))
+        self.assertIsNone(command_words("/resume"), "a command with no run number stays as it was typed")
+        self.assertEqual(run_names("stopped s-20261116-101500-demo#1"), "stopped run 1")
+        self.assertEqual(session_label("s-20261116-101500-demo"), "16 Nov, 10:15")
+        self.assertEqual(session_label("s-panel"), "s-panel")
+        with mock.patch.object(service, "operator_turn", return_value=Reply("Stopped.", [f"stopped {SESSION}#1"])):
+            self.client.post(f"/console/{SESSION}/turn", data={"text": "/stop 1"}, headers={"accept": "application/json"})
+        html = self.client.get(f"/console/{SESSION}/history").text
+        self.assertIn("Stop run 1", html)
+        self.assertIn("stopped run 1", html)
+        self.assertIn('title="Sent as /stop 1"', html, "the command as sent stays in the tooltip")
+        trace = [x for x in read_trace(traces_dir() / f"{SESSION}.jsonl") if x.get("type") == "operator"]
+        self.assertEqual(trace[-1]["text"], "/stop 1", "the trace keeps the command as it was sent")
+
+    def test_the_pages_put_names_times_and_events_in_words(self):
+        from app.main import person, plain, use_case_words, when
+        self.assertEqual(person("omar.haddad@syn-corp.example"), "Omar Haddad")
+        self.assertEqual(person("hr-system"), "HR System")
+        self.assertEqual((person("agent"), person("operator")), ("The agent", "You"))
+        self.assertEqual(when("2026-11-16T18:02:21.588+00:00"), "16 Nov, 18:02")
+        self.assertEqual(when("not a time"), "not a time")
+        self.assertEqual(use_case_words("nonstandard_request"), "Non-standard request")
+        self.assertEqual(plain("SYNTHETIC. Hi IT, could I get Jira?"), "Hi IT, could I get Jira?")
+        self.assertEqual(plain("SYNTHETIC. EVENT: contract_ended; EMPLOYEE: SYN-EMP-0150; END: 2026-10-20"),
+                         "Contract ended · employee SYN-EMP-0150 · end 2026-10-20")
+
+    def test_the_queue_shows_each_paused_run_in_words(self):
+        self.runs()
+        page = self.client.get("/queue").text
+        self.assertIn("The agent's paused work", page)
+        self.assertIn("Run 1 · Non-standard request", page)
+        self.assertIn('href="/threads?thread=TH-0001"', page)
+        self.assertIn(f'href="/console/{SESSION}"', page)
+        self.assertNotIn("step: None", page)
+        self.assertNotIn("SYNTHETIC.", page)
 
     def test_the_page_still_opens_when_the_agent_raises(self):
         with mock.patch.object(service, "session_panel", side_effect=NotImplementedError("session_panel: x")):

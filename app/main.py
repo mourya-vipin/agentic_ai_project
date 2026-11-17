@@ -60,6 +60,101 @@ def page(request: Request, name: str, **context):
     return templates.TemplateResponse(request, name, {"page": name.split(".")[0], **context})
 
 
+# The console shows the operator's commands and the run keys in words. They change only what
+# the page shows: the trace, and what the agent receives, keep the command as it was sent.
+COMMAND_WORDS = {"stop": "Stop run {n}", "resume": "Resume run {n}", "cancel": "Cancel run {n}",
+                 "rollback": "Undo run {n}"}
+COMMAND_TEXT = re.compile(r"^\s*/(?P<name>stop|resume|cancel|rollback)\b\s*#?(?P<n>\d{1,6})?\s*$", re.IGNORECASE)
+PACKET_TEXT = re.compile(r"^\s*/(?P<name>answer|packet)\b\s*(?P<id>ESC-\d{1,6})\s*(?P<text>.*)$",
+                         re.IGNORECASE | re.DOTALL)
+RUN_KEY_TEXT = re.compile(r"\b[\w.-]+#(\d{1,6})\b")
+SESSION_TIME = re.compile(r"^s-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})\d{2}\b")
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def command_words(text: str | None) -> str | None:
+    """An operator's command in words ("/stop 1" is "Stop run 1"), or None for a message that is not one."""
+    match = COMMAND_TEXT.match(text or "")
+    if match:
+        name, n = match["name"].lower(), match["n"]
+        if n:
+            return COMMAND_WORDS[name].format(n=n)
+        return "Stop all runs" if name == "stop" else None
+    match = PACKET_TEXT.match(text or "")
+    if match:
+        if match["name"].lower() == "packet":
+            return f"Open packet {match['id']}"
+        return f"Answer {match['id']}: {match['text'].strip()}".rstrip(": ")
+    return None
+
+
+def run_names(text: str | None) -> str:
+    """A run key in words: "s-20261116-101500-demo#1" is "run 1"."""
+    return RUN_KEY_TEXT.sub(r"run \1", text or "")
+
+
+def session_label(session_id: str | None) -> str:
+    """A session's start time in words ("16 Nov, 10:15"), from the ID that /console/new gives it."""
+    match = SESSION_TIME.match(session_id or "")
+    if not match or not 1 <= int(match[2]) <= 12:
+        return session_id or ""
+    return f"{int(match[3])} {MONTHS[int(match[2]) - 1]}, {match[4]}:{match[5]}"
+
+
+USE_CASE_WORDS = {"standard_grant": "Standard grant", "onboarding": "New starter", "offboarding": "Leaver",
+                  "nonstandard_request": "Non-standard request", "operator_review": "Your question",
+                  "bulk_change": "Bulk change"}
+ISO_TIME = re.compile(r"^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})")
+
+
+def use_case_words(name: str | None) -> str:
+    """A use case's name in words: "nonstandard_request" is "Non-standard request"."""
+    return USE_CASE_WORDS.get(name or "", (name or "").replace("_", " ").capitalize())
+
+
+def when(stamp: str | None) -> str:
+    """A time stamp in words: "2026-11-16T18:02:21.588+00:00" is "16 Nov, 18:02"."""
+    match = ISO_TIME.match(stamp or "")
+    if not match or not 1 <= int(match[2]) <= 12:
+        return stamp or ""
+    return f"{int(match[3])} {MONTHS[int(match[2]) - 1]}, {match[4]}:{match[5]}"
+
+
+def plain(text: str | None) -> str:
+    """A sandbox message in words. The "SYNTHETIC." mark goes (the banner already says that every
+    record is synthetic), and an HR feed event "EVENT: contract_ended; EMPLOYEE: SYN-EMP-0150"
+    is "Contract ended · employee SYN-EMP-0150"."""
+    text = re.sub(r"^\s*SYNTHETIC\.\s*", "", text or "")
+    if not text.startswith("EVENT:"):
+        return text
+    fields = [part.split(":", 1) for part in text.split(";") if ":" in part]
+    event = " ".join(fields[0][1].split()).replace("_", " ").capitalize()
+    rest = [f"{key.strip().lower().replace('_', ' ')} {' '.join(value.split()).replace('_', ' ')}" for key, value in fields[1:]]
+    return " · ".join([event, *rest])
+
+
+def person(sender: str | None) -> str:
+    """A sender in words: "omar.haddad@syn-corp.example" is "Omar Haddad", "agent" is "The agent"."""
+    sender = (sender or "").strip()
+    if sender in ("agent", "operator"):
+        return {"agent": "The agent", "operator": "You"}[sender]
+    sender = sender.split("@", 1)[0]
+    words = sender.replace(".", " ").replace("-", " ").replace("_", " ").split()
+    return " ".join(w.upper() if len(w) <= 2 else w.capitalize() for w in words) or "Someone"
+
+
+def initials(name: str | None) -> str:
+    """Two letters for an avatar: "Omar Haddad" is "OH"."""
+    parts = [p for p in (name or "").split() if p[:1].isalnum()]
+    return ("".join(p[0] for p in parts[:2]) or "?").upper()
+
+
+templates.env.filters.update(command_words=command_words, run_names=run_names, session_label=session_label,
+                             use_case_words=use_case_words, when=when, plain=plain, person=person,
+                             initials=initials)
+templates.env.tests["run_key"] = lambda value: bool(RUN_KEY_TEXT.fullmatch(str(value or "")))
+
+
 def _safe(value: str) -> str:
     if not SAFE_ID.match(value or ""):
         raise HTTPException(404, "no such item")
@@ -170,10 +265,25 @@ def queue(request: Request):
 
 # -- the outside channel --------------------------------------------------------------------
 
+def _threads() -> list[dict]:
+    """The channel's threads, each with the person outside on it and the request that arrived on
+    it, so the page can name them."""
+    out = []
+    for t in channel.threads():
+        try:
+            from sandbox import requests as sandbox_requests
+            found = sandbox_requests.by_thread(t["thread_id"])
+        except Exception:
+            found = None
+        them = next((m.sender for m in channel.messages(t["thread_id"]) if m.sender not in ("agent", "operator")), None)
+        out.append(t | {"them": them, "request_id": found["id"] if found else None})
+    return out
+
+
 @app.get("/threads", response_class=HTMLResponse)
 def threads(request: Request, thread: str | None = None):
     messages = [m.as_dict() for m in channel.messages(thread)] if thread else []
-    return page(request, "threads.html", threads=channel.threads(), thread=thread, messages=messages, notice=None)
+    return page(request, "threads.html", threads=_threads(), thread=thread, messages=messages, notice=None)
 
 
 @app.post("/threads/reply", response_class=HTMLResponse)
@@ -187,7 +297,7 @@ def thread_reply(request: Request, thread_id: str = Form(...), text: str = Form(
             notice = f"The agent replied: {reply.text}" if reply.text else "The agent took the reply."
     except Exception as exc:
         notice = _agent_error(exc)
-    return page(request, "threads.html", threads=channel.threads(), thread=thread_id,
+    return page(request, "threads.html", threads=_threads(), thread=thread_id,
                 messages=[m.as_dict() for m in channel.messages(thread_id)], notice=notice)
 
 

@@ -1,25 +1,42 @@
 {% extends "base.html" %}
 {% block title %}Traces{% endblock %}
 {% block content %}
-<h1>Traces</h1>
-<h2>Runs</h2>
-{% if runs %}
-  <div class="scroll"><table>
-    <tr><th>Run</th><th>Arm</th><th>Task</th><th>Sweep</th><th>Outcome</th><th>Check</th><th>Tokens</th><th>Latency</th></tr>
-    {% for r in runs %}
-      <tr><td><a href="{{ r.link }}">{{ r.run_id }}</a></td><td>{{ r.arm }}</td><td>{{ r.task }}</td>
-          <td>{{ r.sweep }}</td><td>{{ r.outcome }}</td><td>{{ 'pass' if r.passed else 'fail' }}</td>
-          <td>{{ r.tokens }}</td><td>{{ r.latency_s }} s</td></tr>
-    {% endfor %}
-  </table></div>
-  {% if more %}<p class="muted">and {{ more }} older runs.</p>{% endif %}
-{% else %}
-  <p class="muted">No runs yet. <code>python run.py --tasks tasks/ --arm NAME</code> records them in <code>results/</code>.</p>
-{% endif %}
-<h2>Sessions</h2>
-{% for s in sessions %}
-  <p><a href="/traces/session/{{ s.id }}">{{ s.id }}</a> <span class="muted">{{ s.lines }} lines · {{ s.modified }}</span></p>
-{% else %}
-  <p class="muted">No console sessions yet.</p>
-{% endfor %}
+{# For developers: the full record of each test run and each console session. #}
+<h1>Traces <span class="dev-tag">for developers</span></h1>
+<p class="muted lead">The full record of what the agent did: every model call, every tool call, and what each one cost.
+Open one to see why the agent did something. For day-to-day work, the Console and the Queue show the same work in plain words.</p>
+
+<section class="box">
+  <div class="box-head"><span>Console sessions <span class="count">{{ sessions|length }}</span></span></div>
+  {% for s in sessions %}
+    <div class="q-item">
+      <span class="q-mark" aria-hidden="true">&#9776;</span>
+      <span class="q-main"><a href="/traces/session/{{ s.id }}"><b>Session · {{ s.id|session_label }}</b></a>
+        <span class="muted small">{{ s.lines }} event{{ 's' if s.lines != 1 }} recorded · last change {{ s.modified|when }} · {{ s.id }}</span></span>
+      <span class="q-side row"><a href="/traces/session/{{ s.id }}"><button class="tool small">Open the trace</button></a>
+        <a href="/console/{{ s.id }}"><button class="tool small">Open the chat</button></a></span>
+    </div>
+  {% else %}
+    <p class="muted empty">No console sessions yet.</p>
+  {% endfor %}
+</section>
+
+<section class="box">
+  <div class="box-head"><span>Test runs <span class="count">{{ runs|length + more }}</span></span></div>
+  {% if runs %}
+    <div class="scroll"><table>
+      <tr><th>Run</th><th>Arm</th><th>Task</th><th>Sweep</th><th>Outcome</th><th>Check</th><th>Tokens</th><th>Latency</th></tr>
+      {% for r in runs %}
+        <tr><td><a href="{{ r.link }}">{{ r.run_id }}</a></td><td>{{ r.arm }}</td><td>{{ r.task }}</td>
+            <td>{{ r.sweep }}</td><td>{{ r.outcome }}</td>
+            <td><span class="chip {{ 'done' if r.passed else 'failed' }}">{{ 'pass' if r.passed else 'fail' }}</span></td>
+            <td>{{ r.tokens }}</td><td>{{ r.latency_s }} s</td></tr>
+      {% endfor %}
+    </table></div>
+    {% if more %}<p class="muted empty">And {{ more }} older runs.</p>{% endif %}
+  {% else %}
+    <p class="muted empty">No test runs here yet. The test runner records them:
+      <code>python run.py --tasks tasks/ --arm NAME</code> writes them in <code>results/</code>.</p>
+  {% endif %}
+</section>
 {% endblock %}

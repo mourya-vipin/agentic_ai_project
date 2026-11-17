@@ -3,11 +3,12 @@
 {% block wide %}wide{% endblock %}
 {% block content %}
 <div class="console{{ ' open' if session_id }}">
+  {% if not session_id %}
   <section class="box sessions">
     <div class="box-head">Sessions <span class="count">{{ sessions|length }}</span></div>
     <div class="box-body"><form method="post" action="/console/new"><button class="primary block">+ New session</button></form></div>
     {% for s in sessions %}
-      <a class="session{{ ' here' if s.id == session_id }}" href="/console/{{ s.id }}">
+      <a class="session" href="/console/{{ s.id }}">
         <span class="session-id">{{ s.id }}</span>
         <span class="muted small">{{ s.turns }} message{{ 's' if s.turns != 1 }}{% if s.waiting %} · <span class="chip waiting">{{ s.waiting }} waiting</span>{% endif %}</span>
         {% if s.first %}<span class="muted small first">{{ s.first }}</span>{% endif %}
@@ -16,43 +17,49 @@
       <p class="muted empty">No sessions yet.</p>
     {% endfor %}
   </section>
+  {% endif %}
 
   <section class="chat">
     {% if session_id %}
       <div class="box hero">
         {% include "_robot.html" %}
-        <div>
-          <div class="kind">Console session · {{ session_id }}</div>
-          <div class="title">Access desk agent</div>
+        <div class="hero-main">
+          <div class="hero-top">
+            <span class="title">Access desk agent</span>
+            <div class="picker" id="picker">
+              <button type="button" class="picker-button" id="picker-button" aria-haspopup="true" aria-expanded="false"
+                      title="Session {{ session_id }}: click to open another session or start a new one">
+                Session · {{ session_id|session_label }} <span class="caret-down" aria-hidden="true"></span>
+              </button>
+              <div class="picker-menu" id="picker-menu" hidden>
+                <form method="post" action="/console/new"><button class="primary block">+ New session</button></form>
+                {% for s in sessions %}
+                  <a class="picker-item{{ ' here' if s.id == session_id }}" href="/console/{{ s.id }}" title="{{ s.id }}">
+                    <span class="picker-name">{{ s.id|session_label }}{% if s.waiting %} <span class="chip waiting">{{ s.waiting }} waiting</span>{% endif %}</span>
+                    <span class="muted small">{{ s.turns }} message{{ 's' if s.turns != 1 }}{% if s.first %} · {{ s.first }}{% endif %}</span>
+                  </a>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
           <div class="bubble" id="bubble" aria-live="polite"></div>
         </div>
         <div class="right">
-          <button type="button" class="icon" id="voice" title="The robot reads each reply aloud (your browser's own voice)">Voice: off</button>
-          <a href="/traces/session/{{ session_id }}"><button type="button">Trace</button></a>
+          <button type="button" class="tool" id="voice" title="The robot reads each reply aloud (your browser's own voice)">Voice: off</button>
+          <a href="/traces/session/{{ session_id }}" class="tool-link"><button type="button" class="tool" title="Every model call and tool call of this session">Trace</button></a>
         </div>
-      </div>
-      <div class="fields">
-        <div class="box stat tilt"><label>Messages</label><div class="n">{{ history|selectattr('type', 'equalto', 'operator')|list|length }}</div></div>
-        <div class="box stat tilt"><label>Runs</label><div class="n">{{ panel.runs|length if panel else 0 }}</div></div>
-        <div class="box stat tilt{{ ' warm' if panel and panel.waiting }}"><label>Waiting</label><div class="n">{{ panel.waiting if panel else 0 }}</div></div>
-        <div class="box stat tilt"><label>Memory records</label><div class="n">{{ panel.memory|length if panel else 0 }}</div></div>
       </div>
       <div class="box">
         <div class="box-head">Activity <span id="status" class="muted small"></span></div>
         <div id="history" class="history">{% include "_history.html" %}</div>
         <form id="turn" class="compose" method="post" action="/console/{{ session_id }}/turn">
-          <span class="hints">
-            <span class="small muted">Shortcuts</span>
-            <button type="button" class="quick" data-fill="/stop" title="Puts /stop in the box: it stops every run of this session">Stop all runs</button>
-            <button type="button" class="quick" data-fill="/resume " data-hint="the run number to resume, such as 2" title="Puts /resume in the box: add the run number">Resume a run</button>
-            <button type="button" class="quick" data-fill="/cancel " data-hint="the run number to cancel, such as 2" title="Puts /cancel in the box: add the run number">Cancel a run</button>
-            <button type="button" class="quick" data-fill="/rollback " data-hint="the run number to undo, such as 2" title="Puts /rollback in the box: add the run number">Undo a run</button>
-            <button type="button" class="quick" data-fill="From now on, " title="Starts a preference that the agent keeps for later sessions">Save a preference</button>
-          </span>
-          <textarea name="text" rows="3" required placeholder="A message to the agent"></textarea>
+          <textarea name="text" rows="2" required placeholder="A message to the agent. Enter sends, Shift+Enter starts a new line."></textarea>
           <div class="send-row">
             <button class="primary">Send</button>
-            <span class="small muted">Enter sends · Shift+Enter starts a new line</span>
+            <span class="hints">
+              <button type="button" class="quick" data-fill="From now on, " data-hint="what the agent is to do from now on" title="Starts a preference that the agent keeps for later sessions">+ Save a preference</button>
+              <button type="button" class="quick stop" data-send="/stop" data-ask="Stop every run of this session? You can resume each one later." title="Stops every run of this session. Each run's own buttons are in Runs, on the right">Stop all runs</button>
+            </span>
           </div>
         </form>
       </div>
@@ -137,12 +144,10 @@
 
   function greet() {
     const f = facts();
-    const parts = ["Hello. I am the access desk agent."];
-    if (f.live) parts.push(`${f.live} run${f.live > 1 ? "s" : ""} of this session ${f.live > 1 ? "are" : "is"} working.`);
-    if (f.waiting) parts.push(`${f.waiting} run${f.waiting > 1 ? "s" : ""} wait${f.waiting > 1 ? "" : "s"} for something: see the panel on the right.`);
-    if (f.memory) parts.push(`I keep ${f.memory} record${f.memory > 1 ? "s" : ""} from what you told me before.`);
-    parts.push("Type a request, or use a button on a run.");
-    say(parts.join(" "), {then: () => { mood("happy"); setTimeout(rest, 900); }});
+    let line = "Hello. Type a request, or use a button on a run.";
+    if (f.waiting) line = `Hello. ${f.waiting} run${f.waiting > 1 ? "s wait" : " waits"} for you: see Runs on the right.`;
+    else if (f.live) line = `Hello. ${f.live} run${f.live > 1 ? "s are" : " is"} working.`;
+    say(line, {then: () => { mood("happy"); setTimeout(rest, 900); }});
   }
 
   voice.textContent = speaking ? "Voice: on" : "Voice: off";
@@ -244,6 +249,24 @@
     send(command.querySelector("input[name=text]").value);
     setTimeout(refresh, 150);
   });
+
+  document.querySelectorAll("[data-send]").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.ask && !confirm(b.dataset.ask)) return;
+    send(b.dataset.send);
+    setTimeout(refresh, 150);
+  }));
+
+  // The session menu: it opens at once, and each session in it is a plain link.
+  const picker = document.getElementById("picker");
+  const pickerButton = document.getElementById("picker-button");
+  const pickerMenu = document.getElementById("picker-menu");
+  function openMenu(open) {
+    pickerMenu.hidden = !open;
+    pickerButton.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  pickerButton.addEventListener("click", () => openMenu(pickerMenu.hidden));
+  document.addEventListener("click", (event) => { if (!picker.contains(event.target)) openMenu(false); });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") openMenu(false); });
 
   toBottom();
   field.focus();
