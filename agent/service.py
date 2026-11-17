@@ -6,6 +6,9 @@ the operator's console does, minus the browser. `make check` tests it.
     on_outside_reply(thread_id, text) a stranger's message on one of your channel's threads
     pending_approvals()               what waits for the operator's answer (the approvals page)
     decide_approval(id, approved, note)  the operator's answer
+    session_panel(session_id)         what the console shows beside a session: its runs, and
+                                      what the memory holds (it reads; it changes nothing)
+    sessions_waiting()                how many runs wait in each session (the console's list)
 
 The console keeps taking messages while a turn runs, so operator_turn can be called
 again for a session whose earlier turn has not returned: a message mid-task.
@@ -35,7 +38,7 @@ your model calls labelled as theirs.
 
 from __future__ import annotations
 
-from agent import approvals, checkpoints, commands, inbox, memory, notes, router, session
+from agent import approvals, checkpoints, commands, control, inbox, memory, notes, router, session
 from harness import runtime
 from harness.turns import Reply  # noqa: F401  (what each turn returns)
 from policy import limits
@@ -117,6 +120,85 @@ def on_outside_reply(thread_id: str, text: str) -> Reply:
         return checkpoints.resume(run.run_key, {"kind": "reply", "thread_id": thread_id, "text": text})
     finally:
         checkpoints.flush()
+
+
+# What the console's panel says of each status, and the commands that it offers for it.
+STATUS_WORDS = {
+    checkpoints.RUNNING: "working",
+    checkpoints.WAITING_REPLY: "waiting for a reply",
+    checkpoints.WAITING_APPROVAL: "waiting for your approval",
+    checkpoints.HELD: "held for a person",
+    checkpoints.STOPPED: "stopped",
+    checkpoints.DONE: "done",
+    checkpoints.FAILED: "failed",
+    checkpoints.CANCELLED: "cancelled",
+}
+PANEL_RUNS = 12
+
+
+def _flagged(cp) -> bool:
+    """Whether the operator's /stop flags this run (agent/control.py). A run that waits keeps
+    its status when it is stopped, so the panel reads the flag too."""
+    return cp.status not in checkpoints.ENDED and control.state(cp.run_key) == control.STOPPED
+
+
+def _commands_for(cp) -> list[str]:
+    """The commands (agent/commands.py) that make sense for a run in its status, as the
+    operator types them. Each button on the panel sends one, through operator_turn."""
+    n = cp.run_no
+    if _flagged(cp):
+        out = [f"/resume {n}", f"/cancel {n}"]
+    elif cp.status == checkpoints.RUNNING:
+        out = [f"/stop {n}"]
+    elif cp.status == checkpoints.STOPPED:
+        out = [f"/resume {n}", f"/cancel {n}"]
+    elif cp.status in checkpoints.PAUSED:
+        out = [f"/stop {n}", f"/cancel {n}"]
+    else:
+        out = []
+    if cp.completed and cp.status != checkpoints.RUNNING:
+        out.append(f"/rollback {n}")
+    return out
+
+
+def _run_line(cp) -> dict:
+    wait = cp.waiting_for or {}
+    flagged = _flagged(cp)
+    words = STATUS_WORDS.get(cp.status, cp.status)
+    return {
+        "run_no": cp.run_no, "run_key": cp.run_key, "use_case": cp.use_case, "status": cp.status,
+        "shown": checkpoints.STOPPED if flagged else cp.status, "stop_flag": flagged,
+        "words": (f"stopped (it was {words})" if cp.status != checkpoints.STOPPED else words) if flagged else words,
+        "end_reason": (cp.findings or {}).get("end_reason"),
+        "task": (cp.task or "")[:160],
+        "thread_id": wait.get("thread_id"), "deadline": wait.get("deadline"),
+        "approval_id": wait.get("approval_id"), "packet_id": wait.get("packet_id"),
+        "steps": len(cp.steps or []), "writes": len(cp.completed or {}),
+        "crashed": cp.status == checkpoints.RUNNING and bool(cp.process) and cp.process != checkpoints.PROCESS,
+        "updated_at": cp.updated_at, "commands": _commands_for(cp),
+    }
+
+
+def session_panel(session_id: str) -> dict:
+    """What the console shows beside a session: its runs, newest first, each with its status,
+    its wait (the thread and the deadline, the approval or the packet) and the commands that fit;
+    and the records that the memory holds, each with its source and age. It only reads: no
+    model call, no trace line, no save. Owner: Aman Panigrahi."""
+    runs = [_run_line(cp) for cp in checkpoints.runs_of(session_id, PANEL_RUNS)]
+    kept = [{"id": r.id, "kind": r.kind, "text": r.text, "source": r.source, "subject": r.subject,
+             "confirmed": r.confirmed, "age": memory.age(r), "mine": r.session_id == session_id}
+            for r in memory.held()]
+    return {"runs": runs, "memory": kept, "memory_on": memory.enabled(),
+            "live": sum(1 for r in runs if r["status"] == checkpoints.RUNNING),
+            "waiting": sum(1 for r in runs if r["shown"] in checkpoints.PAUSED)}
+
+
+def sessions_waiting() -> dict[str, int]:
+    """How many runs wait (for a reply, an approval, a person, or /resume) in each session."""
+    out: dict[str, int] = {}
+    for cp in checkpoints.waiting():
+        out[cp.session_id] = out.get(cp.session_id, 0) + 1
+    return out
 
 
 def _this_session() -> str | None:

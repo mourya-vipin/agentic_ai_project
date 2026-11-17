@@ -238,6 +238,13 @@ def _active() -> list[Record]:
                                                  "ORDER BY written_at DESC, n DESC").fetchall()]
 
 
+def held() -> list[Record]:
+    """The records that the store holds now (not superseded), newest first, for the console's
+    panel. It writes no trace line, so the panel can read it at each refresh. With
+    memory.preferences off, the operator's preferences are not in it."""
+    return [r for r in _active() if enabled() or r.kind != "preference"]
+
+
 def all_records() -> list[Record]:
     """Every record, the superseded ones too, oldest first (for the tests and the write-up)."""
     with _connect() as conn:

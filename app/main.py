@@ -2,6 +2,9 @@
 
     /console    the operator's chat: sessions and their history. Each message goes to
                 agent.service.operator_turn through harness.turns, the path run.py takes.
+                Beside the chat, a panel (agent.service.session_panel) shows the session's
+                runs, what each waits for, and what the memory holds; its buttons send the
+                operator's commands (/stop, /resume, /cancel, /rollback) as messages.
     /queue      the work waiting: your sandbox's queue, the threads waiting for an
                 outside reply, and what waits for approval.
     /threads    the outside channel's conversations. You can write as the stranger,
@@ -32,6 +35,7 @@ from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 import channel
+from agent import service
 from app import product, security, templates
 from harness import records, runtime, turns
 from harness.paths import results_dir, traces_dir
@@ -72,13 +76,18 @@ def _agent_error(exc: Exception) -> str:
 
 def _sessions() -> list[dict]:
     out = []
+    try:
+        waiting = service.sessions_waiting()
+    except Exception:  # the agent is not built yet: the list shows no waits
+        waiting = {}
     for path in traces_dir().glob("*.jsonl"):
         lines = read_trace(path)
         if not lines or lines[0].get("type") != "session_start" or lines[0].get("source") != "console":
             continue
         first = next((x.get("text", "") for x in lines if x.get("type") == "operator"), "")
         out.append({"id": lines[0]["session_id"], "started": lines[0]["at"], "turns":
-                    sum(1 for x in lines if x.get("type") == "operator"), "first": first[:120]})
+                    sum(1 for x in lines if x.get("type") == "operator"), "first": first[:120],
+                    "waiting": waiting.get(lines[0]["session_id"], 0)})
     return sorted(out, key=lambda s: s["started"], reverse=True)
 
 
@@ -87,9 +96,17 @@ def _history(session_id: str) -> list[dict]:
     return [x for x in read_trace(path) if x.get("type") in CONSOLE_LINES] if path.exists() else []
 
 
+def _panel(session_id: str) -> dict:
+    """The panel beside a session: its runs and the memory (agent.service.session_panel)."""
+    try:
+        return {"error": None, **service.session_panel(session_id)}
+    except Exception as exc:
+        return {"error": _agent_error(exc), "runs": [], "memory": [], "memory_on": False, "live": 0, "waiting": 0}
+
+
 @app.get("/console", response_class=HTMLResponse)
 def console_list(request: Request):
-    return page(request, "console.html", sessions=_sessions(), session_id=None, history=[])
+    return page(request, "console.html", sessions=_sessions(), session_id=None, history=[], panel=None)
 
 
 @app.post("/console/new")
@@ -103,13 +120,20 @@ def console_new():
 @app.get("/console/{session_id}", response_class=HTMLResponse)
 def console_session(request: Request, session_id: str):
     _safe(session_id)
-    return page(request, "console.html", sessions=_sessions(), session_id=session_id, history=_history(session_id))
+    return page(request, "console.html", sessions=_sessions(), session_id=session_id, history=_history(session_id),
+                panel=_panel(session_id))
 
 
 @app.get("/console/{session_id}/history", response_class=HTMLResponse)
 def console_history(request: Request, session_id: str):
     _safe(session_id)
     return templates.TemplateResponse(request, "_history.html", {"history": _history(session_id)})
+
+
+@app.get("/console/{session_id}/panel", response_class=HTMLResponse)
+def console_panel(request: Request, session_id: str):
+    _safe(session_id)
+    return templates.TemplateResponse(request, "_panel.html", {"panel": _panel(session_id), "session_id": session_id})
 
 
 @app.post("/console/{session_id}/turn")

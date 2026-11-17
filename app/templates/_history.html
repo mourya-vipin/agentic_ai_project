@@ -1,18 +1,30 @@
 {% for line in history %}
+  {% set at = (line.at or '')[11:16] %}
   {% if line.type == 'operator' %}
-    <div class="line operator"><div class="who">Operator</div>{{ line.text }}</div>
+    <div class="entry operator"><span class="avatar operator">OP</span><div class="card-body">
+      <div class="who"><span><b>Operator</b> · message</span><span class="at">{{ at }}</span></div>
+      <div class="text">{{ line.text }}</div></div></div>
   {% elif line.type == 'reply' %}
-    <div class="line reply"><div class="who">Agent{% if line.function != 'operator_turn' %} (after {{ line.function }}){% endif %}</div>{{ line.text }}{% for action in line.actions %}
-<span class="muted">· {{ action }}</span>{% endfor %}{% if line.waiting_for %}
-<span class="muted">Waiting for a reply on {{ line.waiting_for }}.</span>{% endif %}</div>
+    <div class="entry agent"><span class="avatar agent"><svg><use href="#bot-mini"/></svg></span><div class="card-body">
+      <div class="who"><span><b>Agent</b> · {% if line.function != 'operator_turn' %}after {{ line.function }}{% else %}reply{% endif %}</span><span class="at">{{ at }}</span></div>
+      <div class="text">{{ line.text }}</div>
+      {% if line.actions %}<div class="done-list">{% for action in line.actions %}<span class="chip">{{ action }}</span>{% endfor %}</div>{% endif %}
+      {% if line.waiting_for %}<div class="wait-line small"><span class="chip waiting">waiting</span> for a reply on <a href="/threads?thread={{ line.waiting_for }}">{{ line.waiting_for }}</a></div>{% endif %}
+    </div></div>
   {% elif line.type == 'progress' %}
-    <div class="line progress muted">{{ line.text }}</div>
+    <div class="entry progress">{{ line.text }}</div>
   {% elif line.type == 'outside' %}
-    <div class="line outside"><div class="who">{{ line.sender }}, on thread {{ line.thread_id }}</div>{{ line.text }}</div>
+    <div class="entry outside"><span class="avatar outside">{{ (line.sender or '?')[:2]|upper }}</span><div class="card-body">
+      <div class="who"><span><b>{{ line.sender }}</b> · on thread {{ line.thread_id }}</span><span class="at">{{ at }}</span></div>
+      <div class="text">{{ line.text }}</div></div></div>
   {% elif line.type == 'approval' %}
-    <div class="line"><div class="who">Approval {{ line.approval_id }}</div>{{ 'Approved' if line.approved else 'Denied' }}{% if line.note %}: {{ line.note }}{% endif %}</div>
+    <div class="entry"><span class="avatar system">&#10003;</span><div class="card-body">
+      <div class="who"><span><b>Approval {{ line.approval_id }}</b></span><span class="at">{{ at }}</span></div>
+      <div class="text"><span class="chip {{ 'done' if line.approved else 'stopped' }}">{{ 'Approved' if line.approved else 'Denied' }}</span>{% if line.note %} {{ line.note }}{% endif %}</div></div></div>
   {% elif line.type == 'error' %}
-    <div class="line error"><div class="who">Error in {{ line.function }}</div>{{ line.message }}</div>
+    <div class="entry error"><span class="avatar error">!</span><div class="card-body">
+      <div class="who"><span><b>Error</b> in {{ line.function }}</span><span class="at">{{ at }}</span></div>
+      <div class="text">{{ line.message }}</div></div></div>
   {% endif %}
 {% else %}
   <p class="muted">No messages yet.</p>
