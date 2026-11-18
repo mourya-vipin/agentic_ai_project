@@ -140,3 +140,11 @@ class Pass3Test(ScratchTest):
         self.assertEqual(a["made_up_group_ids_by_tool"], {"policy_check_access": 2, "channel_ask_template": 1})
         self.assertEqual(a["made_up_group_ids_by_task"], {"t07": 2, "t08": 1})
         self.assertEqual(a["wrong_args_by_tool"], {"policy_check_access": 2, "channel_ask_template": 1})  # not the hook's
+
+    def test_definitions_gives_the_tokens_the_enums_add_and_leaves_state_alone(self):
+        # the ledger's "Why this fix": U4's definitions from 3,393 to 3,688 tokens, U5's from 1,456 to 1,601
+        sizes = pass3.definition_sizes()
+        added = {uc: sizes["on"][uc] - sizes["off"][uc] for uc in sizes["off"]}
+        self.assertTrue(250 <= added["nonstandard_request"] <= 340, added)     # two enums of 23 IDs, about 145 each
+        self.assertTrue(120 <= added["operator_review"] <= 170, added)         # one: U5 has no channel_ask_template
+        self.assertFalse((self.state_dir / "access.sqlite3").exists())        # built in a scratch sandbox

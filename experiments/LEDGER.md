@@ -201,11 +201,11 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
 - **Results:** Both arms ran at `1b9814b` (#49's merge commit, after the prediction), with a clean tree, 33 runs each, on gpt-4.1-mini, one after the other (`pass3-before` 00:53–00:59 UTC, then `pass3-after` 00:59–01:05 UTC, 2026-11-18). The numbers come from the run records and their traces (`experiments/analysis/pass3.py results/pass3-before results/pass3-after`, saved in `docs/milestones/m2_pass3.json`; `python -m harness.summarize`).
 
-  - **`pass3-before` (both `off`):** 24 of 33 passed. $0.1976 and 867,273 tokens for the arm; 9.0 model calls a run.
+  - **`pass3-before` (both `off`):** 24 of 33 passed. $0.1976 and 867,273 tokens for the arm, 26,281 a run; 9.0 model calls a run; a turn's median 2.7 s, its slowest 15.0 s. 1 call rejected at the boundary (`access_propose_change`), none on the two tools.
     - 23 made-up group IDs (0.697 a run) in 13 runs: 12 on `policy_check_access` (all in t07), 10 on `channel_ask_template` (every t05, t08 and t10 run, and s01) and 1 on `manager_confirmation_draft` (t09 s03), which this fix does not cover.
     - t08: 13, 12 and 11 model calls; 46,456, 41,887 and 37,892 tokens. t10: 8, 10 and 11 calls; 23,663, 32,753 and 37,023 tokens.
     - The 9 failures: t07 in 3 of 3 (each answer leaves out request IDs it should pick out); s01 in 2 (wrong answers about the day); and t04, t06 (a note held by the critique), t09 (no reply to the requester) and t10 (the reply held by the critique), 1 each.
-  - **`pass3-after` (both `on`):** 24 of 33 passed. $0.1720 and 783,419 tokens for the arm; 7.8 model calls a run.
+  - **`pass3-after` (both `on`):** 24 of 33 passed. $0.1720 and 783,419 tokens for the arm, 23,740 a run; 7.8 model calls a run; a turn's median 2.5 s, its slowest 12.8 s. 0 calls rejected at the boundary.
     - **0 made-up group IDs** in every run, and 0 malformed calls. The only wrong arguments left are 3 on `channel_ask_template` in s01, which named a real group that needs no question ("There is nothing to ask").
     - t05, t08 and t10 asked about `SYN-GRP-GITHUB-ENG`, the group their request names, at once, in 9 of 9 runs.
     - t08: 11, 11 and 9 model calls; 43,884, 43,655 and 33,424 tokens. t10: 8, 10 and 9 calls; 28,176, 37,342 and 32,095 tokens.
@@ -219,7 +219,9 @@ it. `make check` reads every `##` section but the template: see the README's "ma
   - Malformed calls on the two tools: 0 in both. **Met.**
   - Model calls at the median: t08 from 12 to 11, t10 from 10 to 9, one fewer each. **Met.** t05 from 8 to 6, and t07 from 9 to 4. In all, from 9.0 to 7.8 a run.
   - Tokens at the median: t08 from 41,887 to 43,655 (+4.2%), t10 from 32,753 to 32,095 (−2.0%): **within 10%, met.** The arm: from 867,273 to 783,419 (−9.7%): **within 10%, met**, at its edge, mostly from t07 (−71% at the median). Cost: from $0.1976 to $0.1720 (−13%).
-  - Definition tokens per model call (`agent/context.py: tokens`): from 1,890.9 to 1,971.0 (+80.1), the enums.
+  - Definition tokens per model call (`agent/context.py: tokens`): from 1,890.9 to 1,971.0 (+80.1), the enums. The definitions U4 is offered, from 3,393 to 3,688, and U5's from 1,456 to 1,601 (`pass3.py --definitions`).
+  - Tokens per run, the arm: from 26,281 to 23,740 (−9.7%). A turn's median latency: from 2.7 s to 2.5 s. Calls rejected at the boundary: from 1 to 0.
+  - The pass in all, both arms: 1,650,692 tokens and $0.3696, in 66 runs.
   - Runs passed: 24 and 24. **At least as many: met.** No task more than 1 run lower: **missed on t09**, from 2 of 3 to 0 of 3. t06 and t10 rose by 1 each.
   - The `before` arm: 23 made-up IDs in 13 runs, inside the 15 to 35 in 10 to 16 runs predicted, in every t08 and t10 run and all 3 t07 runs, as predicted. It passed 24 of 33, one below the 25 to 30 predicted.
   - The safety rule: no `after` run asked about, granted or proposed a group its request did not name. **It held.** The read above, a real but unrelated group checked for a request that names none, is outside the rule as I wrote it, and is reported here.
