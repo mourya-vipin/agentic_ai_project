@@ -10,6 +10,10 @@ journal, so the write is in the sandbox and not in the journal. Each case assert
     1. the task's check passes on the run
     2. the sandbox holds the same effects as a run with no crash (one effect for each write)
     3. no write ran twice: each write has one successful tool_call line in the run's trace
+
+Each case also keeps what the sandbox held before the run, after the crash and after the
+resume. With RECOVERY_RECORD set to a file name, the module writes them there as JSON
+(scripts/recovery_states.py; docs/milestones/m2_recovery_<date>.json, cited in M2.md).
 """
 
 from __future__ import annotations
@@ -43,8 +47,10 @@ if die_tool:
 
     checkpoints.record_completed = record_completed
 with fixed_run(task, rid, backend=backend, fresh=fresh == "fresh"):
-    turns.operator_turn(rid, message)
+    if message:                  # with no message, the process only seeds the run: the state before it
+        turns.operator_turn(rid, message)
 """
+STATES: list[dict] = []          # what the sandbox held at each point of each case, for RECOVERY_RECORD
 
 PROCESS = "Please handle the new access requests."
 LEO, REQ = "SYN-EMP-0031", "SYN-REQ-0001"
@@ -77,8 +83,8 @@ class RecoveryTest(ScratchTest):
         """What the sandbox holds that a run writes, counted."""
         from sandbox import db
         with db.connect() as conn:
-            def count(sql):
-                return [tuple(r) for r in conn.execute(sql).fetchall()]
+            def count(sql):              # each row by its values (the sandbox's rows are dicts)
+                return [tuple(r.values()) if isinstance(r, dict) else tuple(r) for r in conn.execute(sql).fetchall()]
             return {
                 "memberships": Counter(count("SELECT employee_id, group_id, removed_at IS NULL FROM memberships "
                                              "WHERE request_id IS NOT NULL OR removed_request_id IS NOT NULL")),
@@ -98,13 +104,18 @@ class RecoveryTest(ScratchTest):
         return made
 
     def recover(self, task: str, backend: str, die: tuple[str, str], *, message: str = PROCESS):
-        """A clean run, then the same run with a death, then the next turn in a new process."""
+        """A clean run, then the same run with a death, then the next turn in a new process.
+        It keeps what the sandbox held before the run, after the crash and after the resume."""
         name = os.path.basename(task).split(".")[0]
         self.child(task, f"clean-{name}", backend, fresh=True)
         clean = self.effects()
         rid = f"crash-{name}-{die[0]}-{die[1] or 'any'}"
+        self.child(task, rid, backend, fresh=True, message="")
+        before = self.effects()
         self.assertEqual(self.child(task, rid, backend, fresh=True, die=die), 9, "the process died at the write")
+        crashed = self.effects()
         self.assertEqual(self.child(task, rid, backend, fresh=False, message=message), 0)
+        STATES.append(_states(task, die, rid, before, crashed, self.effects(), clean))
         return rid, clean
 
     def assert_recovered(self, task: str, rid: str, clean: dict, *, check: bool = True):
@@ -114,6 +125,30 @@ class RecoveryTest(ScratchTest):
         self.assertEqual(self.effects(), clean, "one effect for each write, as in the run with no crash")
         twice = {k: n for k, n in self.writes_made(rid).items() if n > 1}
         self.assertEqual(twice, {}, "no write ran twice")
+
+
+def _flat(effects: dict) -> Counter:
+    return Counter({f"{table}: {' '.join(str(v) for v in row)}": n
+                    for table, rows in effects.items() for row, n in rows.items()})
+
+
+def _states(task, die, rid, before, crashed, resumed, clean) -> dict:
+    """One case: each effect that the run changes, with its count before the run, after the
+    crash, after the resume and in the run with no crash."""
+    points = [_flat(x) for x in (before, crashed, resumed, clean)]
+    rows = sorted(k for k in set().union(*points) if len({p[k] for p in points}) > 1)
+    return {"task": task, "died_at": {"tool": die[0], "status": die[1] or None}, "run_id": rid,
+            "effects": [{"effect": k, "before": points[0][k], "after_crash": points[1][k],
+                         "after_resume": points[2][k], "no_crash": points[3][k]} for k in rows]}
+
+
+def tearDownModule():
+    path = os.environ.get("RECOVERY_RECORD")
+    if path and STATES:
+        import json
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"what": "the sandbox's effects at each point of each recovery case (tests/test_recovery.py)",
+                       "cases": STATES}, f, indent=1)
 
 
 class TheWorkflowsRecover(RecoveryTest):
