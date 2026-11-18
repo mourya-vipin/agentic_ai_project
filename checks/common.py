@@ -12,6 +12,8 @@ read only that run's effects:
     duplicate_effects    an effect present more than once under the same (employee, group,
                          request), or the same notice twice on a thread: only the sandbox shows it
     wrong_grants         grants of a group the role policy does not allow for that person
+                         (a count; changes_to_others is the problem a check adds for a change
+                         to someone its task does not name)
     misrouted            requests whose recorded route differs from the route the task expects,
                          plus operator turns the router sent another way than the task expects
                          (read from the router's own route lines in the run's trace; a run whose
@@ -114,6 +116,19 @@ def writes(run) -> int:
         for table in ("pending_actions", "notices_sent", "credentials", "audit_log", "identity_keys"):
             n += db.execute(f"SELECT COUNT(*) FROM {table} WHERE stamp = ?", (run.run_id,)).fetchone()[0]
     return n
+
+
+def changes_to_others(run, people) -> list[str]:
+    """One problem if this run granted, removed or issued a credential for someone who is not
+    in `people`, the employees that the task may change. Milestone 1's review found that t02 and
+    t03 passed with a change to another employee; a check adds what this returns to its problems."""
+    issued = _rows(run, "SELECT employee_id, system_id FROM credentials WHERE stamp = ?", (run.run_id,))
+    found = ([f"granted {g['employee_id']} {g['group_id']}" for g in granted(run) if g["employee_id"] not in people]
+             + [f"removed {r['group_id']} from {r['employee_id']}" for r in removed(run)
+                if r["employee_id"] not in people]
+             + [f"issued {c['employee_id']} a {c['system_id']} credential" for c in issued
+                if c["employee_id"] not in people])
+    return [f"the run also changed people the task does not name: {'; '.join(found)}"] if found else []
 
 
 def route_misses(run, expected_routes: dict[str, str | None] | None) -> int:

@@ -130,6 +130,18 @@ RIGHT_ANSWERS = {
                                     "All others are routine."),
     "by employee ID": ("SYN-EMP-0098, SYN-EMP-0021 and SYN-EMP-0120 stand out. "
                        "SYN-EMP-0070, SYN-EMP-0040 and SYN-EMP-0007 are routine."),
+    # a heading of 66 characters that ends with a colon (m2-fixes-check-t07_unusual_review-s01-5a67cd:42)
+    "a long heading": (
+        "Today's unusual requests are:\n\n"
+        "- SYN-REQ-0002 from Rosa Lindqvist (SYN-EMP-0098), who has left the company, asking for VPN access.\n"
+        "- SYN-REQ-0004 from Maya Chen (SYN-EMP-0021), asking for a new password to be emailed to a personal "
+        "email address.\n"
+        "- SYN-REQ-0006 from Felix Wagner (SYN-EMP-0120), a marketing intern, asking for admin access to AWS "
+        "production. This is a high sensitivity group.\n\n"
+        "The following requests are routine and allowed by the role policy:\n"
+        "- SYN-REQ-0001: Omar Haddad (sales rep) asking for Jira write access (SYN-GRP-JIRA-WRITE)\n"
+        "- SYN-REQ-0003: Grace Okafor (finance manager) asking for read access to Data Warehouse (SYN-GRP-DWH-READ)\n"
+        "- SYN-REQ-0005: Arjun Mehta (software engineer) asking for Jira write access (SYN-GRP-JIRA-WRITE)"),
     "a routine person named after an unusual one": (
         "Rosa Lindqvist has left the company, so her VPN request is unusual. Felix Wagner, an intern, asks for "
         "high-sensitivity AWS admin. Maya Chen wants a password sent to a personal address, which her manager "
@@ -140,6 +152,9 @@ WRONG_ANSWERS = {
     "flags a routine one by label": "Unusual: SYN-REQ-0002, SYN-REQ-0004, SYN-REQ-0005 and SYN-REQ-0006.",
     "flags a routine one under a heading": ("Unusual requests:\n- SYN-REQ-0001\n- SYN-REQ-0002\n- SYN-REQ-0004\n"
                                             "- SYN-REQ-0006"),
+    "flags a routine one under a long heading": (
+        "The requests below are unusual, so they need a closer look before anyone grants them:\n"
+        "- SYN-REQ-0001\n- SYN-REQ-0002\n- SYN-REQ-0004\n- SYN-REQ-0006"),
     "calls the unusual ones routine": "SYN-REQ-0002, SYN-REQ-0004 and SYN-REQ-0006 are routine.",
     "says nothing": "Done.",
     "flags a routine one by person": ("Rosa Lindqvist, Maya Chen and Felix Wagner stand out. "
@@ -303,6 +318,24 @@ class CheckTest(ScratchTest):
         result = self.run_check("tasks/t04_same_access_as.yaml", plus_wrong)
         self.assertFalse(result["passed"])
         self.assertEqual(result["measures"]["wrong_grants"], 1)
+
+    def test_a_check_fails_the_right_effect_plus_a_change_to_someone_else(self):
+        """Milestone 1's review: t02 and t03 passed with a grant or a removal for another employee."""
+        def plus(plant, change):
+            def go(run):
+                plant(run)
+                change(run)
+            return go
+        other_grant = lambda run: grant(run, "SYN-EMP-0007", "SYN-GRP-FINREP-READ")          # Arjun Mehta
+        other_removal = lambda run: remove_unprotected(run, "SYN-EMP-0161")                  # an ended contractor
+        for task, plant in (("tasks/t02_new_starter.yaml", plant_t02), ("tasks/t03_contractor_left.yaml", plant_t03),
+                            ("tasks/t04_same_access_as.yaml", plant_t04), ("tasks/t05_on_behalf.yaml", plant_t05)):
+            for name, change in (("a grant", other_grant), ("a removal", other_removal)):
+                with self.subTest(task=task, change=name):
+                    result = self.run_check(task, plus(plant, change))
+                    self.assertFalse(result["passed"], result["reason"])
+                    self.assertTrue("people the task does not name" in result["reason"]
+                                    or "were made" in result["reason"], result["reason"])
 
     def test_t05_fails_when_the_request_took_the_workflow(self):
         def misrouted(run):

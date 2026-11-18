@@ -22,6 +22,7 @@ def check(run):
     replies = [p for p in common.pending(run, "reply_draft") if p["employee_id"] == LEO and p["request_id"] == REQ]
     if len(replies) != 1:
         problems.append(f"{len(replies)} reply drafts to {LEO} under {REQ}, not one")
-    if counts["grants"] != len(groups):
-        problems.append("grants were made to someone other than the requester")
+    if counts["removals"]:
+        problems.append(f"{counts['removals']} memberships were removed")
+    problems += common.changes_to_others(run, {LEO})
     return common.result(problems, "three allowed groups granted, two proposed, one reply drafted", counts)

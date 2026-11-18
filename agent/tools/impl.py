@@ -296,12 +296,17 @@ def access_revoke_all(args, ctx, key):
     person = _employee(args.get("employee_id"))
     request = _request(args.get("request_id"))
     removed, kept = [], []
-    for m in access.memberships(person["id"]):
-        sub_key = hashlib.sha256(f"{key}|{m['group_id']}".encode()).hexdigest()[:32] if key else None
-        result = access.revoke(person["id"], m["group_id"], request_id=request["id"] if request else None,
+    # every group the person held, removed ones too: a replay of this call after a crash gets the
+    # first result of each group's key, so it reports the same removals (a crash in the recovery
+    # test, t03, gave "removed 0" here, and the notice said 0 groups; added by Aman Panigrahi)
+    held = dict.fromkeys(m["group_id"] for m in access.memberships(person["id"], active_only=False))
+    for group_id in held:
+        sub_key = hashlib.sha256(f"{key}|{group_id}".encode()).hexdigest()[:32] if key else None
+        result = access.revoke(person["id"], group_id, request_id=request["id"] if request else None,
                                key=sub_key, stamp=db.current_stamp(), actor=_actor(ctx),
                                reason=str(args.get("reason") or ""))
-        (kept if result["status"] == "protected" else removed).append(m["group_id"])
+        if result["status"] != "not_a_member":
+            (kept if result["status"] == "protected" else removed).append(group_id)
     summary = (f"Removed {len(removed)} group(s) from {person['id']}: {', '.join(removed) or 'none'}."
                + (f" Kept {', '.join(kept)}: protected, not removed." if kept else ""))
     out = {"employee_id": person["id"], "removed": removed, "kept_protected": kept, "summary": summary}

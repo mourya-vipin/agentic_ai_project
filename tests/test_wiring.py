@@ -256,7 +256,7 @@ class TheRunStore(ScratchTest):
 
     def test_each_use_case_has_its_durability_mode(self):
         self.assertEqual({u: checkpoints.mode_for(u) for u in checkpoints.DURABILITY},
-                         {"standard_grant": "async", "onboarding": "sync", "offboarding": "async",
+                         {"standard_grant": "sync", "onboarding": "sync", "offboarding": "sync",
                           "nonstandard_request": "sync", "operator_review": "exit", "bulk_change": "sync"})
         self.assertEqual(checkpoints.mode_for("something_new"), "sync")
 

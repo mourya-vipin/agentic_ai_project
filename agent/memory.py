@@ -91,8 +91,13 @@ class Record:
     last_used: str | None = None
 
 
-def enabled() -> bool:
-    return str(runtime.switch("memory.preferences", "on")) == "on"
+SWITCHES = {"preference": "memory.preferences", "fact": "memory.facts"}     # one switch per kind kept
+
+
+def enabled(kind: str = "preference") -> bool:
+    """Whether the switch of this kind (SWITCHES) is on. Off keeps that kind out: it is not
+    written, and no read returns it."""
+    return str(runtime.switch(SWITCHES[kind], "on")) == "on"
 
 
 def _path() -> Path:
@@ -144,6 +149,9 @@ def write(record: Record) -> str | None:
         raise ValueError(f"the kind is {record.kind!r}; use one of {', '.join(KINDS)}")
     if record.source not in SOURCES:
         raise ValueError(f"the source is {record.source!r}; use one of {', '.join(SOURCES)}")
+    if not enabled(record.kind):
+        _trace(sid, "memory_declined", why=f"{SWITCHES[record.kind]} is off", source=record.source)
+        return None
     if record.source == "private_data" or _SECRET.search(record.text or ""):
         _trace(sid, "memory_declined", why="private data is never kept", source=record.source)
         return None
@@ -197,7 +205,7 @@ def from_text(session_id: str, text: str, *, run_key: str | None = None) -> Reco
     says "from now on", "going forward", "in future" or "every time". "Remember that ..." about a
     named person or group is a fact; anything else is a preference. A question is never a record."""
     text = str(text or "").strip()
-    if not enabled() or not text or text.endswith("?"):
+    if not text or text.endswith("?"):
         return None
     said = _REMEMBER.match(text)
     if said is None and not _STANDING.search(text):
@@ -240,9 +248,9 @@ def _active() -> list[Record]:
 
 def held() -> list[Record]:
     """The records that the store holds now (not superseded), newest first, for the console's
-    panel. It writes no trace line, so the panel can read it at each refresh. With
-    memory.preferences off, the operator's preferences are not in it."""
-    return [r for r in _active() if enabled() or r.kind != "preference"]
+    panel. It writes no trace line, so the panel can read it at each refresh. A kind whose
+    switch is off is not in it."""
+    return [r for r in _active() if enabled(r.kind)]
 
 
 def all_records() -> list[Record]:
@@ -255,22 +263,25 @@ def read_for_session(session_id: str) -> list[Record]:
     """What a new console session shows the operator before its first model call: each active
     record, newest first, at most MAX_SHOWN. A stranger's record is shown as theirs. Writes
     memory_read with what it returned and what it skipped."""
-    records = _active() if enabled() else []
+    records = [r for r in _active() if enabled(r.kind)]
     shown, skipped = records[:MAX_SHOWN], records[MAX_SHOWN:]
     _trace(session_id, "memory_read", purpose="session_start", returned=[r.id for r in shown],
-           skipped=[{"id": r.id, "why": "past the first ten"} for r in skipped], enabled=enabled())
+           skipped=[{"id": r.id, "why": "past the first ten"} for r in skipped], enabled=enabled(),
+           facts_enabled=enabled("fact"))
     return shown
 
 
 def for_call(session_id: str, subjects, use_case: str | None = None, *, run_key: str | None = None) -> list[Record]:
     """The records that one model call gets (the read rule in the module's docstring), marked as
     used. Writes memory_read with what it returned and what it skipped, and why."""
-    if not enabled():
+    if not any(enabled(kind) for kind in KINDS):
         return []
     wanted = {str(s).upper() for s in (subjects or []) if s}
     returned, skipped = [], []
     for r in _active():
-        if r.source != "operator" or not r.confirmed:
+        if not enabled(r.kind):
+            skipped.append({"id": r.id, "why": f"{SWITCHES[r.kind]} is off"})
+        elif r.source != "operator" or not r.confirmed:
             skipped.append({"id": r.id, "why": f"source {r.source}, not confirmed by the operator"})
         elif r.subject and r.subject not in wanted:
             skipped.append({"id": r.id, "why": f"its subject {r.subject} is not in this call"})
