@@ -20,6 +20,7 @@ control:
 # Owner: Shruti Tewaney.
 plan:
   bulk_change: {setting: "on", values: ["off", "on"], about: "U6 as a planned agent; off runs it on the bounded loop."}
+  protected_facts: {setting: "off", values: ["off", "on"], added: 2026-11-17, about: "Pass 2: on tells U6's planner each contractor's protected groups (planner.build_context: protected_memberships) and to plan their removal proposals from the start, so the checkpoint need not revise the plan. off, as in the build: the checkpoint finds the legal hold and the reviser adds its proposal, one model call a run. Set by Pass 2's verdict."}
 
 # Approval at the plan or per action, one switch per use case with a plan (Lecture 5, slide 18).
 # Owner: Shruti Tewaney.

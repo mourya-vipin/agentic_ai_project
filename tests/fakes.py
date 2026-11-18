@@ -473,6 +473,22 @@ class AsksTheManagerHearsNo(RouterFake):
         return [{"type": "text", "text": "Done."}], "end_turn", self.name, Usage(40, 2)
 
 
+class ReadsProtected(GoodPlanner):
+    """Plans the legal-hold proposal from the start only when its facts list the protected groups
+    (plan.protected_facts on), as a planner that reads its facts would; keeps each planner request
+    and system prompt it is sent in `asked`."""
+    asked: list[tuple[str, str]] = []
+
+    def create(self, *, system, messages, tools):
+        if "submit_plan" in [t["name"] for t in tools or []] and not system.startswith("You are the reviser"):
+            ReadsProtected.asked.append((system, messages[-1]["content"]))
+        return super().create(system=system, messages=messages, tools=tools)
+
+    def plan(self, request):
+        told = "protected_memberships" in request and LEGAL_HOLD in request
+        return t06_plan(with_hold=told)
+
+
 class SeeingFiller(GoodPlanner):
     """Plans t06 with the hold, as GoodPlannerWithHold, and keeps every fill request it is
     sent (`seen`), so a test can read what each note's call was given."""
