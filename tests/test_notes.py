@@ -105,5 +105,24 @@ class LongSessionCheckTest(ScratchTest):
         self.assertFalse(result["passed"])
         self.assertEqual(result["measures"]["answers_right"], 2)
 
+    def test_requests_the_answer_calls_pending_are_not_counted_as_finished(self):
+        # m2-build-s01_operator_day-s01-86e0e5:186 and pass3-after-s01_operator_day-s01-806599: a right
+        # answer that also names the requests still open was scored as claiming all five finished
+        right = ("The finished requests today are SYN-REQ-0001, SYN-REQ-0002, SYN-REQ-0003 and SYN-REQ-0004.\n\n"
+                 "SYN-REQ-0005 is also pending operator action due to the Jira editor grants restriction in place "
+                 "today.")
+        result = self.run_check(SESSION, self.day, replies=self.RIGHT[:-4] + [right] + self.RIGHT[-3:])
+        self.assertTrue(result["passed"], result["reason"])
+        from checks.s01_operator_day import _finished
+        self.assertEqual(_finished("Finished: SYN-REQ-0001; SYN-REQ-0004 is not done yet, and SYN-REQ-0005 waits."),
+                         {"SYN-REQ-0001"})
+        self.assertEqual(_finished("SYN-REQ-0001 and SYN-REQ-0005 are done."), {"SYN-REQ-0001", "SYN-REQ-0005"})
+
+    def test_an_answer_that_claims_a_waiting_request_finished_still_fails(self):
+        wrong = "The requests finished today are SYN-REQ-0001 to SYN-REQ-0004, and SYN-REQ-0005."
+        result = self.run_check(SESSION, self.day, replies=self.RIGHT[:-4] + [wrong] + self.RIGHT[-3:])
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["measures"]["answers_right"], 3)
+
     def test_nothing_done_fails(self):
         self.assertFalse(self.run_check(SESSION, lambda run: None, replies=["Done."])["passed"])
