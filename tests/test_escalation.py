@@ -134,7 +134,7 @@ class EscalationTest(ScratchTest):
         with mock.patch.object(escalation, "DAILY_CAP", 1):
             first = escalation.escalate(self.cp.run_key, "ambiguous_write", **PACKET)
             other = checkpoints.new_run(SID, "nonstandard_request", "another")
-            second = escalation.escalate(other.run_key, "blocked_three_times", **PACKET)
+            second = escalation.escalate(other.run_key, "ambiguous_write", **PACKET)
         self.assertTrue(escalation.get(first)["sent"])
         self.assertFalse(escalation.get(second)["sent"])
         self.assertEqual(len(self.lines(kind="progress")), 1)                    # one packet on the console
