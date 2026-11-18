@@ -103,6 +103,13 @@ class GateTest(ScratchTest):
         self.assertIn("sensitivity high", shown["reach (computed)"])
         self.assertEqual(shown["already holds it (computed)"], "no")
         self.assertIn("none on record", shown["manager's answer (computed)"])   # read, not assumed from the class
+        self.assertEqual(shown["this run's checks so far (computed)"], "no run on record")   # no ctx given
+
+    def test_a_reply_screen_checks_the_text_against_the_records_and_names_what_is_wrong(self):
+        self.reply(body="SYNTHETIC. Hi Leo, I granted SYN-GRP-PAYROLL-ADMIN to you.")
+        shown = approvals.pending()[0]
+        self.assertTrue(shown["this text against the records (computed)"].startswith("fails: "), shown)
+        self.assertIn("SYN-GRP-PAYROLL-ADMIN", shown["this text against the records (computed)"])
 
     def test_a_grant_screen_reads_the_managers_answer_from_their_reply(self):
         group = "SYN-GRP-FINREP-WRITE"
@@ -217,4 +224,7 @@ class PerActionTest(ScratchTest):
         self.assertIn(disclosure.LINE, shown["dry run"])
         self.assertIn("NO.", shown["the answer it is written from (their words)"])
         self.assertIn("Hannah Lee", shown["the answer it is written from (their words)"])
+        self.assertTrue(shown["this text against the records (computed)"].startswith("passes"))
+        self.assertIn("the critique: ", shown["this run's checks so far (computed)"])   # read from its own trace
+        self.assertIn("when it is sent", shown["what still checks it"])
         self.assertIn("their words", " ".join(shown))

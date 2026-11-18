@@ -341,3 +341,60 @@ class StopConditionsTest(ScratchTest):
         self.assertIn("withdrawn", answer.text)
         for manager in (fakes.HANNAH, fakes.GRACE):
             self.assertEqual([m for m in channel.messages(f"SYN-MAIL-{manager}") if m.sender == channel.AGENT], [])
+
+
+class StopWhileAStrangerIsAwaitedTest(ScratchTest):
+    """The brief's other wait: a stop sent from a second thread while a U4 run waits for the
+    manager's reply, then the reply delivered (harness.turns.outside_reply). Nothing is written
+    when it lands; a resume carries on from the saved state with the reply, once."""
+
+    T08, THREAD, DEV, GITHUB_ENG = "tasks/t08_ask_manager.yaml", "SYN-MAIL-SYN-EMP-0060", "SYN-EMP-0052", "SYN-GRP-GITHUB-ENG"
+    YES = "SYNTHETIC. YES. Dev is on my team now, so he can be in the GitHub engineers group."
+    BACKEND = "tests.test_wait:AsksTheManagerThenGrants"
+
+    def setUp(self):
+        super().setUp()
+        runtime.configure()
+
+    def _writes(self):
+        with db.connect() as conn:
+            return conn.execute("SELECT COUNT(*) AS n FROM audit_log").fetchone()["n"]
+
+    def _holds(self):
+        return self.GITHUB_ENG in {m["group_id"] for m in access.memberships(self.DEV)}
+
+    def test_a_stop_while_the_run_waits_for_a_stranger_and_then_the_reply_lands(self):
+        from harness import turns
+        rid = f"stop-wait-{_uuid.uuid4().hex[:8]}"
+        with fixed_run(self.T08, rid, backend=self.BACKEND) as run:
+            first = turns.operator_turn(rid, "Please handle the new access requests.")
+            self.assertEqual(first.waiting_for, self.THREAD)
+            key = f"{rid}#1"
+            self.assertEqual(checkpoints.load(key).status, "waiting_reply")
+            stopper = _threading.Thread(target=lambda: commands.handle(rid, "/stop 1"))
+            stopper.start()
+            stopper.join(5)
+            before = self._writes()
+            turns.outside_reply(self.THREAD, self.YES, sender="hannah.lee@syn-corp.example")
+            lines = read_trace(run.trace_path)
+            stop = next(i for i, x in enumerate(lines) if x["type"] == "stop_flag")
+            after = [x for x in lines[stop:] if x["type"] == "tool_call" and not x.get("denied")]
+            self.assertEqual(after, [], "no call ran after the stop, the reply's included")
+            self.assertEqual(self._writes(), before, "no sandbox write when the reply lands")
+            self.assertFalse(self._holds())
+            self.assertEqual(approvals.pending(), [], "nothing is put up for approval either")
+            refused = [x for x in lines[stop:] if x["type"] == "resume_refused"]
+            self.assertEqual([x["event_kind"] for x in refused], ["reply"], "the reply did not resume it")
+            self.assertTrue(control.stopped(key))
+
+            control.resume(key)
+            for _ in range(3):                       # the grant, then the reply to Arjun
+                waiting = approvals.pending()
+                if not waiting:
+                    break
+                turns.decide_approval(waiting[0]["id"], True, "the operator approves it")
+        self.assertTrue(self._holds(), "the resume carried on with Hannah's YES")
+        with db.connect() as conn:
+            grants = conn.execute("SELECT COUNT(*) AS n FROM memberships WHERE employee_id = ? AND group_id = ?",
+                                  (self.DEV, self.GITHUB_ENG)).fetchone()["n"]
+        self.assertEqual(grants, 1, "granted once")
