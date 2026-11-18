@@ -62,6 +62,8 @@ python experiments/analysis/first_failures.py results/m2-build   # every warning
 python experiments/analysis/asks.py results/m2-build --by-task  # who reads what, and how often (Part 2, task 9)
 python experiments/analysis/asks.py --traces traces/s-20261117-215442-ce95.jsonl   # the same, from a console session
 python experiments/analysis/pass3.py results/pass3-before results/pass3-after   # Pass 3's measures, both arms
+python experiments/analysis/state.py results/m2-build results/pass3-before results/pass3-after results/m2-fixes-check \
+    --per-day 35 --recovery docs/milestones/m2_recovery_2026-11-18.json   # questions, waits, memory, recovery (Part 1)
 python scripts/definition_cost.py --per-run results/m2-build --measured docs/milestones/m2_definition_cost_2026-11-13.json
                                                                    # the build's definition bill, no model call
 python scripts/definition_cost.py                                  # what the tool definitions cost (about $0.003)
@@ -105,7 +107,7 @@ runs it has finished, so repeat one under a new name.
 | `docs/milestones/M1.md`, `M2.md` | the Milestone 1 and Milestone 2 write-ups |
 | `decisions/0006-topology.md` | the topology decision: one agent; the split lives on the tag `m2-split-final` |
 | `docs/milestones/m1_*.json`, `m2_*.json` | the numbers M1.md and M2.md cite: the baseline, Pass 1, each definition-cost measurement and the strict-mode answer, by date |
-| `experiments/LEDGER.md`, `experiments/analysis/` | the passes' ledger entries, and our analysis scripts (`analyze.py`, `first_failures.py`, `asks.py`, `pass3.py`) |
+| `experiments/LEDGER.md`, `experiments/analysis/` | the passes' ledger entries, and our analysis scripts (`analyze.py`, `first_failures.py`, `asks.py`, `pass3.py`, `state.py`) |
 | `results/`, `traces/` | every run's record and trace, and the console sessions M1.md, M2.md and CHANGES.md cite |
 | `mcp_server/`, `agent/mcp_client.py` | the MCP server that runs the tools, and the registry's client to it |
 | `scripts/definition_cost.py` | measures what the tool definitions cost |

@@ -114,6 +114,21 @@ class TheWritePolicy(MemoryTest):
         self.assertIsNone(memory.from_text("s-mem", PREFERENCE))
         self.assertEqual(memory.read_for_session("s-mem"), [])
 
+    def test_each_kind_has_its_own_switch(self):
+        with fixed_run(T05, "s-mem-kinds", backend="never-stops"):            # the directory, to find a name
+            fact = self.record("Victor Lam's legal hold stays.", kind="fact", subject=VICTOR)
+        with fixed_run(T05, "s-mem-kinds", backend="never-stops", overrides=["memory.facts=off"], fresh=False) as run:
+            self.assertIsNone(memory.from_text("s-mem-kinds", "Remember that Dev Rao starts on Monday."))
+            pref = memory.from_text("s-mem-kinds", PREFERENCE)
+            self.assertIsNotNone(pref, "the preference's switch is still on")
+            self.assertEqual([r.id for r in memory.read_for_session("s-mem-kinds")], [pref.id])
+            self.assertEqual([r.id for r in memory.for_call("s-mem-kinds", [VICTOR], "nonstandard_request")], [pref.id])
+            self.assertEqual([r.id for r in memory.held()], [pref.id])
+            lines = read_trace(run.trace_path)
+        self.assertIn("memory.facts is off", [x.get("why") for x in lines if x["type"] == "memory_declined"])
+        call = [x for x in lines if x["type"] == "memory_read" and x.get("purpose") == "call"][-1]
+        self.assertIn({"id": fact, "why": "memory.facts is off"}, call["skipped"])
+
 
 class TheReadRule(MemoryTest):
     def test_a_call_gets_its_subjects_and_the_general_records_newest_first(self):

@@ -117,7 +117,7 @@ def request(ctx, tool: str, args: dict, action_class: str, facts: dict) -> str:
     """Put a gated call up for the operator and checkpoint its run as waiting for it.
     The same call of the same run, already waiting, gets the same approval: never two."""
     step = {"plan_step": getattr(ctx, "plan_step", None), "tool": tool, "action_class": action_class, "args": args}
-    return _put(ctx, tool, action_class, [step], screen(tool, args, action_class, facts))
+    return _put(ctx, tool, action_class, [step], screen(tool, args, action_class, facts, ctx))
 
 
 def request_plan(ctx, steps: list[dict], facts: dict) -> str:
@@ -127,7 +127,7 @@ def request_plan(ctx, steps: list[dict], facts: dict) -> str:
     if not steps:
         raise ValueError("a plan approval lists at least one gated step")
     classes = sorted({s["action_class"] for s in steps})
-    return _put(ctx, "plan", ", ".join(classes), steps, plan_screen(steps, facts))
+    return _put(ctx, "plan", ", ".join(classes), steps, plan_screen(steps, facts, ctx))
 
 
 def _put(ctx, tool: str, action_class: str, steps: list[dict], shown: dict) -> str:
@@ -269,7 +269,7 @@ def log(run_key: str | None = None) -> list[dict]:
 
 # -- the screen ---------------------------------------------------------------------------
 
-def screen(tool: str, args: dict, action_class: str, facts: dict) -> dict:
+def screen(tool: str, args: dict, action_class: str, facts: dict, ctx=None) -> dict:
     """The approval screen of one call, in reading order: the dry run, the computed facts,
     what still checks it. Keys are the labels the page shows; "(computed)" marks what our code
     read from the records, "(their words)" what a stranger wrote."""
@@ -302,6 +302,7 @@ def screen(tool: str, args: dict, action_class: str, facts: dict) -> dict:
         out["dry run"] = (f"Send to {recipient.get('id')} ({recipient.get('name')}, {recipient.get('email')}):\n"
                           + str(facts.get("text_as_sent") or args.get("body") or ""))
         out["reach (computed)"] = "one person; a sent message cannot be recalled"
+        out["this text against the records (computed)"] = _text_check(recipient, args)
     else:
         out["dry run"] = f"{tool} with {canonical(args)}"
     request = _request(args.get("request_id"))
@@ -316,11 +317,12 @@ def screen(tool: str, args: dict, action_class: str, facts: dict) -> dict:
         if answer is not None:
             out["the answer it is written from (their words)"] = answer
         out["what still checks it"] = _critique_line()
+    out["this run's checks so far (computed)"] = run_checks(ctx)
     out["secrets (computed)"] = "none: the hook refuses any text or record that carries a credential's secret"
     return out
 
 
-def plan_screen(steps: list[dict], facts: dict) -> dict:
+def plan_screen(steps: list[dict], facts: dict, ctx=None) -> dict:
     """The screen of a plan's gated steps, approved together: every step's dry run, then what
     our code knows about the run so far, then what still checks each step's output."""
     from sandbox import directory
@@ -336,13 +338,15 @@ def plan_screen(steps: list[dict], facts: dict) -> dict:
             dry.append(f"Step {s.get('plan_step')}: {s['tool']} with {canonical(args)}")
     people = sorted({str(s["args"].get("recipient_employee_id")) for s in steps if s["tool"] == "reply_send"})
     out: dict = {
-        "action": (f"plan v{facts.get('version')} of {facts.get('use_case')}: {len(steps)} gated step(s), "
-                   "approved together; each then runs once, unasked"),
+        "action": (f"{', '.join(sorted({s['action_class'] for s in steps}))} (plan v{facts.get('version')} of "
+                   f"{facts.get('use_case')}: {len(steps)} gated step(s), approved together; each then runs once, "
+                   "unasked)"),
         "dry run": "\n\n".join(dry),
         "reach (computed)": f"{len(people)} person(s): {', '.join(people)}; a sent message cannot be recalled",
         "done before this, reversible (computed)": "; ".join(facts.get("done") or []) or "nothing",
         "the validator (computed)": f"plan v{facts.get('version')} passed every rule",
         "the critique on each note (computed)": facts.get("critique") or "not run",
+        "this run's checks so far (computed)": run_checks(ctx),
         "not listed here": "any other gated step, or a step whose text changes, asks again",
         "what still checks it": ("each note's text is checked again when it is sent, and each step's expected "
                                  "outcome after it runs; the critique checks the groups and people named and any "
@@ -395,8 +399,48 @@ def _request(request_id) -> dict | None:
     return requests.get(str(request_id)) if request_id else None
 
 
+def run_checks(ctx) -> str:
+    """Whether this run's checks passed so far: its own lines in its session's trace, from its first
+    notice (control.notice) to the next run's, counted by kind. Read, never asserted."""
+    from harness.trace import read_trace
+    key = getattr(ctx, "run_key", None)
+    if not key:
+        return "no run on record"
+    path = runtime.trace(ctx.session_id).path
+    mine, inside = [], False
+    for x in read_trace(path) if path.exists() else []:
+        if x.get("type") == "run_notice":
+            inside = x.get("run_key") == key
+        if inside:
+            mine.append(x)
+    if not mine:
+        return "no run on record"
+    count = lambda kind, ok: sum(1 for x in mine if x.get("type") == kind and ok(x))
+    parts = [f"the critique: {count('critique', lambda x: x.get('verdict') == 'pass')} round(s) passed, "
+             f"{count('critique', lambda x: x.get('verdict') == 'fail')} failed",
+             f"calls refused by the hook: {count('hook_denied', lambda x: True)}"]
+    checked = count("checkpoint", lambda x: True)
+    if checked:
+        parts.append(f"plan checkpoints: {count('checkpoint', lambda x: x.get('passed'))} passed, "
+                     f"{count('checkpoint', lambda x: not x.get('passed'))} failed")
+    return "; ".join(parts)
+
+
+def _text_check(recipient: dict, args: dict) -> str:
+    """The critique's code check on the text as sent, run for the screen: no model call, no round used."""
+    if str(runtime.switch("critique.requester_reply", "off")) != "external":
+        return "not checked: the critique is off (critique.requester_reply)"
+    from agent import critique, disclosure
+    from sandbox import db
+    body = disclosure.without_line(str(args.get("body") or "").strip())
+    wrong = critique.check_draft(recipient_employee_id=str(recipient.get("id") or args.get("recipient_employee_id")),
+                                 request_id=args.get("request_id"), body=body, stamp=db.current_stamp())
+    return ("passes: every group and person it names matches the records, and it claims no approval that "
+            "no record shows" if not wrong else "fails: " + " ".join(wrong[:critique.MAX_REASONS]))
+
+
 def _critique_line() -> str:
     if str(runtime.switch("critique.requester_reply", "off")) == "external":
-        return ("the critique, again when it is sent: the groups and people the text names against the records, "
-                "and any approval it claims that no record shows; not tone")
+        return ("the critique, when it is sent: the check above, run again on the text as sent, and a failure "
+                "holds it; not tone")
     return "nothing after this screen: the critique is off (critique.requester_reply)"

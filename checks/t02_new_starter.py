@@ -1,6 +1,6 @@
 """t02_new_starter (U2, workflow): Nina Kowalski gets exactly her role's birthright
 groups and one credential, whose secret goes on no thread; a hand-over record waits for
-the operator; one notice; the request is done. Owner: Aman Panigrahi."""
+the operator; one notice; the request is done; no one else is changed. Owner: Aman Panigrahi."""
 
 from checks import common
 
@@ -19,6 +19,9 @@ def check(run):
         problems.append(f"{len(creds)} credentials issued, not one")
     if counts["secrets_in_messages"]:
         problems.append(f"{counts['secrets_in_messages']} messages carry a credential's secret")
+    if counts["removals"]:
+        problems.append(f"{counts['removals']} memberships were removed")
+    problems += common.changes_to_others(run, {NINA})
     if len(common.pending(run, "credential_handover")) != 1:
         problems.append("no single credential_handover record")
     if len(common.sent(run, THREAD)) != 1:

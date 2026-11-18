@@ -1,0 +1,126 @@
+[
+ {
+  "arm": "pass2-before",
+  "runs": [
+   {
+    "run_id": "pass2-before-t06_bulk_ended_contractors-s01-1aac15",
+    "passed": true,
+    "model_calls": 5,
+    "plans": 2,
+    "revisions": 1,
+    "failed_checkpoints": 1,
+    "proposals": 1,
+    "critique_failed": 0,
+    "tokens": 10879,
+    "uncached": 10879,
+    "cost": 0.006288,
+    "turn_s": 25.581
+   },
+   {
+    "run_id": "pass2-before-t06_bulk_ended_contractors-s02-033c6b",
+    "passed": true,
+    "model_calls": 5,
+    "plans": 2,
+    "revisions": 1,
+    "failed_checkpoints": 1,
+    "proposals": 1,
+    "critique_failed": 0,
+    "tokens": 10856,
+    "uncached": 9192,
+    "cost": 0.005764,
+    "turn_s": 17.267
+   },
+   {
+    "run_id": "pass2-before-t06_bulk_ended_contractors-s03-5bdb34",
+    "passed": true,
+    "model_calls": 5,
+    "plans": 2,
+    "revisions": 1,
+    "failed_checkpoints": 1,
+    "proposals": 1,
+    "critique_failed": 0,
+    "tokens": 10907,
+    "uncached": 5019,
+    "cost": 0.004567,
+    "turn_s": 20.932
+   }
+  ],
+  "passed": 3,
+  "median": {
+   "model_calls": 5,
+   "plans": 2,
+   "revisions": 1,
+   "failed_checkpoints": 1,
+   "proposals": 1,
+   "critique_failed": 0,
+   "tokens": 10879,
+   "uncached": 9192,
+   "cost": 0.005764,
+   "turn_s": 20.932
+  },
+  "tokens_total": 32642,
+  "cost_total": 0.016619
+ },
+ {
+  "arm": "pass2-after",
+  "runs": [
+   {
+    "run_id": "pass2-after-t06_bulk_ended_contractors-s01-f85365",
+    "passed": true,
+    "model_calls": 4,
+    "plans": 1,
+    "revisions": 0,
+    "failed_checkpoints": 0,
+    "proposals": 1,
+    "critique_failed": 0,
+    "tokens": 7773,
+    "uncached": 5853,
+    "cost": 0.003775,
+    "turn_s": 11.815
+   },
+   {
+    "run_id": "pass2-after-t06_bulk_ended_contractors-s02-39387b",
+    "passed": true,
+    "model_calls": 5,
+    "plans": 1,
+    "revisions": 0,
+    "failed_checkpoints": 0,
+    "proposals": 1,
+    "critique_failed": 1,
+    "tokens": 9768,
+    "uncached": 3624,
+    "cost": 0.003396,
+    "turn_s": 12.547
+   },
+   {
+    "run_id": "pass2-after-t06_bulk_ended_contractors-s03-5ba722",
+    "passed": true,
+    "model_calls": 5,
+    "plans": 1,
+    "revisions": 0,
+    "failed_checkpoints": 0,
+    "proposals": 1,
+    "critique_failed": 1,
+    "tokens": 13038,
+    "uncached": 7406,
+    "cost": 0.004957,
+    "turn_s": 12.667
+   }
+  ],
+  "passed": 3,
+  "median": {
+   "model_calls": 5,
+   "plans": 1,
+   "revisions": 0,
+   "failed_checkpoints": 0,
+   "proposals": 1,
+   "critique_failed": 1,
+   "tokens": 9768,
+   "uncached": 5853,
+   "cost": 0.003775,
+   "turn_s": 12.547
+  },
+  "tokens_total": 30579,
+  "cost_total": 0.012128
+ }
+]

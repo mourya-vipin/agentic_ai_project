@@ -117,6 +117,9 @@ class LongSessionCheckTest(ScratchTest):
         self.assertEqual(_finished("Finished: SYN-REQ-0001; SYN-REQ-0004 is not done yet, and SYN-REQ-0005 waits."),
                          {"SYN-REQ-0001"})
         self.assertEqual(_finished("SYN-REQ-0001 and SYN-REQ-0005 are done."), {"SYN-REQ-0001", "SYN-REQ-0005"})
+        # a run carried on after a restart puts its own line first (tests/test_recovery.py, s01)
+        self.assertEqual(_finished("SYN-REQ-0005 (standard_grant): left for you. step 4, access_grant: blocked.\n"
+                                   "SYN-REQ-0001, SYN-REQ-0003"), {"SYN-REQ-0001", "SYN-REQ-0003"})
 
     def test_an_answer_that_claims_a_waiting_request_finished_still_fails(self):
         wrong = "The requests finished today are SYN-REQ-0001 to SYN-REQ-0004, and SYN-REQ-0005."

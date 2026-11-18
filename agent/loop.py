@@ -116,7 +116,9 @@ def carry_on(cp, event: dict, *, system: str, tools: list[str], bound: Bound,
         operator     the operator's words (the answer to an escalation)
         restart      the process stopped during the run. The step that was running when it
                      stopped is finished first: each write takes the three exits
-                     (agent/exits.py), and each read is made again. Then a line from our code
+                     (agent/exits.py), and each read is made again. A call that waited for an
+                     approval takes the three exits too, with a read of the target first, as
+                     our code can stop while it makes the approved call. Then a line from our code
 
     The bound is new: a resumed turn is a turn of its own."""
     findings = cp.findings or {}
@@ -294,6 +296,32 @@ def _make_approved_calls(cp, messages: list[dict], step: int, actions: list[str]
     return ended
 
 
+def _finish_approved_calls(cp, messages: list[dict], actions: list[str]) -> str | None:
+    """After a restart: each call of the last saved step that waited for an approval. After a
+    yes, our code makes it (_make_approved_calls), so the process can stop during it. Each
+    takes the three exits, with a read of the target before the same call again: the gate lets
+    an approved call through once, so a second call would ask the operator again for a reply that
+    went out (the recovery test, t08 and t10). Its result takes the place of the "waiting" result.
+    A call not yet approved waits again. Returns the end reason of a call that ends the turn."""
+    last = (cp.steps or [{}])[-1]
+    waited = [c for c in last.get("calls", []) if c.get("end_reason") == AWAITING_APPROVAL]
+    if not waited:
+        return None
+    registry, ended = get_registry(), None
+    runtime.trace(cp.session_id).event("approved_calls_finished_after_restart", run_key=cp.run_key,
+                                       step=last.get("n"), calls=[c["tool"] for c in waited])
+    for saved in waited:
+        ctx = CallContext(cp.session_id, last.get("n") or 0, "model", cp.use_case,
+                          request_id=(cp.findings or {}).get("request_id"), call_id=saved["id"],
+                          run_key=cp.run_key, origin="agent")
+        result = exits.settle(saved["tool"], saved["args"], ctx, registry=registry, read_first=True).result
+        if not result.is_error and result.key is not None:
+            actions.append(action_line(saved["tool"], saved["args"], result.data))
+        _put_result(messages, saved["id"], result)
+        ended = ended or result.end_reason
+    return ended
+
+
 def _finish_the_step(cp, messages: list[dict], actions: list[str]) -> tuple[list[dict], str | None, str | None]:
     """After a restart: finish the step that was running when the process stopped. Its record
     holds the model's calls and their arguments, saved before they ran. A write takes the three
@@ -304,7 +332,7 @@ def _finish_the_step(cp, messages: list[dict], actions: list[str]) -> tuple[list
     last = (cp.steps or [None])[-1]
     pending = bool(last) and any(c.get("status") == "pending" for c in last.get("calls", []))
     if not pending or not messages or messages[-1].get("role") != "assistant":
-        return messages, None, None                 # the step's results were saved: nothing is cut
+        return messages, _finish_approved_calls(cp, messages, actions), None   # the step's results were saved
     registry, results, ended, held = get_registry(), [], None, None
     runtime.trace(cp.session_id).event("step_finished_after_restart", run_key=cp.run_key, step=last.get("n"),
                                        calls=[c["tool"] for c in last["calls"]])

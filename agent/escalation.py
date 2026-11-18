@@ -6,8 +6,10 @@ The four decisions, made before the agent runs (slide 37):
     the trigger   one of SIGNALS, set by our code, never the model's "low confidence":
                   ambiguous_write       a write whose outcome the three exits cannot settle
                                         (agent/exits.py, Aman), on U2, U4 and U6
-                  memory_contradiction  a stored preference contradicts the request (U4)
-                  blocked_three_times   the same step refused three times
+                  The brief's other signals are not built. A contradiction with stored memory
+                  does not stop the run: the newer fact supersedes the old one (agent/memory.py).
+                  The same step blocked three times ends at the loop's bound instead (step_limit,
+                  repeat_call), which no answer from the operator would unblock.
                   An empty search is "not determined" and retried; doubt about a reversible,
                   visible action proceeds. Neither escalates.
     the packet    what the run attempted, why it stopped, what it needs from the operator:
@@ -42,7 +44,7 @@ from harness.trace import now
 from harness.turns import Reply
 
 DB_FILE = "escalations.sqlite3"
-SIGNALS = ("ambiguous_write", "memory_contradiction", "blocked_three_times")
+SIGNALS = ("ambiguous_write",)
 PENDING, ANSWERED, TIMED_OUT = "pending", "answered", "timed_out"
 
 # the end reasons this module writes

@@ -51,7 +51,7 @@ Its benefit was to be **specialisation by tool surface**: the comms role cannot 
 
 - A return that breaks the contract is rejected and traced. That covers nine kinds: a missing field, an unknown status, the spend as the model says it, a search never made, "found" with something undetermined, a candidate that names nothing undetermined, an empty result, the parent's run key, and an extra field.
 - The end-state check fails planted divergent end states: a contractor still holding groups, a missing proposal, a note naming another manager's contractor, a missing note, a note without the disclosure line, and a stranger touched. It also fails a live one: every access role returned, Victor Lam's as a candidate, and the combined end state still lacked his legal hold's proposal (`SplitRolesNoProposal`).
-- Every test task (t01 to t09, and the long session s01) runs to the end with the split on, within the one budget, each check read from the sandbox. Only U6 changes; t06 passes its check as a split.
+- Every test task on the branch (t01 to t09, and the long session s01; t10 was added on `main` after the tag) runs to the end with the split on, within the one budget, each check read from the sandbox. Only U6 changes; t06 passes its check as a split.
 - The shared budget ends the split (`split_budget`) when it runs out.
 
 ## The pilot
@@ -71,7 +71,7 @@ Two arms of t06 on gpt-4.1-mini, at the same commit (`126c09f` on `m2-split`), 3
 
 Either of these, testable from the trace by someone else:
 
-1. **A batch someone waits on.** The day's separate requests, each with its own check, run at once and take longer than 60 s of wall-clock time in a sweep, with a person waiting on them (a queue page an operator watches, not the morning batch). The per-request worker then passes gate 3 for speed. A split that beats one agent given the same budget, in a pass with its prediction on `main` first, would earn the change (slide 49).
+1. **A batch someone waits on.** In a console session's trace (`traces/`, a person at the console, not a run.py run), an operator turn that routes two or more separate requests (two `route` lines with `scope: request`) takes longer than 60 s (its `reply` line's `latency_s`). The per-request worker then passes gate 3 for speed. A split that beats one agent given the same budget, in a pass with its prediction on `main` first, would earn the change (slide 49).
 2. **A call that cannot fit.** On any test task, one U6 or U4 call is over `context_budget` even after compaction (`budget_unfit`). Then a separate context per role would buy room that compaction no longer gives.
 
 ## The rejected alternative

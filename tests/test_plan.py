@@ -277,6 +277,8 @@ class PlanApprovalTest(PlannedTest):
         self.assertIn("passed", item["the critique on each note (computed)"])
         self.assertIn("removed", item["done before this, reversible (computed)"])
         self.assertIn("asks again", item["not listed here"])
+        self.assertTrue(item["action"].startswith("manager_note/plan_listed (plan v"), item["action"])
+        self.assertIn("plan checkpoints: ", item["this run's checks so far (computed)"])
 
     def test_once_approved_the_listed_notes_run_unasked_and_each_is_sent_once(self):
         self.run_planned("GoodPlannerWithHold")

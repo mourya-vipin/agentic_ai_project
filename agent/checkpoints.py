@@ -97,15 +97,15 @@ RESUMERS = {
 PLANNED_RESUMER = "agent.executor:resume"
 
 # The durability mode of each use case (Lecture 4, slide 12; M2.md, Part 1, task 2).
-# sync:  a run that can do an irreversible step. U2 issues a credential, U4 can send,
-#        and U6 can send manager notes.
-# async: a run whose writes all have a key and can be undone (U1, U3). A replay of a lost
-#        step gets the same key, and the sandbox keeps the first result of each key.
+# sync:  a run that can do an irreversible step. U1 to U3 send a notice to the requester,
+#        U4 can send a reply, and U6 can send manager notes.
+# async: a run whose writes all have a key and can be undone. No use case of ours is one:
+#        each one that writes also sends.
 # exit:  a run that only reads (U5). A crash loses only the answer, and the operator asks again.
 DURABILITY = {
-    "standard_grant": "async",
+    "standard_grant": "sync",
     "onboarding": "sync",
-    "offboarding": "async",
+    "offboarding": "sync",
     "nonstandard_request": "sync",
     "operator_review": "exit",
     "bulk_change": "sync",

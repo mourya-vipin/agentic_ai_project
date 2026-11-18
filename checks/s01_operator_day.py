@@ -12,8 +12,12 @@ right, each against the sandbox's truth for this run. Owner: Vipin Mourya.
 An answer is read from the reply to its question: a set of IDs (in any order, nothing extra), or
 the first yes or no in it. For question 1, the IDs are those the answer says were finished: a
 clause (a sentence, a line, or a part after a semicolon) that says its requests are pending,
-waiting, open, held, refused or not done names requests it does not claim, so its IDs are left
-out ("finished: 0001 to 0003. 0004 and 0005 are pending" claims three; m2-build s01, s03). Named counts: late_action_right (0 or 1), answers_right (of 4).
+waiting, open, held, refused, not done or "left for you" names requests it does not claim, so
+its IDs are left out ("finished: 0001 to 0003. 0004 and 0005 are pending" claims three; m2-build
+s01, s03). "left for you" is our code's line for a run that it carries on after a restart and
+that ends with the request left to the operator; it comes first in the reply to the next
+question (tests/test_recovery.py, s01; added by Aman Panigrahi). Named counts: late_action_right
+(0 or 1), answers_right (of 4).
 """
 
 import re
@@ -29,7 +33,7 @@ ROUTES = {"SYN-REQ-0001": "workflow:standard_grant", "SYN-REQ-0002": "workflow:s
 YES_NO = re.compile(r"\b(yes|no)\b", re.I)
 CLAUSE = re.compile(r"(?<=[.!?])\s+|\n+|;")
 NOT_FINISHED = re.compile(r"\b(pending|waiting|waits|awaiting|open|still|held|on hold|blocked|refused|"
-                          r"in progress|not (?:yet )?(?:finished|done|complete|completed))\b", re.I)
+                          r"in progress|left for you|not (?:yet )?(?:finished|done|complete|completed))\b", re.I)
 
 
 def _ids(pattern, text: str) -> set[str]:

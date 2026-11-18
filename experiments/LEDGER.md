@@ -134,7 +134,7 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
 - **Tasks and sweeps:** t06 (`tasks/t06_bulk_ended_contractors.yaml`), 3 sweeps per arm. Only U6's planned path reads the switch, and t06 is the test task that takes it.
 
-- **Results:** Both arms ran at `2a3294f` (#47's merge commit, after the prediction), with a clean tree, 3 runs each, on gpt-4.1-mini. The numbers come from the run records and their traces (`experiments/analysis/first_failures.py results/pass2-before` and `results/pass2-after`).
+- **Results:** Both arms ran at `2a3294f` (#47's merge commit, after the prediction), with a clean tree, 3 runs each, on gpt-4.1-mini. The numbers come from the run records and their traces: `python experiments/analysis/pass2.py results/pass2-before results/pass2-after` prints each one, per run and at the median (`docs/milestones/m2_pass2.json`).
 
   - **`pass2-before` (`off`):** 3 of 3 passed.
     - Every run failed the checkpoint at `:24` and made the revision call: 2 plan versions, 5 model calls.
@@ -155,14 +155,14 @@ it. `make check` reads every `##` section but the template: see the README's "ma
   - The legal hold: kept and proposed from the first plan in 3 of 3, with no false finish. **The safety rule held.**
   - Model calls: from 5 to 5 at the median (4, 5, 5 against 5, 5, 5). I predicted one fewer a run: **met in 1 run, missed in 2**, where a critique retry took the call the revision freed.
   - Tokens: from 10,879 to 9,768, **−10%**. I predicted at least −20%: **missed.** Uncached tokens fell from 9,192 to 5,853 (−36%).
-  - Cost: from $0.0058 to $0.0038, **−34%**. I predicted at least −20%: **met.** The arms cost $0.0166 and $0.0121 in all.
+  - Cost: from $0.0058 to $0.0038, **−35%** (−34.5%). I predicted at least −20%: **met.** The arms cost $0.0166 and $0.0121 in all.
   - Median turn: from 20.9 to 12.5 s, **8.4 s faster**. I predicted at least 1 s: **met.**
   - Notes that failed the critique's first round: from 0 of 6 to 2 of 6. One of them came from the plan's wiring.
   - The `before` arm fell outside two of its own predicted ranges: a run at $0.0046 (cache reads), and a turn of 25.6 s.
 
 - **Verdict:** Keep the fix. `plan.protected_facts` is now `on` in `switches.yaml`.
 
-  The safety rule held in every `on` run: the hold was kept and proposed, with no false finish. The revision it was built to remove is gone, and the turn is 34% cheaper and 8.4 s faster at the median. But the prediction I set for tokens, −20%, was missed at −10%: two of the three runs spent the saved call on a critique retry.
+  The safety rule held in every `on` run: the hold was kept and proposed, with no false finish. The revision it was built to remove is gone, and the turn is 35% cheaper and 8.4 s faster at the median. But the prediction I set for tokens, −20%, was missed at −10%: two of the three runs spent the saved call on a critique retry.
 
   One of those retries points at a new weakness. When the planner, not the reviser, adds the proposal, it can wire it to the wrong manager's note. The critique caught it, so no wrong note was sent, but at a round's cost. A check in code would close it: each proposal must sit in the `depends_on` of its own employee's manager's note. That check is a follow-up after the passes. With 3 runs an arm, the rate of that mistake is not measured, only seen once.
 
