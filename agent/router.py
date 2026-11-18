@@ -14,8 +14,15 @@ when it asks about work done or about the records. Code decides from the answer:
     process_requests   every new request, or the IDs named, each routed below
     bulk_change        U6: the planned executor if plan.bulk_change is "on", else the loop
     question           U5: the loop with read-only tools
+    none               no run: the message only states a rule, which our code recorded
 
-An answer that does not parse is a question: the read-only path is the safe default.
+An answer that does not parse is a question: the read-only path is the safe default. Two
+more answers become a question, because code checks them against the message:
+  - process_requests with a request ID that the message does not name. The model took it
+    from an earlier turn, so the message asks for no work on it.
+  - none, when our code recorded no rule from this message.
+When our code recorded a rule from the message (policy/limits.py), the routing call reads
+that fact, so the rule alone is not taken for a bulk change.
 
 A request. The thread says where it came from (our seed and channel set it):
 SYN-HR-… is the HR feed, whose fixed fields our code parses (new_starter is U2;
@@ -45,6 +52,7 @@ get no notes, and a call that cannot fit gives the safe route: a question, or U4
 
 from __future__ import annotations
 
+import html
 import json
 import re
 from dataclasses import dataclass, field
@@ -58,11 +66,13 @@ from agent.loop import LoopResult
 from agent.registry import CallContext, get_registry
 from harness import runtime
 from harness.turns import Reply
+from policy import limits
 from sandbox import catalog, clock, db, directory, requests
 
 STANDARD_GRANT, ONBOARDING, OFFBOARDING = "standard_grant", "onboarding", "offboarding"
 NONSTANDARD, OPERATOR_REVIEW, BULK_CHANGE = "nonstandard_request", "operator_review", "bulk_change"
-INTENTS = ("process_requests", "bulk_change", "question")
+INTENTS = ("process_requests", "bulk_change", "question", "none")
+NO_TASK = "I found no task in this message, so no run started. To give me one, say what to do."
 PROMPTS = Path(__file__).parent / "prompts"
 BOUND = Bound()
 HISTORY_TURNS = 3                       # earlier messages the operator router sees; U5's loop sees this many turns
@@ -107,20 +117,23 @@ class Route:
 
 # -- the operator's message ---------------------------------------------------------------
 
-def handle_operator(session_id: str, text: str) -> Reply:
+def handle_operator(session_id: str, text: str, rule: str | None = None) -> Reply:
     """One operator message: a new task (process requests, a bulk change) or a
     question about work already done. First, each run of the session that a stopped
-    process left as running carries on (_carry_on_crashed)."""
+    process left as running carries on (_carry_on_crashed). `rule` names the rule that our
+    code recorded from the message (agent/service.py), or is None."""
     carried = _past_deadline(session_id) + _carry_on_crashed(session_id)
     earlier = session.history(session_id)[-HISTORY_TURNS:]
     first = _session_start(session_id) if not earlier else None
     session.add(session_id, "operator", text)
-    intent, request_ids, reason = route_operator(session_id, text, earlier)
+    intent, request_ids, reason = route_operator(session_id, text, earlier, rule=rule)
     runtime.trace(session_id).event("route", scope="operator", intent=intent, request_ids=request_ids, reason=reason)
     if intent == "process_requests":
         reply = process_requests(session_id, request_ids)
     elif intent == "bulk_change":
         reply = _as_reply(bulk_change(session_id, text))
+    elif intent == "none":
+        reply = Reply(NO_TASK)
     else:
         _agent_path(OPERATOR_REVIEW)
         content = _with_history(session_id, text)
@@ -182,7 +195,9 @@ def _after_turn(session_id: str) -> list[Reply]:
     for said in inbox.after_turn(session_id):
         if said["way"] == inbox.REPLACE:
             out.append(_what_it_did(said["run_key"]))
-        out.append(handle_operator(session_id, said["text"]))
+        # a rule in a queued message was recorded when the message came (agent/service.py)
+        rule = "a rule when the message came" if limits.parse(said["text"]) is not None else None
+        out.append(handle_operator(session_id, said["text"], rule=rule))
     return out
 
 
@@ -246,10 +261,15 @@ def _agent_path(use_case: str) -> None:
                          "set it to agent in switches.yaml")
 
 
-def route_operator(session_id: str, text: str, earlier: list[dict]) -> tuple[str, list[str], str]:
-    """(intent, request IDs, why), from one traced model call."""
+def route_operator(session_id: str, text: str, earlier: list[dict],
+                   rule: str | None = None) -> tuple[str, list[str], str]:
+    """(intent, request IDs, why), from one traced model call. Code checks the answer against
+    the message: see the module's docstring."""
     past = "\n".join(f"{t['role']}: {t['text']}" for t in earlier) or "(none)"
     content = f"Earlier turns in this session:\n{past}\n\nThe operator's message:\n{text}"
+    if rule:
+        content += (f"\n\n[from our code] This message states a rule, and our code has recorded it as {rule}. "
+                    "The rule is not a task.")
     built = context.assemble("router", system=_prompt("route_operator"), session_id=session_id, run_key=None,
                              task=content, history=[], tool_names=None)
     if built.unfit:
@@ -261,8 +281,14 @@ def route_operator(session_id: str, text: str, earlier: list[dict]) -> tuple[str
     if intent not in INTENTS:
         return "question", [], "the routing answer did not parse, so the read-only path"
     ids = [i.upper() for i in answer.get("request_ids") or [] if isinstance(i, str) and REQUEST_ID.fullmatch(i)]
+    if intent == "none" and not rule:
+        return "question", [], "no task in the answer, but our code recorded no rule, so the read-only path"
     if intent == "process_requests":
-        ids += [i.upper() for i in REQUEST_ID.findall(text) if i.upper() not in ids]
+        named = [i.upper() for i in REQUEST_ID.findall(text)]
+        if any(i not in named for i in ids):
+            return "question", [], ("the routing answer named a request ID that the message does not name, "
+                                    "so the read-only path")
+        ids += [i for i in named if i not in ids]
     return intent, ids, "the routing call's answer"
 
 
@@ -535,7 +561,7 @@ def route_request(session_id: str, request: dict) -> Route:
 
 def describe_request(session_id: str, request: dict) -> dict:
     """The routing call's description of one request, or {} if it does not parse."""
-    content = f'<request from="{request["requester_id"]}" trust="untrusted">\n{request["text"]}\n</request>'
+    content = untrusted_request(request)
     built = context.assemble("router", system=_prompt("route_request"), session_id=session_id, run_key=None,
                              task=content, history=[], tool_names=None)
     if built.unfit:
@@ -637,8 +663,15 @@ def _case(request: dict, route: Route) -> str:
     return (f"Request {request['id']}, received {request['received_at']} on thread {request['thread_id']}.\n"
             f"The requester, from the directory: {who}.\n"
             f"Why it came to you: {'; '.join(route.why)}.\n\n"
-            f'<request from="{request["requester_id"] or "unknown"}" trust="untrusted">\n{request["text"]}\n'
-            f"</request>")
+            f"{untrusted_request(request)}")
+
+
+def untrusted_request(request: dict) -> str:
+    """The requester's own text between <request> tags, marked untrusted. Our code escapes the
+    text (&, < and >), so that it cannot close the tag and write outside it."""
+    sender = html.escape(str(request.get("requester_id") or "unknown"), quote=True)
+    text = html.escape(str(request.get("text") or ""), quote=False)
+    return f'<request from="{sender}" trust="untrusted">\n{text}\n</request>'
 
 
 def _with_history(session_id: str, text: str) -> str:

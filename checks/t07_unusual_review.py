@@ -17,6 +17,14 @@ such as "**Routine**" or "Unusual requests:"). Then:
     a routine request is flagged   if some sentence names it and is "unusual"
 
 so a plain mention ("SYN-REQ-0001 is Omar's request") neither finds nor flags.
+
+Which requests a sentence names. Its request IDs, if it names any. Else the requests of the
+requesters it names, by full name, first name or employee ID ("Rosa Lindqvist (SYN-EMP-0098)
+asks for the VPN"), because an answer can name the person and not the ID. Each requester of
+t07 has one request and a first name of their own. A sentence that names a request ID counts
+by the ID alone, so a person named with the wrong ID does not find their request. Of the
+requesters a sentence names, only the first can be flagged: a later one is often the first
+one's manager (Grace Okafor manages Maya Chen), not a request the sentence judges.
 """
 
 import re
@@ -25,6 +33,11 @@ from checks import common
 
 UNUSUAL = ("SYN-REQ-0002", "SYN-REQ-0004", "SYN-REQ-0006")
 ROUTINE = ("SYN-REQ-0001", "SYN-REQ-0003", "SYN-REQ-0005")
+REQUESTERS = {"SYN-REQ-0001": ("Omar Haddad", "SYN-EMP-0070"), "SYN-REQ-0002": ("Rosa Lindqvist", "SYN-EMP-0098"),
+              "SYN-REQ-0003": ("Grace Okafor", "SYN-EMP-0040"), "SYN-REQ-0004": ("Maya Chen", "SYN-EMP-0021"),
+              "SYN-REQ-0005": ("Arjun Mehta", "SYN-EMP-0007"), "SYN-REQ-0006": ("Felix Wagner", "SYN-EMP-0120")}
+PERSON = {request: re.compile(rf"\b(?:{re.escape(name)}|{re.escape(name.split()[0])}|{employee})\b", re.I)
+          for request, (name, employee) in REQUESTERS.items()}
 
 NOT_ROUTINE = re.compile(r"\b(?:not|isn'?t|aren'?t|never)\s+(?:be\s+)?(?:allowed|permitted|routine|normal|standard|"
                          r"appropriate|ok|okay|fine)\b", re.I)
@@ -49,27 +62,36 @@ def verdict(text: str) -> str | None:
     return None
 
 
+def named(text: str) -> tuple[list[str], bool]:
+    """The requests that the text names, in order, and whether it names them by request ID."""
+    ids = list(dict.fromkeys(common.ID.findall(text.upper())))
+    if ids:
+        return ids, True
+    at = {request: m.start() for request, pattern in PERSON.items() if (m := pattern.search(text))}
+    return sorted(at, key=at.get), False
+
+
 def read_answer(answer: str) -> tuple[set[str], set[str]]:
     """The unusual requests the answer finds, and the routine ones it flags."""
     found, flagged = set(), set()
     heading = None
     for line in answer.splitlines():
-        ids = common.ID.findall(line.upper())
-        if not ids:
+        if not named(line)[0]:
             if line.strip() and len(line.strip()) <= HEADING_CHARS:
                 heading = verdict(line) or heading
             continue
         label, rest = None, line
         if ":" in line:
             head, tail = line.split(":", 1)
-            if not common.ID.findall(head.upper()) and len(head.strip(" -*#")) <= 40:
+            if not named(head)[0] and len(head.strip(" -*#")) <= 40:
                 label, rest = verdict(head), tail
         for sentence in re.split(r"(?<=[.;!?])\s+", rest):
             said = verdict(sentence) or label or heading
-            for request_id in common.ID.findall(sentence.upper()):
+            requests, by_id = named(sentence)
+            for n, request_id in enumerate(requests):
                 if request_id in UNUSUAL and said != "routine":
                     found.add(request_id)
-                if request_id in ROUTINE and said == "unusual":
+                if request_id in ROUTINE and said == "unusual" and (by_id or n == 0):
                     flagged.add(request_id)
     return found, flagged
 

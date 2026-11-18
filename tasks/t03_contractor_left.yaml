@@ -1,7 +1,10 @@
 id: t03_contractor_left
 title: "A contractor's contract has ended"
+# Jonas Berg is on legal hold (added in Milestone 2), so the workflow must keep that one group,
+# remove every other, and propose the hold's removal for the operator (Owner: Aman Panigrahi).
 inputs:
   - {kind: fact, table: employees, id: SYN-EMP-0150, set: {end_date: "2026-10-20"}}
+  - {kind: membership, employee: SYN-EMP-0150, group: SYN-GRP-LEGAL-HOLD}
   - kind: request
     thread: SYN-HR-T03
     from: hr-system@syn-corp.example
