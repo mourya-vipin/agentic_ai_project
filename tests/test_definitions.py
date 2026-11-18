@@ -70,16 +70,18 @@ class DefinitionsTest(ScratchTest):
         schema = on["input_schema"]
         self.assertEqual(sorted(schema["required"]), sorted(schema["properties"]))     # every property required
         self.assertTrue(all("null" in p["type"] for p in schema["properties"].values()))   # each optional, nullable
-        self.assertEqual(sum(1 for d in self.sent().values() if d.get("strict")), 1)
+        self.assertEqual(sorted(n for n, d in self.sent().items() if d.get("strict")),
+                         ["channel_ask_template", "directory_get_employee", "policy_check_access"])   # Pass 3's two
 
     GROUP_TOOLS = ["strict.policy_check_access=on", "strict.channel_ask_template=on"]
+    GROUP_TOOLS_OFF = ["strict.policy_check_access=off", "strict.channel_ask_template=off"]
 
     def test_strict_on_a_group_tool_takes_only_the_catalogs_ids(self):
         # Pass 3: results/m2-build/ wrote IDs from group names (SYN-GRP-GITHUB-ENGINEERS for GitHub engineers)
         from sandbox import db
         with db.connect() as conn:
             catalog = [r["id"] for r in conn.execute("SELECT id FROM groups ORDER BY id")]
-        on, off = self.sent(self.GROUP_TOOLS), self.sent()
+        on, off = self.sent(self.GROUP_TOOLS), self.sent(self.GROUP_TOOLS_OFF)
         check, ask = on["policy_check_access"], on["channel_ask_template"]
         self.assertTrue(check["strict"] and ask["strict"])
         self.assertEqual(check["input_schema"]["properties"]["group_ids"]["items"]["enum"], catalog)
@@ -116,7 +118,8 @@ class DefinitionsTest(ScratchTest):
         from agent.tools import rules
         from sandbox import catalog, directory, requests
         found = {"EMP": directory.get_employee, "GRP": catalog.get_group, "REQ": requests.get, "SYS": catalog.get_system}
-        sent = self.sent(["examples.access_grant=on", "examples.policy_check_access=on"]).values()
+        # the hints and examples only: Pass 3's enums list the catalog's IDs on purpose, so they are off here
+        sent = self.sent(["examples.access_grant=on", "examples.policy_check_access=on"] + self.GROUP_TOOLS_OFF).values()
         text = json.dumps(list(sent)) + " ".join(str(v) for v in vars(rules).values() if isinstance(v, tuple))
         ids = set(re.findall(r"SYN-(EMP|GRP|REQ|SYS)-([A-Z0-9][A-Z0-9-]*[A-Z0-9])", text))
         self.assertTrue(ids)

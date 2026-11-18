@@ -1,0 +1,184 @@
+{
+  "arms": {
+    "pass3-before": {
+      "runs": 33,
+      "passed": 24,
+      "by_task": {
+        "s01_operator_day": {
+          "runs": 3,
+          "passed": 1
+        },
+        "t01_standard_jira": {
+          "runs": 3,
+          "passed": 3
+        },
+        "t02_new_starter": {
+          "runs": 3,
+          "passed": 3
+        },
+        "t03_contractor_left": {
+          "runs": 3,
+          "passed": 3
+        },
+        "t04_same_access_as": {
+          "runs": 3,
+          "passed": 2
+        },
+        "t05_on_behalf": {
+          "runs": 3,
+          "passed": 3
+        },
+        "t06_bulk_ended_contractors": {
+          "runs": 3,
+          "passed": 2
+        },
+        "t07_unusual_review": {
+          "runs": 3,
+          "passed": 0
+        },
+        "t08_ask_manager": {
+          "runs": 3,
+          "passed": 3
+        },
+        "t09_later_session": {
+          "runs": 3,
+          "passed": 2
+        },
+        "t10_gated_reply": {
+          "runs": 3,
+          "passed": 2
+        }
+      },
+      "tokens_total": 867273,
+      "tokens_per_run": 26281,
+      "model_calls_per_run": 9.0,
+      "turn_median_s": 2.7,
+      "turn_slowest_s": 15.0,
+      "malformed_per_run": 0.03,
+      "malformed_by_tool": {
+        "access_propose_change": 1
+      },
+      "wrong_args_per_run": 0.545,
+      "wrong_args_by_tool": {
+        "channel_ask_template": 3,
+        "policy_check_access": 12,
+        "manager_confirmation_draft": 1,
+        "reply_draft": 2
+      },
+      "made_up_group_ids": 23,
+      "made_up_group_ids_per_run": 0.697,
+      "made_up_group_ids_by_tool": {
+        "channel_ask_template": 10,
+        "policy_check_access": 12,
+        "manager_confirmation_draft": 1
+      },
+      "made_up_group_ids_by_task": {
+        "s01_operator_day": 1,
+        "t05_on_behalf": 3,
+        "t07_unusual_review": 12,
+        "t08_ask_manager": 3,
+        "t09_later_session": 1,
+        "t10_gated_reply": 3
+      },
+      "runs_with_a_made_up_group_id": 13,
+      "input_tokens_per_call": {
+        "mean": 892.3,
+        "median": 437.0,
+        "calls": 298
+      },
+      "tools_offered_per_call": 8.6,
+      "definition_tokens_per_call": 1890.9,
+      "context_lines_with_tools": "298 of 298",
+      "searches": 0,
+      "searches_missed": 0,
+      "code_runs_per_run": 0.0
+    },
+    "pass3-after": {
+      "runs": 33,
+      "passed": 24,
+      "by_task": {
+        "s01_operator_day": {
+          "runs": 3,
+          "passed": 1
+        },
+        "t01_standard_jira": {
+          "runs": 3,
+          "passed": 3
+        },
+        "t02_new_starter": {
+          "runs": 3,
+          "passed": 3
+        },
+        "t03_contractor_left": {
+          "runs": 3,
+          "passed": 3
+        },
+        "t04_same_access_as": {
+          "runs": 3,
+          "passed": 2
+        },
+        "t05_on_behalf": {
+          "runs": 3,
+          "passed": 3
+        },
+        "t06_bulk_ended_contractors": {
+          "runs": 3,
+          "passed": 3
+        },
+        "t07_unusual_review": {
+          "runs": 3,
+          "passed": 0
+        },
+        "t08_ask_manager": {
+          "runs": 3,
+          "passed": 3
+        },
+        "t09_later_session": {
+          "runs": 3,
+          "passed": 0
+        },
+        "t10_gated_reply": {
+          "runs": 3,
+          "passed": 3
+        }
+      },
+      "tokens_total": 783419,
+      "tokens_per_run": 23740.0,
+      "model_calls_per_run": 7.8,
+      "turn_median_s": 2.5,
+      "turn_slowest_s": 12.8,
+      "malformed_per_run": 0.0,
+      "malformed_by_tool": {},
+      "wrong_args_per_run": 0.091,
+      "wrong_args_by_tool": {
+        "channel_ask_template": 3
+      },
+      "made_up_group_ids": 0,
+      "made_up_group_ids_per_run": 0.0,
+      "made_up_group_ids_by_tool": {},
+      "made_up_group_ids_by_task": {},
+      "runs_with_a_made_up_group_id": 0,
+      "input_tokens_per_call": {
+        "mean": 833.5,
+        "median": 455,
+        "calls": 257
+      },
+      "tools_offered_per_call": 8.2,
+      "definition_tokens_per_call": 1971,
+      "context_lines_with_tools": "257 of 257",
+      "searches": 0,
+      "searches_missed": 0,
+      "code_runs_per_run": 0.0
+    }
+  },
+  "switches_differ": {
+    "strict.channel_ask_template": {
+      "pass3-before": "off",
+      "pass3-after": "on"
+    },
+    "strict.policy_check_access": {
+      "pass3-before": "off",
+      "pass3-after": "on"
+    }
+  }
+}
