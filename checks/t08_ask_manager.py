@@ -39,6 +39,8 @@ def check(run):
     if [(g["employee_id"], g["group_id"], g["request_id"]) for g in grants] != [(DEV, GITHUB_ENG, REQ)]:
         problems.append(f"the grants are {[(g['employee_id'], g['group_id']) for g in grants]}, not "
                         f"{GITHUB_ENG} to {DEV} under {REQ}")
+    if counts["removals"]:
+        problems.append(f"{counts['removals']} memberships were removed")
     answered = [m for m in common.sent(run, ARJUN_THREAD) if replies and m.id > replies[0].id]
     if len(answered) != 1:
         problems.append(f"{len(answered)} replies sent to {ARJUN} on {ARJUN_THREAD} after {HANNAH}'s answer, not one")

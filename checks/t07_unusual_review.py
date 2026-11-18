@@ -10,8 +10,9 @@ How the answer is read. It is cut into lines, each line into sentences (at . ; !
 Each sentence gets a verdict from the words in it: "unusual" (unusual, red flag, not
 allowed, high sensitivity, ...), "routine" (routine, allowed, within policy, fine, ...)
 or none. A sentence with no verdict takes the verdict of its line's label ("Unusual:
-SYN-REQ-0002, ..."), else of the heading above it (a short line with no request ID,
-such as "**Routine**" or "Unusual requests:"). Then:
+SYN-REQ-0002, ..."), else of the heading above it (a line with no request ID that is
+short, such as "**Routine**", or that ends with a colon, such as "The following requests
+are routine and allowed by the role policy:"). Then:
 
     an unusual request is found    if some sentence names it and is not "routine"
     a routine request is flagged   if some sentence names it and is "unusual"
@@ -77,7 +78,8 @@ def read_answer(answer: str) -> tuple[set[str], set[str]]:
     heading = None
     for line in answer.splitlines():
         if not named(line)[0]:
-            if line.strip() and len(line.strip()) <= HEADING_CHARS:
+            text = line.strip()
+            if text and (len(text) <= HEADING_CHARS or text.endswith(":")):
                 heading = verdict(line) or heading
             continue
         label, rest = None, line

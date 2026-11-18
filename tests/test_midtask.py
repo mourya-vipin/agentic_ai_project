@@ -3,7 +3,9 @@ Owner: Aman Panigrahi. No tokens: the models are fakes (free = True).
 
     carry on     "Also ...": the sandbox holds the earlier work once, plus the addition
     start over   "Forget that. Instead ...": the run ends "replaced" before its next step; after
-                 the message the old run writes nothing more, and the operator sees what it wrote
+                 the message the old run writes nothing more, and the operator sees what it wrote;
+                 a fresh run takes the new message, and the operator's /rollback undoes the old
+                 run's grant, while its draft waits on /pending for the operator to dismiss
     queue        a question waits, and it is taken as a new message when the turn ends
     reject       past the queue's size, the operator knows at once
 """
@@ -19,12 +21,13 @@ from agent import bounds, inbox
 from harness import runtime, turns
 from harness.client import Usage
 from harness.trace import read_trace
-from sandbox import pending
+from sandbox import access, pending
 from tests import fakes
 from tests.support import ScratchTest, fixed_run
 
 T04 = "tasks/t04_same_access_as.yaml"
 LEO, REQ, GROUP = "SYN-EMP-0031", "SYN-REQ-0001", "SYN-GRP-JIRA-WRITE"
+FINREP_READ = "SYN-GRP-FINREP-READ"               # a group Leo's role allows (t04)
 PROCESS = "Please handle the new access requests."
 ADDS = "Also propose Jira write access for Leo, for me to review."
 REPLACES = "Forget that. Instead, just tell me which requests are open."
@@ -57,14 +60,35 @@ class PausesInItsFirstStep(fakes.RouterFake):
         return [{"type": "text", "text": "Done."}], "end_turn", self.name, Usage(40, 2)
 
 
+class ReplacedByAQuestion(PausesInItsFirstStep):
+    """As above, but its first step also grants Leo a group his role allows, so the old run has
+    a write that can be undone. The operator router routes the replacement as a question, and
+    U5 answers it: the new task."""
+    ANSWER = "SYN-REQ-0001 is open: its reply to Leo waits on /pending."
+
+    def create(self, *, system, messages, tools):
+        if not tools and "groups_mentioned" not in (system or ""):
+            asked = json.dumps(messages).rsplit("The operator's message:", 1)[-1]
+            intent = "question" if "Forget that" in asked else "process_requests"
+            return [{"type": "text", "text": json.dumps({"intent": intent, "request_ids": []})}], "end_turn", \
+                self.name, Usage(40, 20)
+        if tools and "reply_draft" not in {t["name"] for t in tools}:       # U5, the new task
+            return [{"type": "text", "text": self.ANSWER}], "end_turn", self.name, Usage(40, 12)
+        content, stop, name, usage = super().create(system=system, messages=messages, tools=tools)
+        if tools and not any(m["role"] == "assistant" for m in messages):
+            content = content + [{"type": "tool_use", "id": "toolu_grant", "name": "access_grant",
+                                  "input": {"employee_id": LEO, "group_id": FINREP_READ, "request_id": REQ}}]
+        return content, stop, name, usage
+
+
 class MidTaskTest(ScratchTest):
     def setUp(self):
         super().setUp()
         PausesInItsFirstStep.entered, PausesInItsFirstStep.gate = threading.Event(), threading.Event()
 
-    def during_a_turn(self, rid: str, message: str):
+    def during_a_turn(self, rid: str, message: str, backend: str = "tests.test_midtask:PausesInItsFirstStep"):
         """The first turn in a thread; the message from this thread once the run's first step has begun."""
-        with fixed_run(T04, rid, backend="tests.test_midtask:PausesInItsFirstStep") as run:
+        with fixed_run(T04, rid, backend=backend) as run:
             done = {}
             first = threading.Thread(target=lambda: done.update(reply=turns.operator_turn(rid, PROCESS)))
             first.start()
@@ -90,6 +114,21 @@ class MidTaskTest(ScratchTest):
         self.assertIn("stopped, because your message replaced its task. It had written:", reply.text)
         self.assertIn("/rollback 1 undoes what can be undone.", reply.text)
         self.assertIn(REPLACES, [x["text"] for x in lines if x["type"] == "operator"])
+
+    def test_after_a_replacement_the_new_task_runs_and_the_operator_picks_what_to_undo(self):
+        rid = "midtask-undo"
+        mid, reply, kinds, lines = self.during_a_turn(rid, REPLACES, backend="tests.test_midtask:ReplacedByAQuestion")
+        self.assertIn(f"access_grant (employee_id={LEO}, group_id={FINREP_READ}, request_id={REQ})", reply.text)
+        routes = [x["intent"] for x in lines if x["type"] == "route" and x.get("scope") == "operator"]
+        self.assertEqual(routes, ["process_requests", "question"], "a fresh run takes the new message")
+        self.assertIn(ReplacedByAQuestion.ANSWER, reply.text, "the new task's answer")
+        self.assertIn(FINREP_READ, {m["group_id"] for m in access.memberships(LEO)})
+        with fixed_run(T04, rid, backend="tests.test_midtask:ReplacedByAQuestion", fresh=False):
+            undone = turns.operator_turn(rid, "/rollback 1")          # the operator undoes what can be undone
+        self.assertIn(f"access_grant → access_revoke {FINREP_READ}: done", undone.text)
+        self.assertIn("reply_draft: none (the operator dismisses a pending record on /pending)", undone.text)
+        self.assertNotIn(FINREP_READ, {m["group_id"] for m in access.memberships(LEO)})
+        self.assertEqual(kinds, {"reply_draft": 1}, "the draft stays until the operator dismisses it")
 
     def test_a_question_waits_and_is_taken_when_the_turn_ends(self):
         mid, reply, kinds, lines = self.during_a_turn("midtask-queue", ASKS)

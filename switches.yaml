@@ -69,4 +69,5 @@ compaction_threshold: {setting: 4000, added: 2026-11-13, about: "Tokens of conve
 
 # Memory across sessions, with provenance (Lecture 4, Section D; agent/memory.py). Owner: Aman Panigrahi.
 memory:
+  facts: {setting: "on", values: ["off", "on"], added: 2026-11-18, about: "A fact that the operator states about a person or a group that the sandbox does not hold (\"remember that Victor Lam's legal hold stays until Legal says it can go\") is kept with its subject, its source and its age; a newer fact about the same subject supersedes it. on: the sandbox has no field for it, so without the record the operator must say it again. off keeps facts out: none is written, and no read returns one."}
   preferences: {setting: "on", values: ["off", "on"], added: 2026-11-16, about: "What the operator states for later (\"from now on, ...\", \"remember that ...\") is kept with its source and age, and a new session shows it first. on: a preference costs the operator a sentence each session to say again, and a later session acts on it only if it is kept. Who holds which group is never kept: the sandbox holds it, and a copy goes stale."}

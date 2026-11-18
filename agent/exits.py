@@ -95,9 +95,12 @@ def confirm(tool: str, args: dict, key: str | None = None) -> bool | None:
     return None          # a send with no key, or a write that no read of ours covers
 
 
-def settle(tool: str, args: dict, ctx, *, first: ToolResult | None = None, registry=None) -> Settled:
+def settle(tool: str, args: dict, ctx, *, first: ToolResult | None = None, registry=None,
+           read_first: bool = False) -> Settled:
     """The three exits for one write in doubt. `first` is the result of the first try, if
-    there was one (no result when the process stopped during it)."""
+    there was one (no result when the process stopped during it). With `read_first`, a read of
+    the target comes before the same call again: for a call that the operator approved, since
+    the gate lets it through once, so a second call would ask again for a write that happened."""
     registry = registry or get_registry()
     trace = runtime.trace(ctx.session_id)
     found = replayed(ctx.run_key, tool, args)
@@ -105,6 +108,13 @@ def settle(tool: str, args: dict, ctx, *, first: ToolResult | None = None, regis
         key, entry = found
         trace.event("write_settled", tool=tool, run_key=ctx.run_key, key=key, outcome=HAPPENED, read="journal")
         return Settled(HAPPENED, _from_journal(key, entry))
+    if read_first:
+        from agent.registry import derive_key
+        key = derive_key(tool, args, ctx)
+        if confirm(tool, args, key):
+            trace.event("write_settled", tool=tool, run_key=ctx.run_key, key=key, outcome=HAPPENED, read="target")
+            return Settled(HAPPENED, ToolResult("Our read of the target finds this write's effect, so it happened; "
+                                                "do not make it again.", data=None, key=key))
     again = registry.call(tool, args, ctx)
     if not again.is_error:
         trace.event("write_settled", tool=tool, run_key=ctx.run_key, key=again.key, outcome=MADE, read="same key")

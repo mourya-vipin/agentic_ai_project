@@ -1,0 +1,1101 @@
+{
+ "what": "the sandbox's effects at each point of each recovery case (tests/test_recovery.py)",
+ "cases": [
+  {
+   "task": "tasks/t04_same_access_as.yaml",
+   "died_at": {
+    "tool": "requests_set_status",
+    "write": 7
+   },
+   "run_id": "crash-t04_same_access_as-requests_set_status-7",
+   "effects": [
+    {
+     "effect": "memberships: SYN-EMP-0031 SYN-GRP-CONFLUENCE-FINANCE 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0031 SYN-GRP-FINREP-READ 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0031 SYN-GRP-JIRA-WRITE 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: proposed_change SYN-EMP-0031 SYN-GRP-FINREP-WRITE",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: proposed_change SYN-EMP-0031 SYN-GRP-PAYROLL-ADMIN",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: reply_draft SYN-EMP-0031 None",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 pending_operator",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    }
+   ]
+  },
+  {
+   "task": "tasks/t05_on_behalf.yaml",
+   "died_at": {
+    "tool": "requests_set_status",
+    "write": 3
+   },
+   "run_id": "crash-t05_on_behalf-requests_set_status-3",
+   "effects": [
+    {
+     "effect": "messages: SYN-MAIL-SYN-EMP-0060 SYNTHETIC. Hello Hannah Lee, on SYN-REQ-0001 Arjun Mehta (SYN-EMP-0007) asked for Dev Rao (SYN-EMP-0052) to get GitHub engineers (SYN-GRP-GITHUB-ENG). Do you agree? Please reply YES or NO on this thread. IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-MAIL-SYN-EMP-0060 manager_confirm",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: reply_draft SYN-EMP-0007 None",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 pending_operator",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    }
+   ]
+  },
+  {
+   "task": "tasks/t08_ask_manager.yaml",
+   "died_at": {
+    "tool": "reply_send",
+    "write": 5
+   },
+   "run_id": "crash-t08_ask_manager-reply_send-5",
+   "effects": [
+    {
+     "effect": "memberships: SYN-EMP-0052 SYN-GRP-GITHUB-ENG 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-MAIL-SYN-EMP-0060 SYNTHETIC. Hello Hannah Lee, on SYN-REQ-0001 Arjun Mehta (SYN-EMP-0007) asked for Dev Rao (SYN-EMP-0052) to get GitHub engineers (SYN-GRP-GITHUB-ENG). Do you agree? Please reply YES or NO on this thread. IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-MSG-T08 SYNTHETIC. Hi Arjun, Hannah Lee agreed, so Dev Rao now has SYN-GRP-GITHUB-ENG.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-MAIL-SYN-EMP-0060 manager_confirm",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-MSG-T08 reply_send",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: reply_draft SYN-EMP-0007 None",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 pending_operator",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    }
+   ]
+  },
+  {
+   "task": "tasks/t09_later_session.yaml",
+   "died_at": {
+    "tool": "requests_set_status",
+    "write": 3
+   },
+   "run_id": "crash-t09_later_session-requests_set_status-3",
+   "effects": [
+    {
+     "effect": "pending: manager_confirmation SYN-EMP-0052 SYN-GRP-GITHUB-ENG",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: reply_draft SYN-EMP-0007 None",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 pending_operator",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    }
+   ]
+  },
+  {
+   "task": "tasks/t10_gated_reply.yaml",
+   "died_at": {
+    "tool": "reply_send",
+    "write": 4
+   },
+   "run_id": "crash-t10_gated_reply-reply_send-4",
+   "effects": [
+    {
+     "effect": "messages: SYN-MAIL-SYN-EMP-0060 SYNTHETIC. Hello Hannah Lee, on SYN-REQ-0001 Arjun Mehta (SYN-EMP-0007) asked for Dev Rao (SYN-EMP-0052) to get GitHub engineers (SYN-GRP-GITHUB-ENG). Do you agree? Please reply YES or NO on this thread. IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-MSG-T10 SYNTHETIC. Hi Arjun, Hannah Lee, Dev's manager, did not agree for now, so SYN-GRP-GITHUB-ENG was not added for Dev Rao.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-MAIL-SYN-EMP-0060 manager_confirm",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-MSG-T10 reply_send",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: reply_draft SYN-EMP-0007 None",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 pending_operator",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    }
+   ]
+  },
+  {
+   "task": "tasks/t06_bulk_ended_contractors.yaml",
+   "died_at": {
+    "tool": "reply_send",
+    "write": 6
+   },
+   "run_id": "crash-t06_bulk_ended_contractors-reply_send-6",
+   "effects": [
+    {
+     "effect": "memberships: SYN-EMP-0161 SYN-GRP-CONFLUENCE-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0161 SYN-GRP-CONTRACTOR-PORTAL 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0161 SYN-GRP-GITHUB-ENG 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0161 SYN-GRP-GITHUB-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0161 SYN-GRP-JIRA-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0161 SYN-GRP-JIRA-WRITE 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0161 SYN-GRP-SLACK-MEMBER 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0162 SYN-GRP-CONFLUENCE-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0162 SYN-GRP-CONTRACTOR-PORTAL 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0162 SYN-GRP-DWH-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0162 SYN-GRP-JIRA-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0162 SYN-GRP-JIRA-WRITE 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0162 SYN-GRP-SLACK-MEMBER 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0163 SYN-GRP-CONFLUENCE-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0163 SYN-GRP-CONTRACTOR-PORTAL 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0163 SYN-GRP-GITHUB-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0163 SYN-GRP-JIRA-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0163 SYN-GRP-JIRA-WRITE 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0163 SYN-GRP-SLACK-MEMBER 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-MAIL-SYN-EMP-0040 SYN-EMP-0162's contract has ended: I removed SYN-GRP-CONFLUENCE-READ, SYN-GRP-CONTRACTOR-PORTAL, SYN-GRP-DWH-READ, SYN-GRP-JIRA-READ, SYN-GRP-JIRA-WRITE, SYN-GRP-SLACK-MEMBER. SYN-GRP-LEGAL-HOLD was kept for SYN-EMP-0162; a proposal to take it away (SYN-PEND-0001) is waiting for the operator's approval. IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-MAIL-SYN-EMP-0060 SYN-EMP-0161's contract has ended: I removed SYN-GRP-CONFLUENCE-READ, SYN-GRP-CONTRACTOR-PORTAL, SYN-GRP-GITHUB-ENG, SYN-GRP-GITHUB-READ, SYN-GRP-JIRA-READ, SYN-GRP-JIRA-WRITE, SYN-GRP-SLACK-MEMBER. SYN-EMP-0163's contract has ended: I removed SYN-GRP-CONFLUENCE-READ, SYN-GRP-CONTRACTOR-PORTAL, SYN-GRP-GITHUB-READ, SYN-GRP-JIRA-READ, SYN-GRP-JIRA-WRITE, SYN-GRP-SLACK-MEMBER. IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-MAIL-SYN-EMP-0040 reply_send",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-MAIL-SYN-EMP-0060 reply_send",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: proposed_change SYN-EMP-0162 SYN-GRP-LEGAL-HOLD",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    }
+   ]
+  },
+  {
+   "task": "tasks/sessions/s01_operator_day.yaml",
+   "died_at": {
+    "tool": "notices_send_template",
+    "write": 14
+   },
+   "run_id": "crash-s01_operator_day-notices_send_template-14",
+   "effects": [
+    {
+     "effect": "memberships: SYN-EMP-0021 SYN-GRP-FINREP-READ 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0163 SYN-GRP-CONFLUENCE-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0163 SYN-GRP-CONTRACTOR-PORTAL 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0163 SYN-GRP-GITHUB-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0163 SYN-GRP-JIRA-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0163 SYN-GRP-JIRA-WRITE 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0163 SYN-GRP-SLACK-MEMBER 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-HR-S03 SYNTHETIC. Request SYN-REQ-0003: access for Mira Kaur (SYN-EMP-0163) has been removed from 6 group(s), effective 2026-10-19. IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-MSG-S01 SYNTHETIC. Hello Maya, your request SYN-REQ-0001 is done: you now have Finance Reports readers (SYN-GRP-FINREP-READ). IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-MSG-S05 SYNTHETIC. Hello Felix, your request SYN-REQ-0005 needs a review by the IT team before anything changes. We will reply here. IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-HR-S03 removed",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-MSG-S01 granted",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-MSG-S05 pending_review",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: reply_draft SYN-EMP-0031 None",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: reply_draft SYN-EMP-0070 None",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 done",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    },
+    {
+     "effect": "statuses: SYN-REQ-0002 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    },
+    {
+     "effect": "statuses: SYN-REQ-0002 pending_operator",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0003 done",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0003 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    },
+    {
+     "effect": "statuses: SYN-REQ-0004 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    },
+    {
+     "effect": "statuses: SYN-REQ-0004 pending_operator",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0005 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    },
+    {
+     "effect": "statuses: SYN-REQ-0005 pending_operator",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    }
+   ]
+  },
+  {
+   "task": "tasks/t01_standard_jira.yaml",
+   "died_at": {
+    "tool": "access_grant",
+    "write": 2
+   },
+   "run_id": "crash-t01_standard_jira-access_grant-2",
+   "effects": [
+    {
+     "effect": "memberships: SYN-EMP-0007 SYN-GRP-JIRA-WRITE 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-MSG-T01 SYNTHETIC. Hello Arjun, your request SYN-REQ-0001 is done: you now have Jira editors (SYN-GRP-JIRA-WRITE). IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 0,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-MSG-T01 granted",
+     "before": 0,
+     "after_crash": 0,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 done",
+     "before": 0,
+     "after_crash": 0,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 in_progress",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 0,
+     "no_crash": 0
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    }
+   ]
+  },
+  {
+   "task": "tasks/t01_standard_jira.yaml",
+   "died_at": {
+    "tool": "requests_set_status",
+    "write": 4
+   },
+   "run_id": "crash-t01_standard_jira-requests_set_status-4",
+   "effects": [
+    {
+     "effect": "memberships: SYN-EMP-0007 SYN-GRP-JIRA-WRITE 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-MSG-T01 SYNTHETIC. Hello Arjun, your request SYN-REQ-0001 is done: you now have Jira editors (SYN-GRP-JIRA-WRITE). IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-MSG-T01 granted",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 done",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    }
+   ]
+  },
+  {
+   "task": "tasks/t02_new_starter.yaml",
+   "died_at": {
+    "tool": "credentials_issue",
+    "write": 6
+   },
+   "run_id": "crash-t02_new_starter-credentials_issue-6",
+   "effects": [
+    {
+     "effect": "credentials: SYN-EMP-0215 SYN-SYS-SSO",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0215 SYN-GRP-CONFLUENCE-FINANCE 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0215 SYN-GRP-CONFLUENCE-READ 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0215 SYN-GRP-FINREP-READ 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0215 SYN-GRP-JIRA-READ 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0215 SYN-GRP-SLACK-MEMBER 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-HR-T02 SYNTHETIC. Request SYN-REQ-0001: Nina Kowalski (SYN-EMP-0215) is set up with 5 standard group(s) for the finance_analyst role, ready for 2026-10-26. Sign-in details will be handed over in person. IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 0,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-HR-T02 onboarded",
+     "before": 0,
+     "after_crash": 0,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: credential_handover SYN-EMP-0215 None",
+     "before": 0,
+     "after_crash": 0,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 done",
+     "before": 0,
+     "after_crash": 0,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 new",
+     "before": 1,
+     "after_crash": 1,
+     "after_resume": 0,
+     "no_crash": 0
+    }
+   ]
+  },
+  {
+   "task": "tasks/t02_new_starter.yaml",
+   "died_at": {
+    "tool": "requests_set_status",
+    "write": 9
+   },
+   "run_id": "crash-t02_new_starter-requests_set_status-9",
+   "effects": [
+    {
+     "effect": "credentials: SYN-EMP-0215 SYN-SYS-SSO",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0215 SYN-GRP-CONFLUENCE-FINANCE 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0215 SYN-GRP-CONFLUENCE-READ 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0215 SYN-GRP-FINREP-READ 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0215 SYN-GRP-JIRA-READ 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0215 SYN-GRP-SLACK-MEMBER 1",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-HR-T02 SYNTHETIC. Request SYN-REQ-0001: Nina Kowalski (SYN-EMP-0215) is set up with 5 standard group(s) for the finance_analyst role, ready for 2026-10-26. Sign-in details will be handed over in person. IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-HR-T02 onboarded",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: credential_handover SYN-EMP-0215 None",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 done",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    }
+   ]
+  },
+  {
+   "task": "tasks/t03_contractor_left.yaml",
+   "died_at": {
+    "tool": "requests_set_status",
+    "write": 4
+   },
+   "run_id": "crash-t03_contractor_left-requests_set_status-4",
+   "effects": [
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-CONFLUENCE-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-CONTRACTOR-PORTAL 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-GITHUB-ENG 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-GITHUB-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-JIRA-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-JIRA-WRITE 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-SLACK-MEMBER 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-HR-T03 SYNTHETIC. Request SYN-REQ-0001: access for Jonas Berg (SYN-EMP-0150) has been removed from 7 group(s), effective 2026-10-20. IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-HR-T03 removed",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: proposed_change SYN-EMP-0150 SYN-GRP-LEGAL-HOLD",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 done",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 new",
+     "before": 1,
+     "after_crash": 0,
+     "after_resume": 0,
+     "no_crash": 0
+    }
+   ]
+  },
+  {
+   "task": "tasks/t03_contractor_left.yaml",
+   "died_at": {
+    "tool": "access_revoke_all",
+    "write": 1
+   },
+   "run_id": "crash-t03_contractor_left-access_revoke_all-1",
+   "effects": [
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-CONFLUENCE-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-CONTRACTOR-PORTAL 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-GITHUB-ENG 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-GITHUB-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-JIRA-READ 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-JIRA-WRITE 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "memberships: SYN-EMP-0150 SYN-GRP-SLACK-MEMBER 0",
+     "before": 0,
+     "after_crash": 1,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "messages: SYN-HR-T03 SYNTHETIC. Request SYN-REQ-0001: access for Jonas Berg (SYN-EMP-0150) has been removed from 7 group(s), effective 2026-10-20. IT access desk.\n\n\u2014 Sent by the IT access desk's automated agent. To reach a person, reply HUMAN or write to it-desk@synthetic.example.",
+     "before": 0,
+     "after_crash": 0,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "notices: SYN-HR-T03 removed",
+     "before": 0,
+     "after_crash": 0,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "pending: proposed_change SYN-EMP-0150 SYN-GRP-LEGAL-HOLD",
+     "before": 0,
+     "after_crash": 0,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 done",
+     "before": 0,
+     "after_crash": 0,
+     "after_resume": 1,
+     "no_crash": 1
+    },
+    {
+     "effect": "statuses: SYN-REQ-0001 new",
+     "before": 1,
+     "after_crash": 1,
+     "after_resume": 0,
+     "no_crash": 0
+    }
+   ]
+  }
+ ]
+}
