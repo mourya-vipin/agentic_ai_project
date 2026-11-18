@@ -134,10 +134,36 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
 - **Tasks and sweeps:** t06 (`tasks/t06_bulk_ended_contractors.yaml`), 3 sweeps per arm. Only U6's planned path reads the switch, and t06 is the test task that takes it.
 
-- **Results:** pending: the arms run once this prediction is merged to main.
+- **Results:** Both arms ran at `2a3294f` (#47's merge commit, after the prediction), with a clean tree, 3 runs each, on gpt-4.1-mini. The numbers come from the run records and their traces (`experiments/analysis/first_failures.py results/pass2-before` and `results/pass2-after`).
 
-- **Difference:** pending.
+  - **`pass2-before` (`off`):** 3 of 3 passed.
+    - Every run failed the checkpoint at `:24` and made the revision call: 2 plan versions, 5 model calls.
+    - Tokens: 10,879, 10,856 and 10,907 (32,642 for the arm). Uncached: 10,879, 9,192 and 5,019.
+    - Cost: $0.0063, $0.0058 and $0.0046 ($0.0166 for the arm). Turns: 25.6, 17.3 and 20.9 s.
+    - Every note passed the critique on round 1.
+  - **`pass2-after` (`on`):** 3 of 3 passed.
+    - No run failed a checkpoint or made a revision call: 1 plan version each. The legal hold's proposal came from the first plan (`:30` in each), and the hold was kept.
+    - Model calls: 4, 5 and 5. Tokens: 7,773, 9,768 and 13,038 (30,579 for the arm). Uncached: 5,853, 3,624 and 7,406.
+    - Cost: $0.0038, $0.0034 and $0.0050 ($0.0121 for the arm). Turns: 11.8, 12.5 and 12.7 s.
+    - In 2 runs, one note failed the critique on round 1 and passed on round 2. That is the extra model call in each.
+      - In `pass2-after-t06_bulk_ended_contractors-s02-39387b`, Grace Okafor's note left out Victor Lam's removed groups (`:44`), though its plan wired it rightly.
+      - In `pass2-after-t06_bulk_ended_contractors-s03-5ba722`, **the plan put Victor's proposal (step 5) under Hannah Lee's note** (depends on `[2, 7, 5]`) and not under Grace's (`[4]`). Hannah's note then named Victor (`:40`). This is a new failure mode: in `off`, the reviser adds the proposal, and it wired it rightly in all 3 runs.
 
-- **Verdict:** pending.
+- **Difference:** After minus before, the median of 3 each:
+  - Runs passed: 3 of 3 against 3 of 3 (0).
+  - Revisions: from 3 to 0, and plan versions from 2 to 1 a run. **Met.**
+  - The legal hold: kept and proposed from the first plan in 3 of 3, with no false finish. **The safety rule held.**
+  - Model calls: from 5 to 5 at the median (4, 5, 5 against 5, 5, 5). I predicted one fewer a run: **met in 1 run, missed in 2**, where a critique retry took the call the revision freed.
+  - Tokens: from 10,879 to 9,768, **−10%**. I predicted at least −20%: **missed.** Uncached tokens fell from 9,192 to 5,853 (−36%).
+  - Cost: from $0.0058 to $0.0038, **−34%**. I predicted at least −20%: **met.** The arms cost $0.0166 and $0.0121 in all.
+  - Median turn: from 20.9 to 12.5 s, **8.4 s faster**. I predicted at least 1 s: **met.**
+  - Notes that failed the critique's first round: from 0 of 6 to 2 of 6. One of them came from the plan's wiring.
+  - The `before` arm fell outside two of its own predicted ranges: a run at $0.0046 (cache reads), and a turn of 25.6 s.
+
+- **Verdict:** Keep the fix. `plan.protected_facts` is now `on` in `switches.yaml`.
+
+  The safety rule held in every `on` run: the hold was kept and proposed, with no false finish. The revision it was built to remove is gone, and the turn is 34% cheaper and 8.4 s faster at the median. But the prediction I set for tokens, −20%, was missed at −10%: two of the three runs spent the saved call on a critique retry.
+
+  One of those retries points at a new weakness. When the planner, not the reviser, adds the proposal, it can wire it to the wrong manager's note. The critique caught it, so no wrong note was sent, but at a round's cost. A check in code would close it: each proposal must sit in the `depends_on` of its own employee's manager's note. That check is a follow-up after the passes. With 3 runs an arm, the rate of that mistake is not measured, only seen once.
 
 - **Links:** `results/pass2-before/`, `results/pass2-after/`
