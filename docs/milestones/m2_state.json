@@ -1,0 +1,608 @@
+{
+  "m2-build": {
+    "runs": 33,
+    "tasks": {
+      "s01_operator_day": {
+        "runs": 3,
+        "passed": 1,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t01_standard_jira": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t02_new_starter": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t03_contractor_left": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t04_same_access_as": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t05_on_behalf": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 3,
+        "runs_that_asked": 3,
+        "waits": 3,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t06_bulk_ended_contractors": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t07_unusual_review": {
+        "runs": 3,
+        "passed": 1,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t08_ask_manager": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 3,
+        "runs_that_asked": 3,
+        "waits": 3,
+        "replies_resumed": 3,
+        "past_deadline": 0
+      },
+      "t09_later_session": {
+        "runs": 3,
+        "passed": 2,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t10_gated_reply": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 3,
+        "runs_that_asked": 3,
+        "waits": 3,
+        "replies_resumed": 3,
+        "past_deadline": 0
+      }
+    },
+    "memory": {
+      "written": 3,
+      "written_by_how": {
+        "insert": 3
+      },
+      "declined": 0,
+      "evicted": 0,
+      "reads": 89,
+      "reads_by_purpose": {
+        "session_start": 33,
+        "call": 56
+      },
+      "reads_that_returned_a_record": 6,
+      "records_per_run": 0.091
+    },
+    "later_session": {
+      "runs": 3,
+      "acted_on_the_record": 3,
+      "passed": 2
+    },
+    "lifetime": {
+      "runs_a_day": 35.0,
+      "records_a_day": 3.19,
+      "store_size": 200,
+      "days_to_fill": 62.8
+    }
+  },
+  "pass3-before": {
+    "runs": 33,
+    "tasks": {
+      "s01_operator_day": {
+        "runs": 3,
+        "passed": 1,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t01_standard_jira": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t02_new_starter": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t03_contractor_left": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t04_same_access_as": {
+        "runs": 3,
+        "passed": 2,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t05_on_behalf": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 3,
+        "runs_that_asked": 3,
+        "waits": 3,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t06_bulk_ended_contractors": {
+        "runs": 3,
+        "passed": 2,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t07_unusual_review": {
+        "runs": 3,
+        "passed": 0,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t08_ask_manager": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 3,
+        "runs_that_asked": 3,
+        "waits": 3,
+        "replies_resumed": 3,
+        "past_deadline": 0
+      },
+      "t09_later_session": {
+        "runs": 3,
+        "passed": 2,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t10_gated_reply": {
+        "runs": 3,
+        "passed": 2,
+        "questions": 3,
+        "runs_that_asked": 3,
+        "waits": 2,
+        "replies_resumed": 3,
+        "past_deadline": 0
+      }
+    },
+    "memory": {
+      "written": 3,
+      "written_by_how": {
+        "insert": 3
+      },
+      "declined": 0,
+      "evicted": 0,
+      "reads": 86,
+      "reads_by_purpose": {
+        "session_start": 33,
+        "call": 53
+      },
+      "reads_that_returned_a_record": 6,
+      "records_per_run": 0.091
+    },
+    "later_session": {
+      "runs": 3,
+      "acted_on_the_record": 3,
+      "passed": 2
+    },
+    "lifetime": {
+      "runs_a_day": 35.0,
+      "records_a_day": 3.19,
+      "store_size": 200,
+      "days_to_fill": 62.8
+    }
+  },
+  "pass3-after": {
+    "runs": 33,
+    "tasks": {
+      "s01_operator_day": {
+        "runs": 3,
+        "passed": 1,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t01_standard_jira": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t02_new_starter": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t03_contractor_left": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t04_same_access_as": {
+        "runs": 3,
+        "passed": 2,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t05_on_behalf": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 3,
+        "runs_that_asked": 3,
+        "waits": 3,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t06_bulk_ended_contractors": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t07_unusual_review": {
+        "runs": 3,
+        "passed": 0,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t08_ask_manager": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 3,
+        "runs_that_asked": 3,
+        "waits": 3,
+        "replies_resumed": 3,
+        "past_deadline": 0
+      },
+      "t09_later_session": {
+        "runs": 3,
+        "passed": 0,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t10_gated_reply": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 3,
+        "runs_that_asked": 3,
+        "waits": 3,
+        "replies_resumed": 3,
+        "past_deadline": 0
+      }
+    },
+    "memory": {
+      "written": 3,
+      "written_by_how": {
+        "insert": 3
+      },
+      "declined": 0,
+      "evicted": 0,
+      "reads": 87,
+      "reads_by_purpose": {
+        "session_start": 33,
+        "call": 54
+      },
+      "reads_that_returned_a_record": 6,
+      "records_per_run": 0.091
+    },
+    "later_session": {
+      "runs": 3,
+      "acted_on_the_record": 3,
+      "passed": 0
+    },
+    "lifetime": {
+      "runs_a_day": 35.0,
+      "records_a_day": 3.19,
+      "store_size": 200,
+      "days_to_fill": 62.8
+    }
+  },
+  "m2-fixes-check": {
+    "runs": 12,
+    "tasks": {
+      "s01_operator_day": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t03_contractor_left": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t07_unusual_review": {
+        "runs": 3,
+        "passed": 2,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      },
+      "t09_later_session": {
+        "runs": 3,
+        "passed": 3,
+        "questions": 0,
+        "runs_that_asked": 0,
+        "waits": 0,
+        "replies_resumed": 0,
+        "past_deadline": 0
+      }
+    },
+    "memory": {
+      "written": 3,
+      "written_by_how": {
+        "insert": 3
+      },
+      "declined": 0,
+      "evicted": 0,
+      "reads": 36,
+      "reads_by_purpose": {
+        "session_start": 12,
+        "call": 24
+      },
+      "reads_that_returned_a_record": 6,
+      "records_per_run": 0.25
+    },
+    "later_session": {
+      "runs": 3,
+      "acted_on_the_record": 3,
+      "passed": 3
+    },
+    "lifetime": {
+      "runs_a_day": 35.0,
+      "records_a_day": 8.75,
+      "store_size": 200,
+      "days_to_fill": 22.9
+    }
+  },
+  "recovery": {
+    "cases": 13,
+    "tasks": [
+      "s01_operator_day",
+      "t01_standard_jira",
+      "t02_new_starter",
+      "t03_contractor_left",
+      "t04_same_access_as",
+      "t05_on_behalf",
+      "t06_bulk_ended_contractors",
+      "t08_ask_manager",
+      "t09_later_session",
+      "t10_gated_reply"
+    ],
+    "differs": 0,
+    "more_than_once": 0,
+    "by_case": [
+      {
+        "task": "t04_same_access_as",
+        "died_at": {
+          "tool": "requests_set_status",
+          "write": 7
+        },
+        "effects": 8,
+        "differs": 0,
+        "more_than_once": 0
+      },
+      {
+        "task": "t05_on_behalf",
+        "died_at": {
+          "tool": "requests_set_status",
+          "write": 3
+        },
+        "effects": 5,
+        "differs": 0,
+        "more_than_once": 0
+      },
+      {
+        "task": "t08_ask_manager",
+        "died_at": {
+          "tool": "reply_send",
+          "write": 5
+        },
+        "effects": 8,
+        "differs": 0,
+        "more_than_once": 0
+      },
+      {
+        "task": "t09_later_session",
+        "died_at": {
+          "tool": "requests_set_status",
+          "write": 3
+        },
+        "effects": 4,
+        "differs": 0,
+        "more_than_once": 0
+      },
+      {
+        "task": "t10_gated_reply",
+        "died_at": {
+          "tool": "reply_send",
+          "write": 4
+        },
+        "effects": 7,
+        "differs": 0,
+        "more_than_once": 0
+      },
+      {
+        "task": "t06_bulk_ended_contractors",
+        "died_at": {
+          "tool": "reply_send",
+          "write": 6
+        },
+        "effects": 24,
+        "differs": 0,
+        "more_than_once": 0
+      },
+      {
+        "task": "s01_operator_day",
+        "died_at": {
+          "tool": "notices_send_template",
+          "write": 14
+        },
+        "effects": 25,
+        "differs": 0,
+        "more_than_once": 0
+      },
+      {
+        "task": "t01_standard_jira",
+        "died_at": {
+          "tool": "access_grant",
+          "write": 2
+        },
+        "effects": 6,
+        "differs": 0,
+        "more_than_once": 0
+      },
+      {
+        "task": "t01_standard_jira",
+        "died_at": {
+          "tool": "requests_set_status",
+          "write": 4
+        },
+        "effects": 5,
+        "differs": 0,
+        "more_than_once": 0
+      },
+      {
+        "task": "t02_new_starter",
+        "died_at": {
+          "tool": "credentials_issue",
+          "write": 6
+        },
+        "effects": 11,
+        "differs": 0,
+        "more_than_once": 0
+      },
+      {
+        "task": "t02_new_starter",
+        "died_at": {
+          "tool": "requests_set_status",
+          "write": 9
+        },
+        "effects": 11,
+        "differs": 0,
+        "more_than_once": 0
+      },
+      {
+        "task": "t03_contractor_left",
+        "died_at": {
+          "tool": "requests_set_status",
+          "write": 4
+        },
+        "effects": 12,
+        "differs": 0,
+        "more_than_once": 0
+      },
+      {
+        "task": "t03_contractor_left",
+        "died_at": {
+          "tool": "access_revoke_all",
+          "write": 1
+        },
+        "effects": 12,
+        "differs": 0,
+        "more_than_once": 0
+      }
+    ]
+  }
+}
