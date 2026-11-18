@@ -37,7 +37,7 @@ critique:
 # Usage examples in a tool's definition (Lecture 3, slide 18). Owner: Vipin Mourya.
 examples:
   access_grant: {setting: "on", values: ["off", "on"], about: "A typical call, then a contractor's time-boxed grant."}
-  policy_check_access: {setting: "on", values: ["off", "on"], added: 2026-10-25, about: "Real group IDs, then several in one call; dev-v1's t07 invented six IDs."}
+  policy_check_access: {setting: "on", values: ["off", "on"], added: 2026-10-25, about: "A call with one group ID, then several in one call, with IDs no record holds (SYN-GRP-EXAMPLE-READ); dev-v1's t07 invented six IDs. On in every arm since, it did not stop made-up IDs: the enum of strict.policy_check_access did (Pass 3)."}
 
 # Strict mode on a tool's definition (Lecture 3, slides 20 to 22). Owner: Vipin Mourya.
 strict:

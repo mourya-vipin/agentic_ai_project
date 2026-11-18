@@ -116,6 +116,23 @@ class BudgetTest(ScratchTest):
         self.assertIn("SYN-REQ-0001", first_result)                                 # an ID the agent can fetch again
         self.assertEqual(self.lines("compaction")[-1]["stages"], ["cleared"])
 
+    def test_a_cleared_list_keeps_every_id_and_says_when_it_is_cut(self):
+        # m2-build-t07_unusual_review-s01-295134:15 and :46: the day's six requests held 18 IDs, the old note
+        # named the first 12, and the answer missed SYN-REQ-0006, whose IDs were the ones left out
+        import json as _json
+        from agent import context as ctx_module
+        day = _json.loads(open("results/m2-build/m2-build-t07_unusual_review-s01-295134.trace.jsonl")
+                          .readlines()[14])["output"]
+        note = ctx_module._cleared({"type": "tool_result", "content": day}, "requests_list_today")["content"]
+        for n in range(1, 7):
+            self.assertIn(f"SYN-REQ-000{n}", note)
+        self.assertIn("SYN-REQ-0006: SYN-MSG-T07F, SYN-EMP-0120", note)          # each request with its person
+        self.assertNotIn("more IDs", note)
+        many = " ".join(f"SYN-EMP-{n:04d}" for n in range(1, 51))                    # 50 IDs, past the 40 named
+        cut = ctx_module._cleared({"type": "tool_result", "content": many}, "directory_search_employees")["content"]
+        self.assertIn("SYN-EMP-0040 and 10 more IDs not listed here; call the tool again to see them all", cut)
+        self.assertNotIn("SYN-EMP-0041", cut)
+
     def test_below_the_threshold_nothing_is_compacted(self):
         out = self.assemble([{"role": "user", "content": TASK}] + step(1, size=100))
         self.assertFalse(out.compacted)

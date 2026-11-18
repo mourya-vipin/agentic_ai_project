@@ -17,8 +17,10 @@ The tool table's other columns (undo, grid, scope) stay out of these: they are f
 
 `examples` on a tool is rendered into its description when its examples.<tool> switch
 is on; `strict` comes from its strict.<tool> switch. Every schema here is already a
-closed object; the strict tool's (directory_get_employee) is fitted too (slide 21): every
-property required, the optional ones nullable.
+closed object; directory_get_employee's is also written fitted (slide 21): every property
+required, the optional ones nullable. The other strict tools (policy_check_access and
+channel_ask_template, Pass 3) are fitted when they are sent, with their group field an enum
+of the catalog's IDs (agent/registry.py: _strict_schema).
 """
 
 from __future__ import annotations
