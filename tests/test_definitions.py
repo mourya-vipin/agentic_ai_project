@@ -72,6 +72,39 @@ class DefinitionsTest(ScratchTest):
         self.assertTrue(all("null" in p["type"] for p in schema["properties"].values()))   # each optional, nullable
         self.assertEqual(sum(1 for d in self.sent().values() if d.get("strict")), 1)
 
+    GROUP_TOOLS = ["strict.policy_check_access=on", "strict.channel_ask_template=on"]
+
+    def test_strict_on_a_group_tool_takes_only_the_catalogs_ids(self):
+        # Pass 3: results/m2-build/ wrote IDs from group names (SYN-GRP-GITHUB-ENGINEERS for GitHub engineers)
+        from sandbox import db
+        with db.connect() as conn:
+            catalog = [r["id"] for r in conn.execute("SELECT id FROM groups ORDER BY id")]
+        on, off = self.sent(self.GROUP_TOOLS), self.sent()
+        check, ask = on["policy_check_access"], on["channel_ask_template"]
+        self.assertTrue(check["strict"] and ask["strict"])
+        self.assertEqual(check["input_schema"]["properties"]["group_ids"]["items"]["enum"], catalog)
+        self.assertEqual(ask["input_schema"]["properties"]["group_id"]["enum"], catalog)
+        for d in (check, ask):
+            self.assertEqual(sorted(d["input_schema"]["required"]), sorted(d["input_schema"]["properties"]))
+        self.assertEqual(ask["input_schema"]["properties"]["request_id"]["type"], ["string", "null"])
+        self.assertEqual(ask["input_schema"]["properties"]["template"]["enum"], ["manager_confirm"])  # required: as written
+        for name in ("policy_check_access", "channel_ask_template"):          # off: as written, byte for byte
+            written = next(d for d in definitions.DEFINITIONS if d["name"] == name)
+            self.assertEqual(off[name]["input_schema"], written["input_schema"])
+            self.assertNotIn("strict", off[name])
+        self.assertEqual(on["directory_get_employee"], off["directory_get_employee"])   # already fitted: unchanged
+
+    def test_with_strict_on_the_boundary_takes_a_null_and_the_tool_still_names_the_closest_group(self):
+        runtime.configure(overrides=self.GROUP_TOOLS)
+        asked = self.registry.call("channel_ask_template", {"template": "manager_confirm", "employee_id": "SYN-EMP-0052",
+                                                            "group_id": "SYN-GRP-GITHUB-ENG", "request_id": None},
+                                   ctx())
+        self.assertNotIn("did not run", asked.content)                    # the null is the strict schema's "left out"
+        made_up = self.registry.call("policy_check_access", {"employee_id": "SYN-EMP-0052",
+                                                             "group_ids": ["SYN-GRP-GITHUB-ENGINEERS"]}, ctx())
+        self.assertTrue(made_up.is_error)
+        self.assertIn("SYN-GRP-GITHUB-ENG", made_up.content)                # if a vendor let one through
+
     def test_a_null_for_the_unused_lookups_finds_the_person(self):
         found = self.registry.call("directory_get_employee", {"employee_id": "SYN-EMP-0012", "email": None,
                                                               "name": None}, ctx())

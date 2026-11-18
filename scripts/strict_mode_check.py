@@ -1,10 +1,15 @@
 """Strict mode, as sent (Lecture 3, slides 20 and 21; Part 1, task 3). Owner: Vipin Mourya.
 
     python scripts/strict_mode_check.py            # one model call, about 1,000 tokens
+    python scripts/strict_mode_check.py --set strict.policy_check_access=on --probe
+                                                   # and a second call: does the enum hold?
 
 Sends one request carrying every tool the decision table makes strict (each strict.<tool>
-switch set on), with the definitions exactly as the registry sends them, and keeps the
-vendor's answer: it accepts them, or names what it refuses. Writes
+switch set on, after any --set), with the definitions exactly as the registry sends them,
+and keeps the vendor's answer: it accepts them, or names what it refuses. With --probe, and
+strict.policy_check_access on, a second call asks the model to check a group ID no group
+holds (SYN-GRP-GITHUB-ENGINEERS, which the build wrote for "GitHub engineers") and keeps the
+group IDs it sent: under the enum, only the catalog's. Writes
 docs/milestones/m2_strict_mode_<date>.json with the date, the model, the tools as sent,
 the answer, and the MCP SDK with the protocol revision it implements, checked the same day.
 """
@@ -31,8 +36,13 @@ def strict_tools() -> list[str]:
                   if name.startswith("strict.") and setting == "on")
 
 
-def main() -> int:
-    runtime.configure()
+PROBE = ("Call policy_check_access once, for SYN-EMP-0052 and the group SYN-GRP-GITHUB-ENGINEERS "
+         "(the GitHub engineers group).")
+
+
+def main(argv: list[str]) -> int:
+    overrides = [argv[i + 1] for i, a in enumerate(argv) if a == "--set" and i + 1 < len(argv)]
+    runtime.configure(overrides=overrides)
     names = strict_tools()
     if not names:
         print("No strict.<tool> switch is on: nothing to send.")
@@ -58,6 +68,15 @@ def main() -> int:
     except Exception as exc:          # the vendor's refusal is the answer we keep
         record["answer"] = "refused"
         record["error"] = f"{type(exc).__name__}: {exc}"[:2000]
+    if "--probe" in argv and "policy_check_access" in names and record["answer"] == "accepted":
+        try:
+            response = client.create(system="You are testing a tool. Do exactly what the user asks.",
+                                     messages=[{"role": "user", "content": PROBE}], tools=sent)
+            calls = [b for b in response.content if b.get("type") == "tool_use"]
+            record["probe"] = {"asked": PROBE, "stop_reason": response.stop_reason,
+                               "calls": [{"name": b["name"], "input": b["input"]} for b in calls]}
+        except Exception as exc:
+            record["probe"] = {"asked": PROBE, "error": f"{type(exc).__name__}: {exc}"[:2000]}
     record["tokens"] = client.total_tokens
     path = OUT / f"m2_strict_mode_{record['checked']}.json"
     path.write_text(json.dumps(record, indent=2) + "\n")
@@ -67,4 +86,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))

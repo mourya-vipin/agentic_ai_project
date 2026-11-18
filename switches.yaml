@@ -42,6 +42,8 @@ examples:
 # Strict mode on a tool's definition (Lecture 3, slides 20 to 22). Owner: Vipin Mourya.
 strict:
   directory_get_employee: {setting: "on", values: ["off", "on"], added: 2026-10-25, about: "A call with an argument it does not take (dev-aman-check) costs a turn; a closed schema prevents it."}
+  policy_check_access: {setting: "off", values: ["off", "on"], added: 2026-11-18, about: "Pass 3 (experiments/LEDGER.md): on sends group_ids strict, each item an enum of the catalog's group IDs read when the definitions are built, so the model cannot write an ID from a group's name. off, as in the build: 16 made-up IDs in 4 of 33 runs (results/m2-build/, t07 and s01)."}
+  channel_ask_template: {setting: "off", values: ["off", "on"], added: 2026-11-18, about: "Pass 3, with strict.policy_check_access: on sends group_id strict, an enum of the catalog's group IDs, and request_id nullable. off, as in the build: 9 made-up IDs in 9 of 33 runs (SYN-GRP-GITHUB-ENGINEERS in t05, t08 and t10; SYN-GRP-WH-READ in s01)."}
 
 # Notes outside the conversation, untouched by compaction, one switch per kind of session that
 # needs them (Lecture 2, slide 28). Replaces the starter's flat notes switch. Owner: Vipin Mourya.

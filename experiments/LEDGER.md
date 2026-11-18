@@ -167,3 +167,42 @@ it. `make check` reads every `##` section but the template: see the README's "ma
   One of those retries points at a new weakness. When the planner, not the reviser, adds the proposal, it can wire it to the wrong manager's note. The critique caught it, so no wrong note was sent, but at a round's cost. A check in code would close it: each proposal must sit in the `depends_on` of its own employee's manager's note. That check is a follow-up after the passes. With 3 runs an arm, the rate of that mistake is not measured, only seen once.
 
 - **Links:** `results/pass2-before/`, `results/pass2-after/`
+
+## Pass 3 · The model writes group IDs from group names
+
+- **Pass:** 3. On U4 and U5, the model writes a group ID from the group's name ("GitHub engineers" becomes `SYN-GRP-GITHUB-ENGINEERS`; the real ID is `SYN-GRP-GITHUB-ENG`). Each one is refused, and the model spends a turn on the retry. This pass tests whether strict mode, with each group field an enum of the catalog's group IDs (`strict.policy_check_access: on`, `strict.channel_ask_template: on`), stops them (Lecture 3, slides 20 to 22).
+
+- **Owner:** Vipin Mourya
+
+- **Problem:** In the build (`results/m2-build/`), 25 calls named a group ID that no group holds, in 13 of the 33 runs: 16 on `policy_check_access` (t07 in all 3 sweeps, s01 in sweep 2) and 9 on `channel_ask_template` (t08 and t10 in all 3 sweeps, t05 in sweeps 2 and 3, s01 in sweep 1). Every one was refused, with the closest real IDs, and the model called again. Two t07 runs failed their check after the refused calls. It is not new: in Milestone 1, every t07 run of `baseline`, `pass1-before` and `pass1-after` made up IDs on `policy_check_access` (6, 8 and 9 refused calls per arm).
+
+- **Evidence:** In `results/m2-build/`:
+  - `m2-build-t07_unusual_review-s01-295134.trace.jsonl:31`–`:34`, `:36` and `:44`: six made-up IDs on `policy_check_access` (`SYN-GRP-JIRA-EDIT`, `SYN-GRP-VPN-ACCESS`, `SYN-GRP-DATAWAREHOUSE-READ`, `SYN-GRP-AWS-PROD-ADMIN`, and `SYN-GRP-SSO-PASSWORD-RESET` twice). `-s02-02d5c7:33` one, and `-s03-58823b:30`–`:33`, `:35` and `:43` six (a run that passed).
+  - `m2-build-t08_ask_manager-s01-ef5d17:23`, `-s02-75cf8e:23` and `-s03-0eb8c2:23`, and `m2-build-t10_gated_reply-s01-216164:23`, `-s02-740d5f:23` and `-s03-f2208f:23`: `SYN-GRP-GITHUB-ENGINEERS` on `channel_ask_template`, refused by the hook (`denied`), with `SYN-GRP-GITHUB-ENG` among the closest. The same in `m2-build-t05_on_behalf-s02-7d784d:23` and `-s03-04afe4:23`.
+  - `m2-build-s01_operator_day-s01-86e0e5:57` (`SYN-GRP-WH-READ` on `channel_ask_template`) and `-s02-4a5cf7:32`–`:34` (three on `policy_check_access`).
+  - Counted by `experiments/analysis/pass3.py results/m2-build`: 25 made-up group IDs, 0.758 a run, in 13 runs. Its "wrong arguments" leave out the 9 on `channel_ask_template`, which the hook refused, so the made-up IDs are counted apart.
+  - Before this prediction, one check on gpt-4.1-mini with both switches on (`python scripts/strict_mode_check.py --set strict.policy_check_access=on --set strict.channel_ask_template=on --probe`, `docs/milestones/m2_strict_mode_2026-11-17.json`, 2,611 tokens). OpenAI accepted the enum'd schemas. Asked outright to check `SYN-GRP-GITHUB-ENGINEERS`, the model sent `SYN-GRP-GITHUB-ENG`. One call, a check, not evidence.
+
+- **Why this fix:** Lecture 3, slide 18: examples help when the model misreads a field's format. Here the format is right (`SYN-GRP-` and words); the value is made up. Examples were tried: `examples.policy_check_access` has been on since Milestone 1, and t07 still makes up IDs in every run. They may even teach it: they use made-up IDs (`SYN-GRP-EXAMPLE-READ`), and the group field's hint reads "SYN-GRP- and its name". Slides 20 to 22: strict mode holds the call to the schema. With the group field a plain string, any well-formed ID passes, so strict mode alone would not help. With the field an enum of the 23 real IDs, the model cannot write one outside it. The cost is the list: about 145 tokens more in each of the two definitions (the definitions U4 is offered grow from 3,393 to 3,688 tokens, U5's from 1,456 to 1,601, by `agent/context.py: tokens`), and they are part of the cached prefix. The other way, resolving a group's exact name in code, would not have caught these: the model wrote neither the name nor the ID.
+
+- **Prediction:** Both arms run the build's 11 test tasks, 3 sweeps each, at one commit. Measured with `experiments/analysis/pass3.py`.
+  - **`pass3-before` (both `off`):** as the build. 15 to 35 made-up group IDs, in 10 to 16 runs: on `channel_ask_template` in every t08 and t10 run, and on `policy_check_access` in at least 2 of the 3 t07 runs. 25 to 30 of 33 runs pass.
+  - **`pass3-after` (both `on`):** **0 made-up group IDs** in every run, and 0 malformed calls on the two tools.
+    - Model calls: one fewer a run at the median on t08 (from about 13 to 12) and t10 (from about 11 to 10), the refused call's retry.
+    - Tokens: total tokens per run on t08 and t10 within 10% of `before`: one call fewer, but every U4 call carries about 295 tokens more. Total tokens for the arm within 10% of `before`.
+    - Runs passed: at least as many as `before` in all, and no task more than 1 run lower. I do not predict t07 to pass more: in the build, its failures came after the refused calls (a missed request; a repeated search to the step limit).
+  - **Safety comes before cost.** If an `after` run asks about, grants or proposes a real group the request did not name (the enum can only push the model to a real ID, perhaps the wrong one), the verdict is to keep `off`. I will read every group ID the two tools were sent in `pass3-after`, and compare each with the group its request names.
+
+- **Arms:** `results/pass3-before/` with `strict.policy_check_access=off` and `strict.channel_ask_template=off`; `results/pass3-after/` with `strict.policy_check_access=on` and `strict.channel_ask_template=on`. Every other switch stays at its setting in `switches.yaml`.
+
+- **Held constant:** Both arms use the same model (gpt-4.1-mini), the same commit with a clean tree (this entry's merge commit), the same prompts, the same tasks and scripted answers (each task file's), and every other switch's setting, including `examples.policy_check_access: on`, whose examples name made-up IDs outside the enum. Off, the two definitions are sent exactly as in the build; the switches change only those two definitions, and what the boundary checks a call against (nullable `request_id` on `channel_ask_template`). One difference from the build: `plan.protected_facts` is now `on` (Pass 2), which only U6's planner reads (t06, and s01 if routed to a plan).
+
+- **Tasks and sweeps:** the build's 11 tasks, t01 to t10 (`tasks/`) and s01 (`tasks/sessions/s01_operator_day.yaml`), 3 sweeps per arm: `python run.py --tasks tasks/ tasks/sessions/ --sweeps 3 --arm pass3-before --set strict.policy_check_access=off strict.channel_ask_template=off`, then the same with `--arm pass3-after` and both `=on`. The made-up IDs are in t05, t07, t08, t10 and s01; the others show any side effect.
+
+- **Results:** pending
+
+- **Difference:** pending
+
+- **Verdict:** pending
+
+- **Links:** `results/pass3-before/`, `results/pass3-after/`
