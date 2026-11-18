@@ -408,6 +408,45 @@ class MidTaskTest(PlannedTest):
         self.assertIn("replaced the task", result.text)
 
 
+
+class ProtectedFactsTest(PlannedTest):
+    """Pass 2's switch, plan.protected_facts: on, the planner is told each contractor's protected groups
+    and plans the legal hold's proposal from the start, so the checkpoint does not revise the plan."""
+
+    def run_told(self, setting):
+        fakes.ReadsProtected.asked = []
+        result = self.run_planned("ReadsProtected", overrides=[f"plan.protected_facts={setting}"])
+        purposes = [x["purpose"] for x in self.of("model_call")]
+        return result, purposes
+
+    def test_off_the_planner_is_not_told_and_the_checkpoint_revises_the_plan(self):
+        result, purposes = self.run_told("off")
+        system, request = fakes.ReadsProtected.asked[0]
+        self.assertNotIn("protected_memberships", request)
+        self.assertNotIn("protected_memberships", system)
+        self.assertEqual(len(self.of("plan")), 2)
+        self.assertIn("revise", purposes)
+        self.assertEqual(self.end_reasons()[-1], executor.PLAN_DONE)
+
+    def test_on_the_first_plan_proposes_the_hold_and_needs_no_revision(self):
+        result, purposes = self.run_told("on")
+        system, request = fakes.ReadsProtected.asked[0]
+        self.assertIn(f'"{fakes.VICTOR}": [\n   "{fakes.LEGAL_HOLD}"', request)
+        self.assertIn("protected_memberships", system)
+        self.assertEqual(len(self.of("plan")), 1)
+        self.assertNotIn("revise", purposes)
+        self.assertTrue(all(x["passed"] for x in self.of("checkpoint")))
+        proposals = [x for x in self.of("tool_call") if x["name"] == "access_propose_change"]
+        self.assertEqual(len(proposals), 1)
+        self.assertEqual(self.end_reasons()[-1], executor.PLAN_DONE)
+
+    def test_the_checkpoint_still_catches_a_plan_that_ignores_the_facts(self):
+        fakes.ReadsProtected.asked = []
+        self.run_planned("GoodPlanner", overrides=["plan.protected_facts=on"])     # told, and plans without it
+        self.assertEqual(len(self.of("plan")), 2)
+        self.assertEqual(self.end_reasons()[-1], executor.PLAN_DONE)
+
+
 class SendsLastTest(unittest.TestCase):
     def test_a_step_after_a_send_is_rejected(self):
         plan = fakes.t06_plan(with_hold=True)

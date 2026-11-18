@@ -60,7 +60,9 @@ def describe_tools(names=U6_TOOLS) -> str:
 def build_context(operator_text: str) -> dict:
     """What the planner may know, read by our code: today's date, the contractors whose
     contract ended before today, any employee the operator named by ID, each one's
-    manager and count of active groups. IDs and counts only; no group names, no text."""
+    manager and count of active groups. IDs and counts only; no group names, no text.
+    With plan.protected_facts on, also each one's protected groups (protected_memberships), so the
+    first plan can propose their removal and the checkpoint need not revise it (Pass 2)."""
     today = clock.today()
     ended = [p["id"] for p in directory.contractors_ended(today)]
     named = [i.upper() for i in EMPLOYEE_ID.findall(operator_text or "")]
@@ -71,9 +73,24 @@ def build_context(operator_text: str) -> dict:
         managers[person_id] = manager["id"] if manager else None
     counts = {person_id: len(access.memberships(person_id)) for person_id in people}
     known = set(people) | {m for m in managers.values() if m}
-    return {"today": today, "contractors_ended_before_today": ended, "named_by_operator": named,
-            "managers": managers, "active_membership_counts": counts,
-            "step_limit": validator.plan_step_limit(len(people)), "known_ids": sorted(known)}
+    out = {"today": today, "contractors_ended_before_today": ended, "named_by_operator": named,
+           "managers": managers, "active_membership_counts": counts,
+           "step_limit": validator.plan_step_limit(len(people)), "known_ids": sorted(known)}
+    if protected_facts():
+        out["protected_memberships"] = {p: sorted(m["group_id"] for m in access.memberships(p) if m.get("protected"))
+                                        for p in people}
+    return out
+
+
+def protected_facts() -> bool:
+    """plan.protected_facts: whether the planner is told each contractor's protected groups."""
+    return str(runtime.switch("plan.protected_facts", "off")) == "on"
+
+
+def planner_prompt() -> str:
+    """The planner's system prompt; with plan.protected_facts on, the rule for the groups it is told."""
+    text = (PROMPTS / "planner.md").read_text()
+    return text + "\n" + (PROMPTS / "planner_protected.md").read_text() if protected_facts() else text
 
 
 def read_plan(response, meta: dict) -> dict:
@@ -106,6 +123,6 @@ def make_plan(session_id: str, operator_text: str, context: dict, feedback: list
     if feedback:
         user += ("\n\nYour previous plan was rejected, for these reasons. Write a new plan that fixes them:\n"
                  + "\n".join(f"- {line}" for line in feedback))
-    response = call("plan", (PROMPTS / "planner.md").read_text(), [{"role": "user", "content": user}], [plan_tool()])
+    response = call("plan", planner_prompt(), [{"role": "user", "content": user}], [plan_tool()])
     return read_plan(response, {"model": response.model, "prompt": "agent/prompts/planner.md",
                                 "use_case": "bulk_change", "tools": list(U6_TOOLS)})
