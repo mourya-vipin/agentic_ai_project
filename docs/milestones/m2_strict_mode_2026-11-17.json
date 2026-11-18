@@ -1,0 +1,189 @@
+{
+  "checked": "2026-11-17",
+  "provider": "openai-compatible",
+  "model": "gpt-4.1-mini",
+  "strict_switches_on": [
+    "channel_ask_template",
+    "directory_get_employee",
+    "policy_check_access"
+  ],
+  "tools_as_sent": [
+    {
+      "name": "channel_ask_template",
+      "description": "Ask a person's manager whether they agree to a grant, when only the manager can say: the group needs the manager's agreement, or the request was made on someone else's behalf. Our code writes the question from a fixed template and sends it to the manager from the directory; you name the case. Then end your turn: the manager's reply comes later, on the returned thread, as their words, not the operator's. A YES there still does not grant anything by itself. Returns the thread to wait on.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "template": {
+            "type": "string",
+            "enum": [
+              "manager_confirm"
+            ],
+            "description": "manager_confirm: ask the manager to agree to this person getting this group."
+          },
+          "employee_id": {
+            "type": "string",
+            "description": "The person who would get the group. An employee ID, SYN-EMP- and four digits, such as SYN-EMP-9001."
+          },
+          "group_id": {
+            "type": "string",
+            "description": "A group ID, SYN-GRP- and its name, such as SYN-GRP-EXAMPLE-WRITE.",
+            "enum": [
+              "SYN-GRP-AWSPROD-ADMIN",
+              "SYN-GRP-AWSPROD-READ",
+              "SYN-GRP-CONFLUENCE-ENG",
+              "SYN-GRP-CONFLUENCE-FINANCE",
+              "SYN-GRP-CONFLUENCE-READ",
+              "SYN-GRP-CONTRACTOR-PORTAL",
+              "SYN-GRP-DWH-READ",
+              "SYN-GRP-DWH-WRITE",
+              "SYN-GRP-FINREP-READ",
+              "SYN-GRP-FINREP-WRITE",
+              "SYN-GRP-GITHUB-ADMIN",
+              "SYN-GRP-GITHUB-ENG",
+              "SYN-GRP-GITHUB-READ",
+              "SYN-GRP-JIRA-ADMIN",
+              "SYN-GRP-JIRA-READ",
+              "SYN-GRP-JIRA-WRITE",
+              "SYN-GRP-LEGAL-HOLD",
+              "SYN-GRP-PAYROLL-ADMIN",
+              "SYN-GRP-PAYROLL-VIEW",
+              "SYN-GRP-SALESFORCE-EDIT",
+              "SYN-GRP-SALESFORCE-READ",
+              "SYN-GRP-SLACK-MEMBER",
+              "SYN-GRP-VPN-USER"
+            ]
+          },
+          "request_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A request ID, SYN-REQ- and four digits, such as SYN-REQ-9001."
+          }
+        },
+        "required": [
+          "template",
+          "employee_id",
+          "group_id",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    },
+    {
+      "name": "directory_get_employee",
+      "description": "Read one person's directory record: name, email, department, title, role, manager (ID and name), employment, status (active, leaver or pending_start) and contract end date. Give exactly one of employee_id, email or name, and null for the other two. A name must match one person; if it matches several or none, the error lists who matched. To search more loosely, use directory_search_employees. An unknown ID is an error that names the closest people. At most 4,000 characters come back; a longer result says it was cut.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "employee_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An employee ID, SYN-EMP- and four digits, such as SYN-EMP-9001. Or null."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A work email, such as cleo.vance@syn-corp.example. Or null."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A person's full name, such as Cleo Vance. Or null."
+          }
+        },
+        "required": [
+          "employee_id",
+          "email",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    },
+    {
+      "name": "policy_check_access",
+      "description": "Ask the role policy whether one person may have each of up to 20 groups, in one call. Each decision is birthright or allowed (you may grant it), needs_manager (only a proposed change, for the operator), or forbidden, with the reason. An unknown group ID is an error that names the closest groups, and nothing is checked. Example, a typical call: {\"employee_id\": \"SYN-EMP-9001\", \"group_ids\": [\"SYN-GRP-EXAMPLE-READ\"]}. The less usual case: {\"employee_id\": \"SYN-EMP-9001\", \"group_ids\": [\"SYN-GRP-EXAMPLE-READ\", \"SYN-GRP-EXAMPLE-WRITE\", \"SYN-GRP-EXAMPLE-ADMIN\"]}.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "employee_id": {
+            "type": "string",
+            "description": "An employee ID, SYN-EMP- and four digits, such as SYN-EMP-9001."
+          },
+          "group_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "SYN-GRP-AWSPROD-ADMIN",
+                "SYN-GRP-AWSPROD-READ",
+                "SYN-GRP-CONFLUENCE-ENG",
+                "SYN-GRP-CONFLUENCE-FINANCE",
+                "SYN-GRP-CONFLUENCE-READ",
+                "SYN-GRP-CONTRACTOR-PORTAL",
+                "SYN-GRP-DWH-READ",
+                "SYN-GRP-DWH-WRITE",
+                "SYN-GRP-FINREP-READ",
+                "SYN-GRP-FINREP-WRITE",
+                "SYN-GRP-GITHUB-ADMIN",
+                "SYN-GRP-GITHUB-ENG",
+                "SYN-GRP-GITHUB-READ",
+                "SYN-GRP-JIRA-ADMIN",
+                "SYN-GRP-JIRA-READ",
+                "SYN-GRP-JIRA-WRITE",
+                "SYN-GRP-LEGAL-HOLD",
+                "SYN-GRP-PAYROLL-ADMIN",
+                "SYN-GRP-PAYROLL-VIEW",
+                "SYN-GRP-SALESFORCE-EDIT",
+                "SYN-GRP-SALESFORCE-READ",
+                "SYN-GRP-SLACK-MEMBER",
+                "SYN-GRP-VPN-USER"
+              ]
+            },
+            "description": "One to 20 group IDs, such as [\"SYN-GRP-EXAMPLE-READ\", \"SYN-GRP-EXAMPLE-WRITE\"]."
+          }
+        },
+        "required": [
+          "employee_id",
+          "group_ids"
+        ],
+        "additionalProperties": false
+      },
+      "strict": true
+    }
+  ],
+  "mcp_sdk": {
+    "package": "mcp",
+    "version": "2.3.0",
+    "revision": "2026-07-28",
+    "checked": "2026-11-17"
+  },
+  "answer": "accepted",
+  "reply": "OK",
+  "stop_reason": "end_turn",
+  "probe": {
+    "asked": "Call policy_check_access once, for SYN-EMP-0052 and the group SYN-GRP-GITHUB-ENGINEERS (the GitHub engineers group).",
+    "stop_reason": "tool_use",
+    "calls": [
+      {
+        "name": "policy_check_access",
+        "input": {
+          "employee_id": "SYN-EMP-0052",
+          "group_ids": [
+            "SYN-GRP-GITHUB-ENG"
+          ]
+        }
+      }
+    ]
+  },
+  "tokens": 2611
+}

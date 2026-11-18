@@ -176,7 +176,10 @@ class Registry:
         definition = self._by_canonical.get(canon)
         if ctx.caller == "model" and definition is not None:
             named = {p.split(" ", 1)[0] for p in problems}       # a field the rules already named is said once
-            problems += [e for e in schema_errors(fixed, definition["input_schema"])     # after the case is normalized
+            schema = definition["input_schema"]
+            if runtime.switch(f"strict.{canon}", "off") == "on":
+                schema = _strict_schema(schema, enums=False)     # its nulls, as sent; the tool names the closest groups
+            problems += [e for e in schema_errors(fixed, schema)     # after the case is normalized
                          if e.split(":", 1)[0].split("[", 1)[0] not in named]
         if problems:
             message = (f"{canon} did not run: " + "; ".join(dict.fromkeys(p.rstrip(". ") for p in problems))
@@ -363,7 +366,41 @@ def _as_sent(definition: dict, canonical_name: str) -> dict:
         sent["description"] = definition["description"] + text
     if runtime.switch(f"strict.{canonical_name}", "off") == "on":
         sent["strict"] = True
+        sent["input_schema"] = _strict_schema(definition["input_schema"])
     return sent
+
+
+GROUP_FIELDS = ("group_id", "group_ids")    # the fields that take a group ID, one or a list
+
+
+def _strict_schema(schema: dict, enums: bool = True) -> dict:
+    """A schema fitted for strict mode (slide 21): every property required, each optional one
+    nullable. With `enums`, a group field takes only the catalog's IDs (an enum read from the
+    sandbox when the definitions are built), so the model cannot write an ID no group holds.
+    The boundary checks a call against the same fitting without the enum, so its unknown-group
+    error still names the closest groups."""
+    properties, required = {}, set(schema.get("required") or [])
+    groups = _catalog_ids() if enums and any(f in schema["properties"] for f in GROUP_FIELDS) else None
+    for name, prop in schema["properties"].items():
+        prop = json.loads(json.dumps(prop))
+        if groups and name == "group_id":
+            prop["enum"] = list(groups)
+        elif groups and name == "group_ids":
+            prop["items"] = {**prop.get("items", {}), "enum": list(groups)}
+        if name not in required:
+            kinds = prop.get("type", "string")
+            prop["type"] = list(dict.fromkeys(([kinds] if isinstance(kinds, str) else kinds) + ["null"]))
+            if "enum" in prop and None not in prop["enum"]:
+                prop["enum"] = prop["enum"] + [None]
+        properties[name] = prop
+    return {**schema, "properties": properties, "required": list(schema["properties"]),
+            "additionalProperties": False}
+
+
+def _catalog_ids() -> list[str]:
+    """Every group ID in the catalog, in ID order."""
+    with db.connect() as conn:
+        return [row["id"] for row in conn.execute("SELECT id FROM groups ORDER BY id")]
 
 
 def _scope(ctx: CallContext) -> str:

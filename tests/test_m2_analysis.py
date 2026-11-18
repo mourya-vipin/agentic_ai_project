@@ -105,3 +105,22 @@ class Pass3Test(ScratchTest):
         self.assertEqual((a["searches"], a["searches_missed"], a["code_runs_per_run"]), (1, 1, 1.0))
         self.assertEqual(pass3.differing(arms), {"strict.access_propose_change": {"before": "off", "after": "on"}})
         self.assertEqual(pass3.arm(before, tool="access_grant")["malformed_by_tool"], {"access_grant": 0})
+
+    def test_made_up_group_ids_are_counted_whether_the_tool_or_the_hook_refused_them(self):
+        arm = write_arm(self.tmp / "build", [
+            ({"task": "t07"}, [
+                {"type": "tool_call", "name": "policy_check_access", "is_error": True, "error_class": "permanent",
+                 "output": "No such group: SYN-GRP-JIRA-EDIT. Closest: SYN-GRP-JIRA-WRITE."},
+                {"type": "tool_call", "name": "policy_check_access", "is_error": True, "error_class": "permanent",
+                 "output": "No such group: SYN-GRP-VPN-ACCESS. Closest: SYN-GRP-VPN-USER."}]),
+            ({"task": "t08"}, [
+                {"type": "tool_call", "name": "channel_ask_template", "is_error": True, "error_class": "permanent",
+                 "denied": True, "output": "No group 'SYN-GRP-GITHUB-ENGINEERS'. Closest: SYN-GRP-GITHUB-ENG."},
+                {"type": "tool_call", "name": "channel_ask_template", "is_error": True, "error_class": "permanent",
+                 "output": "There is nothing to ask: the policy allows SYN-GRP-DWH-READ."}]),   # a real group
+            ({"task": "t01"}, [])])
+        a = pass3.arm(arm)
+        self.assertEqual((a["made_up_group_ids"], a["runs_with_a_made_up_group_id"]), (3, 2))
+        self.assertEqual(a["made_up_group_ids_by_tool"], {"policy_check_access": 2, "channel_ask_template": 1})
+        self.assertEqual(a["made_up_group_ids_by_task"], {"t07": 2, "t08": 1})
+        self.assertEqual(a["wrong_args_by_tool"], {"policy_check_access": 2, "channel_ask_template": 1})  # not the hook's

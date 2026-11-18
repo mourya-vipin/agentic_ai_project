@@ -16,6 +16,10 @@ as analyze.py counts them) and prints, per arm:
   arguments (calls that passed the boundary and then failed the same way every time:
   an unknown ID, a group the person cannot have; error_class permanent, not denied by the
   hook); each by tool (--tool picks one out);
+- the made-up group IDs: calls refused because the group ID they name belongs to no group
+  ("No such group" from the tool, "No group '...'" from the hook, which then marks the call
+  denied, so the wrong arguments above leave it out), by tool and by task, and the runs
+  with one;
 - for deferred loading or code calls: input tokens per model call (mean and median),
   tools offered and definition tokens per call (from each context line; a trace from
   before they were recorded says so), the searches (tools_search) and those that found
@@ -30,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import statistics
 import sys
 from collections import Counter, defaultdict
@@ -40,6 +45,9 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from analyze import runs_of, trace_of  # noqa: E402  (Aman Panigrahi's: the runs the summarizer counts)
+
+
+UNKNOWN_GROUP = re.compile(r"\bNo (?:such )?group\b[ :']")   # the tool's and the hook's wording
 
 
 def _mean(values) -> float | None:
@@ -60,6 +68,7 @@ def arm(folder: Path, tool: str | None = None) -> dict:
     by_task = defaultdict(lambda: [0, 0])
     tokens, model_calls, turns = [], [], []
     malformed, wrong = Counter(), Counter()
+    made_up, made_up_tasks, made_up_runs = Counter(), Counter(), set()
     input_per_call, offered, definition = [], [], []
     context_lines = context_recorded = 0
     searches = missed = code_runs = 0
@@ -86,6 +95,10 @@ def arm(folder: Path, tool: str | None = None) -> dict:
                 name = x.get("name") or "?"
                 if name == "code_run":
                     code_runs += 1
+                if x.get("is_error") and UNKNOWN_GROUP.search(str(x.get("output") or x.get("summary") or "")):
+                    made_up[name] += 1
+                    made_up_tasks[record["task"]] += 1
+                    made_up_runs.add(record["run_id"])
                 if x.get("rejected") or x.get("error_class") == "protocol":
                     malformed[name] += 1
                 elif x.get("is_error") and x.get("error_class") == "permanent" and not x.get("denied"):
@@ -100,6 +113,9 @@ def arm(folder: Path, tool: str | None = None) -> dict:
         "turn_median_s": _median(turns), "turn_slowest_s": round(max(turns), 1) if turns else None,
         "malformed_per_run": _per_run(n, sum(malformed.values())), "malformed_by_tool": pick(malformed),
         "wrong_args_per_run": _per_run(n, sum(wrong.values())), "wrong_args_by_tool": pick(wrong),
+        "made_up_group_ids": sum(made_up.values()), "made_up_group_ids_per_run": _per_run(n, sum(made_up.values())),
+        "made_up_group_ids_by_tool": pick(made_up), "made_up_group_ids_by_task": dict(sorted(made_up_tasks.items())),
+        "runs_with_a_made_up_group_id": len(made_up_runs),
         "input_tokens_per_call": {"mean": _mean(input_per_call), "median": _median(input_per_call),
                                   "calls": len(input_per_call)},
         "tools_offered_per_call": _mean(offered), "definition_tokens_per_call": _mean(definition),
@@ -144,6 +160,9 @@ def report(arms: dict[str, dict]) -> str:
                    f"slowest {a['turn_slowest_s']} s")
         out.append(f"  malformed calls: {a['malformed_per_run']} per run {a['malformed_by_tool']}; "
                    f"wrong arguments: {a['wrong_args_per_run']} per run {a['wrong_args_by_tool']}")
+        out.append(f"  made-up group IDs: {a['made_up_group_ids']} ({a['made_up_group_ids_per_run']} per run, in "
+                   f"{a['runs_with_a_made_up_group_id']} runs) by tool {a['made_up_group_ids_by_tool']}, by task "
+                   f"{a['made_up_group_ids_by_task']}")
         i = a["input_tokens_per_call"]
         out.append(f"  input tokens per model call: mean {i['mean']}, median {i['median']} ({i['calls']} calls); "
                    f"tools offered per call {a['tools_offered_per_call']}, definition tokens per call "
