@@ -10,7 +10,10 @@ right, each against the sandbox's truth for this run. Owner: Vipin Mourya.
     question 4     is SYN-REQ-0005 still waiting: yes unless its status is done or refused
 
 An answer is read from the reply to its question: a set of IDs (in any order, nothing extra), or
-the first yes or no in it. Named counts: late_action_right (0 or 1), answers_right (of 4).
+the first yes or no in it. For question 1, the IDs are those the answer says were finished: a
+clause (a sentence, a line, or a part after a semicolon) that says its requests are pending,
+waiting, open, held, refused or not done names requests it does not claim, so its IDs are left
+out ("finished: 0001 to 0003. 0004 and 0005 are pending" claims three; m2-build s01, s03). Named counts: late_action_right (0 or 1), answers_right (of 4).
 """
 
 import re
@@ -24,10 +27,20 @@ ROUTES = {"SYN-REQ-0001": "workflow:standard_grant", "SYN-REQ-0002": "workflow:s
           "SYN-REQ-0003": "workflow:offboarding", "SYN-REQ-0004": "agent:nonstandard_request",
           "SYN-REQ-0005": "workflow:standard_grant"}
 YES_NO = re.compile(r"\b(yes|no)\b", re.I)
+CLAUSE = re.compile(r"(?<=[.!?])\s+|\n+|;")
+NOT_FINISHED = re.compile(r"\b(pending|waiting|waits|awaiting|open|still|held|on hold|blocked|refused|"
+                          r"in progress|not (?:yet )?(?:finished|done|complete|completed))\b", re.I)
 
 
 def _ids(pattern, text: str) -> set[str]:
     return {m.upper() for m in pattern.findall(text or "")}
+
+
+def _finished(text: str) -> set[str]:
+    """The request IDs the answer says were finished: every clause's IDs but those of a clause
+    that says its requests are not finished."""
+    return {rid for clause in CLAUSE.split(text or "") if not NOT_FINISHED.search(clause)
+            for rid in _ids(REQ_ID, clause)}
 
 
 def _yes_no(text: str) -> str | None:
@@ -48,7 +61,7 @@ def check(run):
 
     done = {rid for rid in REQUESTS if (common.request(run, rid) or {}).get("status") == "done"}
     removed = {r["employee_id"] for r in common.removed(run)}
-    truth = [("which requests were finished", done, lambda a: _ids(REQ_ID, a)),
+    truth = [("which requests were finished", done, _finished),
              ("whose access was removed", removed, lambda a: _ids(EMP_ID, a)),
              ("did anyone get Jira editors", "yes" if jira_grants else "no", _yes_no),
              ("is SYN-REQ-0005 still waiting", "no" if late.get("status") in ("done", "refused") else "yes", _yes_no)]
