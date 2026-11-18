@@ -133,6 +133,20 @@ class BudgetTest(ScratchTest):
         self.assertIn("SYN-EMP-0040 and 10 more IDs not listed here; call the tool again to see them all", cut)
         self.assertNotIn("SYN-EMP-0041", cut)
 
+    def test_a_call_whose_prompt_and_definitions_leave_less_than_the_threshold_compacts_within_its_room(self):
+        # U4 with Pass 3's enums: 789 tokens of prompt and 3,688 of definitions leave 3,523 of the 8,000,
+        # below compaction_threshold (4,000); a conversation between the two was never compacted, and unfit
+        system = "s" * 4 * 4700
+        history = [{"role": "user", "content": TASK}] + [m for n in range(1, 4) for m in step(n, size=4400)]
+        room = context.room(system, self.assemble([{"role": "user", "content": TASK}], system=system).tools)
+        self.assertLess(room, context.tokens(history))
+        self.assertLess(context.tokens(history), context.threshold())
+        out = self.assemble(history, system=system)
+        self.assertTrue(out.compacted)
+        self.assertFalse(out.unfit)
+        self.assertLessEqual(out.tokens, context.budget())
+        self.assertEqual(self.lines("compaction")[-1]["threshold"], room)
+
     def test_below_the_threshold_nothing_is_compacted(self):
         out = self.assemble([{"role": "user", "content": TASK}] + step(1, size=100))
         self.assertFalse(out.compacted)

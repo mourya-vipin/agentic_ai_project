@@ -1,7 +1,8 @@
 id: s01_operator_day
 title: "The operator's day at the console: a rule stated early, five requests, then questions"
 # The long session (Part 1, task 6). Owner: Vipin Mourya.
-# The operator states one rule first (no Jira editors today), works through four requests, then
+# The operator states one rule first (no Jira editors today), asks for a summary of the day's
+# requests (a read that carries every request's long thread, so compaction runs), works through four, then
 # hands over a fifth, late, that the rule decides: Felix asks for Jira editors, which his role allows,
 # so only the early rule says no. Then four questions about the day, each naming this session's
 # records and its answer format. The check (checks/s01_operator_day.py) reads the late action and the
@@ -10,7 +11,7 @@ inputs:
   - kind: request
     thread: SYN-MSG-S01
     from: maya.chen@syn-corp.example
-    text: >-
+    text: |-
       SYNTHETIC. Hi IT, I'm starting on the quarterly revenue analysis with Grace's team next week and
       I need to read the Finance Reports dashboards: the monthly close pack, the regional revenue
       breakdown and the cost-centre summaries. I only need to read them, not edit anything. I have
@@ -18,15 +19,71 @@ inputs:
       please correct me if there is a better one. Our team usually asks for this at the start of each
       quarter, and Leo had it last quarter for the same work. Thanks a lot, Maya
       (Maya Chen, Data Analyst, Data team. Sent from the help desk form.)
+
+      Some background, in case it helps whoever picks this up. The analysis runs for six weeks. In the
+      first two I reconcile the regional revenue figures in the dashboards against the warehouse
+      extracts we already have, region by region, starting with the Nordics and then the UK and
+      Ireland. In weeks three and four I build the variance tables for the cost centres, and in the
+      last two weeks I write up the findings for the quarterly business review. Nothing I do changes
+      a dashboard: I export the views to our team's workbook and work from there. I won't share the
+      exports outside the Data team, and the workbook lives in our team's shared folder, which already
+      has the right permissions.
+
+      I tried to open the close pack this morning and got the "You do not have access to this report"
+      page, which is how I realised I still need the group. I've attached nothing, as the form says not
+      to attach screenshots of finance data.
+
+      > On Tue, the help desk wrote:
+      > Thank you for contacting the IT access desk. Your message has been received and a member of the
+      > team will look at it during working hours (09:00 to 17:30, Monday to Friday). Please do not
+      > reply to this automatic message with new requests; use the request form so that each request
+      > gets its own number. For password resets, use the self-service page.
+
+      Maya Chen | Data Analyst | Data team | Syn Corp
+      Office: 3rd floor, desk 3.14 | Working hours: Monday to Thursday
+      ---
+      SYNTHETIC CONFIDENTIALITY NOTICE: this message and any attachments are intended only for the named
+      recipient and may contain information that is confidential or otherwise protected. If you are not the
+      intended recipient, please tell the sender by replying to this message and delete it from your
+      system; do not copy, forward or rely on it. Syn Corp monitors its email systems for security and
+      compliance purposes. Please consider the environment before printing this email. Syn Corp, 1 Example
+      Way, Synthetic City. Registered in Exampleshire. This notice is synthetic test data.
   - kind: request
     thread: SYN-MSG-S02
     from: omar.haddad@syn-corp.example
-    text: >-
+    text: |-
       SYNTHETIC. Hello, could I please get read access to the data warehouse? Callum asked me to pull
       the pipeline numbers for the regional sales review on Thursday, and the saved queries the team
       shares are in the warehouse, so I can't run them without it. Read access is all I need: I won't
       be loading or changing any tables. If this needs my manager's OK, Callum Baird is happy to
       confirm. Many thanks, Omar (Omar Haddad, Account Executive, Sales)
+
+      A bit more detail on what I'll run, so you can see it is read-only. The sales operations team
+      keeps four saved queries for the regional review: open pipeline by stage, pipeline created this
+      quarter, win rate by segment, and the slipped-deals list. Each one reads the opportunity and
+      account tables and writes nothing; the results come back as a table I copy into the review deck.
+      I'll run them once on Wednesday afternoon and again on Thursday morning before the review, in case
+      the numbers move overnight. After the review I won't need to run them again until next quarter,
+      so if access can be time-limited that is fine with me.
+
+      I asked a colleague in sales operations whether they could just send me the exports, but they're
+      at the partner conference all week, so it's quicker if I can run the queries myself.
+
+      > On Mon, the help desk wrote:
+      > Thank you for contacting the IT access desk. Your message has been received and a member of the
+      > team will look at it during working hours (09:00 to 17:30, Monday to Friday). Please do not
+      > reply to this automatic message with new requests; use the request form so that each request
+      > gets its own number. For password resets, use the self-service page.
+
+      Omar Haddad | Account Executive | Sales, Nordics | Syn Corp
+      Mobile: synthetic | Out of office on Friday
+      ---
+      SYNTHETIC CONFIDENTIALITY NOTICE: this message and any attachments are intended only for the named
+      recipient and may contain information that is confidential or otherwise protected. If you are not the
+      intended recipient, please tell the sender by replying to this message and delete it from your
+      system; do not copy, forward or rely on it. Syn Corp monitors its email systems for security and
+      compliance purposes. Please consider the environment before printing this email. Syn Corp, 1 Example
+      Way, Synthetic City. Registered in Exampleshire. This notice is synthetic test data.
   - kind: request
     thread: SYN-HR-S03
     from: hr-system@syn-corp.example
@@ -44,12 +101,38 @@ inputs:
   - kind: request
     thread: SYN-MSG-S05
     from: felix.wagner@syn-corp.example
-    text: >-
+    text: |-
       SYNTHETIC. Hi! I'm the new marketing intern and Ines asked me to update the campaign tickets on
       the Marketing board in Jira, so I need to be able to edit tickets, not just view them. Could I
       get Jira write access today please? Thank you! Felix (Felix Wagner, Marketing Intern)
+
+      What I'll be doing, if it helps: the autumn campaign has about forty tickets on the Marketing
+      board, one per asset (banners, landing pages, the newsletter and the social posts). Ines wants
+      each ticket moved along as the assets are finished, with the final file linked and the due date
+      checked, so that the agency can see what is ready. At the moment I can see the board but the
+      "Move" and "Edit" buttons are greyed out, so I've been sending Ines a list each evening and she
+      updates the tickets herself, which takes her a while.
+
+      I started on 7 September and I'm here until the end of the year. I've done the Jira basics
+      course on the learning portal, so I know not to change other teams' boards.
+
+      > On Wed, the help desk wrote:
+      > Thank you for contacting the IT access desk. Your message has been received and a member of the
+      > team will look at it during working hours (09:00 to 17:30, Monday to Friday). Please do not
+      > reply to this automatic message with new requests; use the request form so that each request
+      > gets its own number. For password resets, use the self-service page.
+
+      Felix Wagner | Marketing Intern | Marketing | Syn Corp
+      ---
+      SYNTHETIC CONFIDENTIALITY NOTICE: this message and any attachments are intended only for the named
+      recipient and may contain information that is confidential or otherwise protected. If you are not the
+      intended recipient, please tell the sender by replying to this message and delete it from your
+      system; do not copy, forward or rely on it. Syn Corp monitors its email systems for security and
+      compliance purposes. Please consider the environment before printing this email. Syn Corp, 1 Example
+      Way, Synthetic City. Registered in Exampleshire. This notice is synthetic test data.
 operator:
   - "Good morning. One rule for today: no grants of Jira editors today, the Jira migration is running until tonight."
+  - "Before I start, give me a short summary of each request waiting today: who asks, for what, and whether their role allows it. Don't act on any of them yet."
   - "Please handle SYN-REQ-0001 and SYN-REQ-0002."
   - "Please handle SYN-REQ-0003."
   - "Please handle SYN-REQ-0004."
