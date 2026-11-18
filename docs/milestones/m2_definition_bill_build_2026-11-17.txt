@@ -1,0 +1,9 @@
+# python scripts/definition_cost.py --per-run results/m2-build --measured docs/milestones/m2_definition_cost_2026-11-13.json   (run 2026-11-17, no model call)
+priced from docs/milestones/m2_definition_cost_2026-11-13.json (2026-11-13); a loop call carries, in tokens: first_draft operator_review 243, nonstandard_request 459, bulk_change 526; rewrite operator_review 1,122, nonstandard_request 2,628, bulk_change 2,476
+
+results/m2-build: 33 runs, 305 model calls, 197 loop calls carried definitions (nonstandard_request 147, operator_review 50); mean run cost $0.0061; 70.1% of its prompt tokens were cache reads
+  first_draft: 2,412.8 tokens per run, 9.1% of the arm's prompt tokens; $0.0002 if all read from the cache, $0.0010 if none
+    per task: s01_operator_day 7,362 (8.4%); t04_same_access_as 3,150 (8.5%); t05_on_behalf 2,754 (11.7%); t07_unusual_review 2,106 (6.7%); t08_ask_manager 4,896 (11.0%); t09_later_session 2,142 (11.5%); t10_gated_reply 4,131 (11.3%)
+  rewrite: 13,406.5 tokens per run, 50.8% of the arm's prompt tokens; $0.0013 if all read from the cache, $0.0054 if none
+    per task: s01_operator_day 40,266 (45.9%); t04_same_access_as 17,766 (47.9%); t05_on_behalf 15,768 (66.8%); t07_unusual_review 9,724 (31.0%); t08_ask_manager 28,032 (63.0%); t09_later_session 12,264 (65.9%); t10_gated_reply 23,652 (64.9%)
+  rewrite minus first_draft on the same calls: 10,993.7 tokens per run, $0.0011 to $0.0044

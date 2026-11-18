@@ -52,7 +52,7 @@ notes:
 
 # How tool definitions reach the model (Lecture 3, slides 23 to 25). Owner: Vipin Mourya.
 tools:
-  loading: {setting: all, values: [all, deferred], added: 2026-11-13, about: "all sends every definition a use case is offered. deferred sends a use case with more than 10 tools (U4 13, U6 loop 15) its core tools and tools_search, and what the search finds. all by the count: U4 is near the line and its calls mostly hit the cache; Pass 3 can measure deferred."}
+  loading: {setting: all, values: [all, deferred], added: 2026-11-13, about: "all sends every definition a use case is offered. deferred sends a use case with more than 10 tools (U4 15, U6 loop 15) its core tools and tools_search, and what the search finds. all by the count: its calls mostly hit the cache (70.1% of the build's prompt tokens), and no pass measured deferred: Pass 3 took the made-up group IDs."}
 
 # The model writes a short program that calls the tools, per use case (Lecture 3, slides 26, 27).
 # Owner: Vipin Mourya.
