@@ -53,7 +53,8 @@ def operator_turn(session_id: str, text: str) -> Reply:
       1. A command of the operator (/stop, /cancel, /resume, /rollback) gets its answer
          from agent/commands.py. No model sees it, and it does not go into the conversation.
       2. A limit that the message lifts or states becomes a rule that the hook reads before
-         each call (policy/limits.py). The reply starts with what our code recorded.
+         each call (policy/limits.py). The reply starts with what our code recorded. The
+         router gets the recorded rule as a fact, so the rule alone is not taken for a task.
       3. If a run of the session is live in this process, the message goes to the inbox
          (agent/inbox.py): it adds to the run's task, replaces it, waits, or is refused.
          Otherwise the router sends the message to its path.
@@ -65,14 +66,14 @@ def operator_turn(session_id: str, text: str) -> Reply:
         command = commands.handle(session_id, text)
         if command is not None:
             return command
-        recorded = _limits(session_id, text)
+        recorded, rule = _limits(session_id, text)
         live = inbox.live_run(session_id)
         if live is not None:
             reply = inbox.post(session_id, text, live)
             session.add(session_id, "operator", text)
             session.add(session_id, "agent", reply.text)
         else:
-            reply = router.handle_operator(session_id, text)
+            reply = router.handle_operator(session_id, text, rule=rule)
         kept = memory.from_text(session_id, text)
     finally:
         checkpoints.flush()
@@ -82,10 +83,11 @@ def operator_turn(session_id: str, text: str) -> Reply:
     return Reply("\n".join([*recorded, reply.text, *after]).strip(), reply.actions, reply.waiting_for)
 
 
-def _limits(session_id: str, text: str) -> list[str]:
+def _limits(session_id: str, text: str) -> tuple[list[str], str | None]:
     """Lift, then record, the limits that the message gives. A message can lift the old
-    rules and state a new one, and the new rule stays. One line for each change."""
-    lines = []
+    rules and state a new one, and the new rule stays. One line for each change, and the
+    new rule as the router reads it (or None)."""
+    lines, stated = [], None
     lifted = limits.lift_from_text(session_id, text)
     if lifted:
         lines.append(f"Rules lifted: {', '.join(lifted)}.")
@@ -93,7 +95,8 @@ def _limits(session_id: str, text: str) -> list[str]:
     if rule is not None:
         until = "until you lift it" if rule.until == limits.OPERATOR_LIFTS else f"until {rule.until}"
         lines.append(f'Rule {rule.id} is recorded. It holds {until}: "{rule.text}"')
-    return lines
+        stated = f'rule {rule.id}, which holds {until}: "{rule.text}"'
+    return lines, stated
 
 
 def on_outside_reply(thread_id: str, text: str) -> Reply:

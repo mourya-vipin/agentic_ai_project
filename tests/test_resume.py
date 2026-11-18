@@ -176,9 +176,13 @@ class TheResume(ScratchTest):
         self.assertEqual([(x["run_key"], x["event_kind"]) for x in resumed], [(f"{rid}#1", "stop_lifted")])
 
     def waiting_run(self, rid: str):
+        """A U4 run that asked and waits. As U4's prompt says, it drafted the reply to the
+        requester before it ended the turn, so its journal holds the draft."""
         cp = checkpoints.new_run(rid, "nonstandard_request", "the task")
         cp.findings = {"request_id": "SYN-REQ-0001"}
         cp.messages, cp.current_step = [{"role": "user", "content": "the task"}, ASK, ASKED], 1
+        checkpoints.record_completed(cp.run_key, f"{cp.run_key}:reply_draft", tool="reply_draft",
+                                     args={"request_id": "SYN-REQ-0001"}, result={"pending_id": "SYN-PEND-0001"})
         return checkpoints.end_turn(cp, "waiting_reply", waiting_for={"thread_id": THREAD})
 
     def test_a_reply_carries_on_the_loop_with_the_reply_labelled_as_the_strangers(self):

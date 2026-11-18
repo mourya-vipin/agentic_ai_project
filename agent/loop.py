@@ -44,12 +44,21 @@ ends the loop with "replaced".
 A run that asks a stranger (channel_ask_template) carries on with its turn. When the model
 ends the turn, the run is saved as waiting for the reply, with the thread and a deadline
 (bounds.reply_deadline), and the LoopResult names the thread (waiting_for).
+
+The system prompt of each call ends with today's date on the desk's clock (sandbox/clock.py),
+so the model never guesses the date.
+
+A U4 run must write its reply to the requester with a tool. The requester never reads the
+model's answer, which goes to the operator. When the model ends a U4 turn and the run's journal
+holds no reply_draft and no reply_send, our code tells it so, once, and the loop goes on
+(NO_REPLY; a reply_missing line in the trace). A turn that waits for a stranger is not checked.
 """
 
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from datetime import date
 
 from agent import bounds, checkpoints, context, control, disclosure, exits, inbox
 from agent.bounds import Bound
@@ -57,6 +66,7 @@ from agent.detectors import RepeatTracker
 from agent.registry import AWAITING_APPROVAL, CallContext, get_registry
 from harness import runtime
 from harness.client import tool_result
+from sandbox import clock
 
 PROGRESS_EVERY = 3        # steps between the progress lines the console shows (Lecture 1, slide 34)
 MAX_PROTOCOL_ERRORS = 2   # the second protocol error in one loop ends it
@@ -65,6 +75,11 @@ STOP_LIFTED = ("[from our code] The operator lifted the stop on this run. A call
                "refused did not run: make it again if it is still needed.")
 RESTARTED = ("[from our code] The process stopped during this run (a crash, or a restart of the app). The run "
              "carries on from its last saved step. Each write that it made is done once: do not make it again.")
+REPLY_REQUIRED = ("nonstandard_request",)     # the use cases whose run must write a reply to the requester
+REPLY_TOOLS = ("reply_draft", "reply_send")
+NO_REPLY = ("[from our code] This run has written no reply to the requester for {request}. The requester does "
+            "not read your answer: it goes to the operator. Write the reply now with the tool that your instructions "
+            "give (reply_draft, or reply_send after a manager's answer), with request_id {request}, and then finish.")
 
 
 @dataclass
@@ -140,9 +155,11 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
     if cp is None and run_key is not None:
         cp = checkpoints.load(run_key)          # the router saved the run when it opened it
     task = messages[0]["content"] if isinstance(messages[0].get("content"), str) else None
+    system = dated(system)
     first, start, start_tokens = step, time.monotonic(), client.total_tokens
     text, calls_made, protocol_errors = "", 0, 0
     asked = None                                    # the thread of a question that this turn sent
+    told_no_reply = False                           # NO_REPLY is sent at most once a turn
 
     def end(reason: str, detail: str, said: str) -> LoopResult:
         trace.end(reason, detail)
@@ -190,6 +207,13 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
                 checkpoints.save(cp, mode="sync")
             trace.end(bounds.WAITING_REPLY, f"asked on {asked}; the deadline is {wait['deadline']}")
             return LoopResult(response.text, actions, bounds.WAITING_REPLY, step, waiting_for=asked)
+        if not calls and not told_no_reply and _reply_missing(use_case, run_key, request_id):
+            # a U4 turn that ends with no reply to the requester: our code says so, once
+            told_no_reply = True
+            messages.append(response.assistant_message())
+            messages = _with_text(messages, NO_REPLY.format(request=request_id))
+            trace.event("reply_missing", run_key=run_key, request_id=request_id, step=step)
+            continue
         if not calls:
             return end(done, f"step {step}, stop_reason {response.stop_reason}", response.text)
 
@@ -348,6 +372,21 @@ def _with_text(messages: list[dict], text: str) -> list[dict]:
     content = last["content"]
     joined = f"{content}\n\n{text}" if isinstance(content, str) else list(content) + [{"type": "text", "text": text}]
     return messages[:-1] + [{**last, "content": joined}]
+
+
+def dated(system: str) -> str:
+    """The system prompt with today's date at its end, on the desk's clock, never the machine's."""
+    today = clock.today()
+    return f"{system.rstrip()}\n\nToday is {date.fromisoformat(today):%A}, {today}, on the desk's clock."
+
+
+def _reply_missing(use_case: str, run_key: str | None, request_id: str | None) -> bool:
+    """Whether a run that must reply to its requester has no reply_draft and no reply_send in its
+    journal. A U4 run handles one request, so any reply of the run is the reply to it (the tools'
+    request_id is optional). A run with no key or no request is not checked."""
+    if use_case not in REPLY_REQUIRED or not run_key or not request_id:
+        return False
+    return not any(entry.get("tool") in REPLY_TOOLS for entry in checkpoints.journal_of(run_key).values())
 
 
 def _stopped(limit: str, text: str) -> str:

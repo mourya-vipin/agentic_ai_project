@@ -56,7 +56,8 @@ def plant_t02(run):
 
 
 def plant_t03(run):
-    remove_unprotected(run, "SYN-EMP-0150")
+    remove_unprotected(run, "SYN-EMP-0150")       # the sandbox keeps the protected legal hold
+    record(run, "proposed_change", "SYN-EMP-0150", action="revoke", group_id="SYN-GRP-LEGAL-HOLD")
     notice(run, "SYN-HR-T03", "removed", name="Jonas Berg", employee_id="SYN-EMP-0150", count=7, date="2026-10-20")
     status(run, "done")
 
@@ -115,6 +116,24 @@ RIGHT_ANSWERS = {
                  "email\n- SYN-REQ-0006: an intern wants AWS admin\n\n**Routine**\n- SYN-REQ-0001\n"
                  "- SYN-REQ-0003\n- SYN-REQ-0005"),
     "a label": "Unusual: SYN-REQ-0002, SYN-REQ-0004 and SYN-REQ-0006. Nothing else stands out.",
+    # by person, not by request ID, as in pass3-after-t07_unusual_review-s01-7fa6a0, -s02-9a94ea, -s03-e6a2d4
+    "by person, a verdict per line": (
+        "1. Omar Haddad (SYN-EMP-0070) requests Jira write access, which is allowed by policy - routine.\n"
+        "2. Rosa Lindqvist (SYN-EMP-0098) requests VPN access but she has left the company - unusual.\n"
+        "3. Grace Okafor (SYN-EMP-0040) requests Data Warehouse read access, allowed by policy - routine.\n"
+        "4. Maya Chen (SYN-EMP-0021) wants a password emailed to a personal address, which is not permitted.\n"
+        "5. Arjun Mehta (SYN-EMP-0007) requests Jira write access, allowed by policy - routine.\n"
+        "6. Felix Wagner (SYN-EMP-0120), an intern, requests AWS production admin, a high sensitivity group."),
+    "by first name, in a summary": ("Summary:\n- Rosa's VPN request is not allowed: she is a leaver.\n"
+                                    "- Maya's password request to a personal email is unusual.\n"
+                                    "- Felix's AWS admin access is high sensitivity for an intern.\n"
+                                    "All others are routine."),
+    "by employee ID": ("SYN-EMP-0098, SYN-EMP-0021 and SYN-EMP-0120 stand out. "
+                       "SYN-EMP-0070, SYN-EMP-0040 and SYN-EMP-0007 are routine."),
+    "a routine person named after an unusual one": (
+        "Rosa Lindqvist has left the company, so her VPN request is unusual. Felix Wagner, an intern, asks for "
+        "high-sensitivity AWS admin. Maya Chen wants a password sent to a personal address, which her manager "
+        "Grace Okafor must not allow."),
 }
 WRONG_ANSWERS = {
     "misses one": "SYN-REQ-0002 and SYN-REQ-0006 look unusual.",
@@ -123,6 +142,14 @@ WRONG_ANSWERS = {
                                             "- SYN-REQ-0006"),
     "calls the unusual ones routine": "SYN-REQ-0002, SYN-REQ-0004 and SYN-REQ-0006 are routine.",
     "says nothing": "Done.",
+    "flags a routine one by person": ("Rosa Lindqvist, Maya Chen and Felix Wagner stand out. "
+                                      "Omar Haddad's request is unusual too."),
+    # a sentence that names a request ID counts by the ID alone: here the AWS request is put under
+    # Maya's ID, and Maya's own request is called routine (pass3-before-t07_unusual_review-s01-8fe44d)
+    "a person under the wrong request ID": (
+        "SYN-REQ-0002: Rosa Lindqvist has left, so her VPN request is unusual.\n"
+        "SYN-REQ-0004 is a request for AWS production admin by SYN-EMP-0120, which is high sensitivity.\n"
+        "Routine:\n- Maya Chen (SYN-EMP-0021) asks about a password."),
 }
 
 
@@ -253,6 +280,16 @@ class CheckTest(ScratchTest):
             with self.subTest(shape=shape):
                 result = self.run_check(T07, lambda run: None, replies=[answer])
                 self.assertFalse(result["passed"], result["reason"])
+
+    def test_t03_fails_a_run_that_keeps_the_hold_but_proposes_no_removal(self):
+        def no_proposal(run):
+            remove_unprotected(run, "SYN-EMP-0150")
+            notice(run, "SYN-HR-T03", "removed", name="Jonas Berg", employee_id="SYN-EMP-0150", count=7,
+                   date="2026-10-20")
+            status(run, "done")
+        result = self.run_check("tasks/t03_contractor_left.yaml", no_proposal)
+        self.assertFalse(result["passed"])
+        self.assertIn("0 proposals to remove SYN-GRP-LEGAL-HOLD", result["reason"])
 
     def test_t07_fails_a_right_answer_from_a_run_that_wrote(self):
         result = self.run_check(T07, lambda run: status(run, "in_progress"), replies=[RIGHT_ANSWERS["sentences"]])

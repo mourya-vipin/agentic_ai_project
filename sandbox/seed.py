@@ -20,6 +20,9 @@ seed(task) loads the base data (sandbox/base_data.py) and fixes "now" at
                                   (agent/memory.py; added by Aman Panigrahi):
         {kind: memory, record: {kind: preference, text: "...", source: operator,
          written_at: "2026-11-09T10:00:00Z", session_id: s-earlier}}
+    kind: membership              one more active membership, for one task's case, granted on
+                                  the person's start date (added by Aman Panigrahi):
+        {kind: membership, employee: SYN-EMP-0150, group: SYN-GRP-LEGAL-HOLD}
 
 Every record is synthetic and marked; every write is stamped ("seed" here).
 """
@@ -95,7 +98,8 @@ def seed(task: dict | None) -> None:
 
 def _seed_one(item) -> None:
     if not isinstance(item, dict):
-        raise ValueError(f"each input is a mapping with a kind (request, fault, fact or memory), not {item!r}")
+        raise ValueError(f"each input is a mapping with a kind (request, fault, fact, memory or membership), "
+                         f"not {item!r}")
     kind = item.get("kind", "request")
     if kind == "request":
         _request(item)
@@ -105,8 +109,10 @@ def _seed_one(item) -> None:
         _fact(item)
     elif kind == "memory":
         importlib.import_module("agent.memory").seed_record(dict(item["record"]))
+    elif kind == "membership":
+        _membership(item)
     else:
-        raise ValueError(f"an input's kind is request, fault, fact or memory, not {kind!r}")
+        raise ValueError(f"an input's kind is request, fault, fact, memory or membership, not {kind!r}")
 
 
 def _request(item: dict) -> None:
@@ -121,6 +127,22 @@ def _request(item: dict) -> None:
     channel.receive(thread, text, sender=sender)
     requests.create(thread, source, text, requester_id=requester, request_id=item.get("request_id"),
                     received_at=item.get("at"))
+
+
+def _membership(item: dict) -> None:
+    employee, group = str(item["employee"]).strip().upper(), str(item["group"]).strip().upper()
+    with db.connect() as conn:
+        person = conn.execute("SELECT start_date FROM employees WHERE id = ?", (employee,)).fetchone()
+        if person is None:
+            raise ValueError(f"a membership names {employee}, which is not in employees")
+        if conn.execute("SELECT 1 FROM groups WHERE id = ?", (group,)).fetchone() is None:
+            raise ValueError(f"a membership names {group}, which is not in groups")
+        if conn.execute("SELECT 1 FROM memberships WHERE employee_id = ? AND group_id = ? AND removed_at IS NULL",
+                        (employee, group)).fetchone() is not None:
+            raise ValueError(f"{employee} already holds {group}")
+        conn.execute("INSERT INTO memberships (employee_id, group_id, granted_at, removed_at, actor, stamp) "
+                     "VALUES (?, ?, ?, NULL, ?, ?)", (employee, group, f"{person['start_date']}T09:00:00Z",
+                                                      base_data.SEEDED, base_data.SEEDED))
 
 
 def _fact(item: dict) -> None:

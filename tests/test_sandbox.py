@@ -134,6 +134,17 @@ class SandboxTest(ScratchTest):
         self.assertEqual([e["id"] for e in directory.contractors_ended(clock.today())],
                          ["SYN-EMP-0161", "SYN-EMP-0162", "SYN-EMP-0163"])
 
+    def test_a_task_seeds_one_more_membership_and_refuses_one_it_cannot_add(self):
+        # the membership input (added by Aman Panigrahi, for t03's legal hold)
+        self.reseed({"inputs": [{"kind": "membership", "employee": "SYN-EMP-0150", "group": "SYN-GRP-LEGAL-HOLD"}]})
+        held = {m["group_id"]: m for m in access.memberships("SYN-EMP-0150")}
+        self.assertEqual(held["SYN-GRP-LEGAL-HOLD"]["granted_at"], "2026-04-01T09:00:00Z")
+        for item, says in ((("SYN-EMP-9999", "SYN-GRP-LEGAL-HOLD"), "not in employees"),
+                           (("SYN-EMP-0150", "SYN-GRP-NOPE"), "not in groups"),
+                           (("SYN-EMP-0150", "SYN-GRP-JIRA-WRITE"), "already holds")):
+            with self.subTest(item=item), self.assertRaisesRegex(ValueError, says):
+                self.reseed({"inputs": [{"kind": "membership", "employee": item[0], "group": item[1]}]})
+
     def test_a_fact_that_names_an_unknown_column_is_refused(self):
         with self.assertRaisesRegex(ValueError, "may set"):
             self.reseed({"input": {"kind": "fact", "table": "employees", "id": "SYN-EMP-0150",
