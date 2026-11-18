@@ -106,3 +106,38 @@ it. `make check` reads every `##` section but the template: see the README's "ma
   Slide numbers follow the brief: for Lecture 2 that is the deck's own number plus 2, and for Lecture 3 the deck's own number.
 
 - **Links:** `results/pass1-before/`, `results/pass1-after/`
+
+## Pass 2 · t06's plan is revised on every run
+
+- **Pass:** 2. On U6 (t06), the plan is revised in every run, because the planner is not told which groups are protected. This pass tests whether telling it each contractor's protected groups (`plan.protected_facts: on`) makes the first plan propose the legal hold's removal, so that no revision is needed (Lecture 2, slide 17: the reviser repairs a plan only when a named checkpoint fails).
+
+- **Owner:** Shruti Tewaney
+
+- **Problem:** In the build (`results/m2-build/`), all 3 t06 runs passed, but the checkpoint after Victor Lam's listing failed in every one. That was followed by a revision call, the turn's costliest: 3,385 to 3,416 tokens and 4.7 to 12.3 s, against the first plan's 2,397 to 2,410 tokens and 4.2 to 4.6 s. Each run made 5 or 6 model calls and 2 plan versions, for 10,836 to 12,814 tokens, $0.0057 to $0.0062, and a turn of 13.4, 16.0 and 21.4 s. Pass 1 named the cause: our code reads which groups are protected, and the planner is never told.
+
+- **Evidence:** In `results/m2-build/m2-build-t06_bulk_ended_contractors-s01-8a44e0.trace.jsonl`, `-s02-075829` and `-s03-03f995`, the checkpoint fails at `:24` ("SYN-EMP-0162 holds the protected group(s) SYN-GRP-LEGAL-HOLD … and no later step proposes removing them"), and the reviser's model call follows at `:26`.
+
+  Before this prediction, I ran a pilot of 2 runs of t06 with the switch `on` (`dev-pass2-on`, at `d4f0749` (the same code as `4a20af9` on main), kept outside `results/`; a pilot, not evidence). Both passed with 1 plan version and no revision. The legal hold's proposal was planned from the start, and all three checkpoints passed. They used 4 and 5 model calls, 7,738 and 9,756 tokens, $0.0043 and $0.0042, and turns of 13.9 and 12.6 s. Their plan call was longer, 6.4 and 7.0 s, because it writes the proposal step too.
+
+- **Why this fix:** The checkpoint is the plan's safety net, not its source: it should fire on a surprise, and here it fires on a fact our code already holds before the plan is written. `planner.build_context` already gives the planner the IDs and counts it plans from. Giving it the protected groups too, read by code, as IDs only, moves that fact into the plan. That saves the revision, and leaves the checkpoint in place for a plan that still leaves one out, which `tests/test_plan.py: ProtectedFactsTest` shows it still revises. Pass 1 kept the plan (`plan.bulk_change: on`), because the loop was cheaper but less safe. This pass keeps it and removes its main extra cost.
+
+- **Prediction:** Both arms run t06, 3 sweeps each, at one commit.
+
+  - **`pass2-before` (`plan.protected_facts: off`):** 3 of 3 pass. Each run has a failed checkpoint and a revision (2 plan versions), 5 or 6 model calls, 10,500 to 13,000 tokens and $0.0055 to $0.0065, and a turn of 13 to 22 s.
+  - **`pass2-after` (`plan.protected_facts: on`):** at least 2 of 3 pass, and I expect 3 of 3. Every passing run has 1 plan version, no revision call, no failed checkpoint, and the legal hold's proposal from the first plan. Model calls drop by 1 a run, to 4 or 5. Tokens per run drop by at least 20% at the median, to about 8,000 to 9,800. Cost per run drops by at least 20% at the median, to about $0.0045. The median turn is at least 1 s faster: the revision goes, but the plan call takes about 2 s longer.
+
+  **Safety comes before cost.** If an `on` run removes the legal hold, leaves out its proposal, or reports a false finish, the verdict is to keep `off`, even if `on` is cheaper.
+
+- **Arms:** `results/pass2-before/` with `plan.protected_facts=off`; `results/pass2-after/` with `plan.protected_facts=on`. Every other switch stays at its setting in `switches.yaml`.
+
+- **Held constant:** Both arms use the same model (gpt-4.1-mini), the same commit with a clean tree, the same prompts and tool definitions, the same test task and scripted answers (t06's `approvals: [yes, yes]`), and every other switch's setting. The switch changes only what the planner is told and one paragraph of its prompt (`agent/prompts/planner_protected.md`); nothing else reads it.
+
+- **Tasks and sweeps:** t06 (`tasks/t06_bulk_ended_contractors.yaml`), 3 sweeps per arm. Only U6's planned path reads the switch, and t06 is the test task that takes it.
+
+- **Results:** pending: the arms run once this prediction is merged to main.
+
+- **Difference:** pending.
+
+- **Verdict:** pending.
+
+- **Links:** `results/pass2-before/`, `results/pass2-after/`
