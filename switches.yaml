@@ -20,7 +20,7 @@ control:
 # Owner: Shruti Tewaney.
 plan:
   bulk_change: {setting: "on", values: ["off", "on"], about: "U6 as a planned agent; off runs it on the bounded loop."}
-  protected_facts: {setting: "off", values: ["off", "on"], added: 2026-11-17, about: "Pass 2: on tells U6's planner each contractor's protected groups (planner.build_context: protected_memberships) and to plan their removal proposals from the start, so the checkpoint need not revise the plan. off, as in the build: the checkpoint finds the legal hold and the reviser adds its proposal, one model call a run. Set by Pass 2's verdict."}
+  protected_facts: {setting: "on", values: ["off", "on"], added: 2026-11-17, about: "Pass 2 (experiments/LEDGER.md): on tells U6's planner each contractor's protected groups (planner.build_context: protected_memberships) and to plan their removal proposals from the start, so the checkpoint need not revise the plan. on by Pass 2's verdict: 3 of 3 passed in each arm, every legal hold kept and proposed, no revision, 34% cheaper and 8.4 s faster at the median, though total tokens fell only 10% (the 20% predicted was missed). off, as in the build: the checkpoint finds the legal hold and the reviser adds its proposal."}
 
 # Approval at the plan or per action, one switch per use case with a plan (Lecture 5, slide 18).
 # Owner: Shruti Tewaney.
