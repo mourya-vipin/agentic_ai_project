@@ -41,7 +41,7 @@ OWN_STEPS_ONLY = ("executor",)
 DEFAULT_BUDGET = 8000
 DEFAULT_THRESHOLD = 4000
 KEEP_STEPS = 2                       # the latest steps, kept word for word through a compaction
-MAX_IDS = 12
+MAX_IDS = 40                         # a cleared result's IDs; past it, the note says how many more it held
 IDS = re.compile(r"\bSYN-[A-Z]+-[A-Z0-9-]+\b")
 BUDGET_UNFIT = "budget_unfit"        # the end reason when a call cannot fit even after compaction
 
@@ -114,14 +114,45 @@ def _tool_names(messages: list[dict]) -> dict[str, str]:
 
 
 def _ids_in(text: str) -> list[str]:
-    return list(dict.fromkeys(IDS.findall(str(text or ""))))[:MAX_IDS]
+    return list(dict.fromkeys(IDS.findall(str(text or ""))))
+
+
+def _records(content) -> list[list[str]] | None:
+    """A result that lists records (a JSON object with a list of objects): each record's IDs, in order."""
+    try:
+        data = json.loads(content) if isinstance(content, str) else None
+    except ValueError:
+        return None
+    rows = next((v for v in data.values() if isinstance(v, list) and v and all(isinstance(r, dict) for r in v)),
+                None) if isinstance(data, dict) else None
+    return [_ids_in(json.dumps(r)) for r in rows] if rows else None
 
 
 def _cleared(block: dict, name: str) -> dict:
-    """A tool result shortened to the IDs it held, which the agent can fetch again."""
-    ids = _ids_in(block.get("content"))
+    """A tool result shortened to the IDs it held, which the agent can fetch again. A list of records
+    keeps each record's IDs together ("SYN-REQ-0006: SYN-MSG-T07F, SYN-EMP-0120"), so the agent still
+    knows which request is whose. Every ID is named, up to MAX_IDS; past that, the note says how many
+    more there were, so a list is never cut without a word. In m2-build-t07_unusual_review-s01-295134:46
+    the day's six requests held 18 IDs, the note named the first 12 as one list, and the answer missed
+    SYN-REQ-0006, whose IDs were the ones left out."""
+    content = block.get("content")
+    ids, records = _ids_in(content), _records(content)
+    shown, parts = 0, []
+    if records:
+        for record in records:
+            if not record or shown + len(record) > MAX_IDS:
+                break
+            parts.append(record[0] + (f": {', '.join(record[1:])}" if len(record) > 1 else ""))
+            shown += len(record)
+        named = "; ".join(parts)
+    else:
+        named = ", ".join(ids[:MAX_IDS])
+        shown = min(len(ids), MAX_IDS)
+    more = len(ids) - shown
     text = (f"[cleared to save room: the result of {name}"
-            + (f", which named {', '.join(ids)}" if ids else "") + "; call the tool again if you need it]")
+            + (f", which named {named}" if named else "")
+            + (f" and {more} more IDs not listed here; call the tool again to see them all]" if more > 0
+               else "; call the tool again if you need it]"))
     return {**block, "content": text}
 
 
