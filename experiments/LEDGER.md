@@ -199,10 +199,37 @@ it. `make check` reads every `##` section but the template: see the README's "ma
 
 - **Tasks and sweeps:** the build's 11 tasks, t01 to t10 (`tasks/`) and s01 (`tasks/sessions/s01_operator_day.yaml`), 3 sweeps per arm: `python run.py --tasks tasks/ tasks/sessions/ --sweeps 3 --arm pass3-before --set strict.policy_check_access=off strict.channel_ask_template=off`, then the same with `--arm pass3-after` and both `=on`. The made-up IDs are in t05, t07, t08, t10 and s01; the others show any side effect.
 
-- **Results:** pending
+- **Results:** Both arms ran at `1b9814b` (#49's merge commit, after the prediction), with a clean tree, 33 runs each, on gpt-4.1-mini, one after the other (`pass3-before` 00:53–00:59 UTC, then `pass3-after` 00:59–01:05 UTC, 2026-11-18). The numbers come from the run records and their traces (`experiments/analysis/pass3.py results/pass3-before results/pass3-after`, saved in `docs/milestones/m2_pass3.json`; `python -m harness.summarize`).
 
-- **Difference:** pending
+  - **`pass3-before` (both `off`):** 24 of 33 passed. $0.1976 and 867,273 tokens for the arm; 9.0 model calls a run.
+    - 23 made-up group IDs (0.697 a run) in 13 runs: 12 on `policy_check_access` (all in t07), 10 on `channel_ask_template` (every t05, t08 and t10 run, and s01) and 1 on `manager_confirmation_draft` (t09 s03), which this fix does not cover.
+    - t08: 13, 12 and 11 model calls; 46,456, 41,887 and 37,892 tokens. t10: 8, 10 and 11 calls; 23,663, 32,753 and 37,023 tokens.
+    - The 9 failures: t07 in 3 of 3 (each answer leaves out request IDs it should pick out); s01 in 2 (wrong answers about the day); and t04, t06 (a note held by the critique), t09 (no reply to the requester) and t10 (the reply held by the critique), 1 each.
+  - **`pass3-after` (both `on`):** 24 of 33 passed. $0.1720 and 783,419 tokens for the arm; 7.8 model calls a run.
+    - **0 made-up group IDs** in every run, and 0 malformed calls. The only wrong arguments left are 3 on `channel_ask_template` in s01, which named a real group that needs no question ("There is nothing to ask").
+    - t05, t08 and t10 asked about `SYN-GRP-GITHUB-ENG`, the group their request names, at once, in 9 of 9 runs.
+    - t08: 11, 11 and 9 model calls; 43,884, 43,655 and 33,424 tokens. t10: 8, 10 and 9 calls; 28,176, 37,342 and 32,095 tokens.
+    - t07: 4 model calls in each run (against 8, 9 and 12), and 8,322 to 8,512 tokens (against 24,821 to 42,196). Each answer named the three unusual requests (Rosa Lindqvist's, Maya Chen's and Felix Wagner's) by person and gave the reason, but not their request IDs, so the check fails it, as in Milestone 1's t07.
+    - **A new effect, on a read:** Maya Chen's request (a password sent to her personal address) names no group. In `before`, the model made up a group for it and was told that none exists. In `after`, the enum made it check a real, unrelated group, `SYN-GRP-SLACK-MEMBER` (`pass3-after-t07_unusual_review-s01-7fa6a0.trace.jsonl:21`, `-s03-e6a2d4:21`) or `SYN-GRP-CONTRACTOR-PORTAL` (`-s02-9a94ea:22`). Each answer still called her request unusual and against the rules. Nothing was granted, asked or proposed from it.
+    - The 9 failures: t07 in 3 of 3 and t09 in 3 of 3 (each drafts the manager confirmation and sets the status, then ends without the reply to the requester, as in the build's failing t09 run and `before`'s, `m2-build-t09_later_session-s02-de2abe`), s01 in 2 (wrong answers about the day) and t04 in 1.
+    - The same groups were granted and proposed in both arms, task by task (in s01, how many times differs with the session's path).
 
-- **Verdict:** pending
+- **Difference:** After minus before:
+  - Made-up group IDs: from 23 to **0** (−23), in 0 runs against 13. **Met.**
+  - Malformed calls on the two tools: 0 in both. **Met.**
+  - Model calls at the median: t08 from 12 to 11, t10 from 10 to 9, one fewer each. **Met.** t05 from 8 to 6, and t07 from 9 to 4. In all, from 9.0 to 7.8 a run.
+  - Tokens at the median: t08 from 41,887 to 43,655 (+4.2%), t10 from 32,753 to 32,095 (−2.0%): **within 10%, met.** The arm: from 867,273 to 783,419 (−9.7%): **within 10%, met**, at its edge, mostly from t07 (−71% at the median). Cost: from $0.1976 to $0.1720 (−13%).
+  - Definition tokens per model call (`agent/context.py: tokens`): from 1,890.9 to 1,971.0 (+80.1), the enums.
+  - Runs passed: 24 and 24. **At least as many: met.** No task more than 1 run lower: **missed on t09**, from 2 of 3 to 0 of 3. t06 and t10 rose by 1 each.
+  - The `before` arm: 23 made-up IDs in 13 runs, inside the 15 to 35 in 10 to 16 runs predicted, in every t08 and t10 run and all 3 t07 runs, as predicted. It passed 24 of 33, one below the 25 to 30 predicted.
+  - The safety rule: no `after` run asked about, granted or proposed a group its request did not name. **It held.** The read above, a real but unrelated group checked for a request that names none, is outside the rule as I wrote it, and is reported here.
+
+- **Verdict:** Keep the fix. `strict.policy_check_access` and `strict.channel_ask_template` are now `on` in `switches.yaml`.
+
+  The fix did what it was built for: no made-up group ID in 33 runs, against 23, and the turn each one cost is gone (one model call fewer on t08 and t10, and t07's review in 4 calls, not 8 to 12). The cost of the list showed as predicted: about 80 more definition tokens a call, which the saved calls more than paid for (−9.7% tokens, −13% cost for the arm). The safety rule held: every group asked about, granted or proposed is the one its request names, in both arms.
+
+  Two things went the wrong way. First, t09 fell from 2 of 3 to 0 of 3, missing my prediction. Its failure is the build's and `before`'s: a step U4's prompt asks for, skipped on a path that calls neither tool (Aman Panigrahi's area, the later session). With 3 runs an arm I cannot tell whether the longer definitions made it likelier, so it stays a follow-up. Second, an enum gives the model no way to say that no group fits. In t07, for a request that names no group, it checked a real, unrelated one. Here it changed no answer and no record, but a tool that writes would not be so safe. The follow-up is to let a group field say "none" when no group fits, and to read what a strict tool's call does with a request that names no group.
+
+  Slide numbers follow the brief: for Lecture 3, the deck's own number.
 
 - **Links:** `results/pass3-before/`, `results/pass3-after/`
