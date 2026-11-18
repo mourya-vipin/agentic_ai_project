@@ -84,6 +84,10 @@
 - The build, `results/m2-build/`: every test task and s01, 3 sweeps, at `b55e1bb`, 28 of 33 runs passed. `experiments/analysis/first_failures.py` reads a results folder for the first-failures table: each failing run's check reason and the warning lines of its trace, with their line numbers, and every run's refused calls, critique failures, plan versions, approvals, model calls, tokens and slowest turn (`docs/milestones/m2_first_failures.json`). (Shruti Tewaney)
 - Pass 2's switch, `plan.protected_facts: off | on` (with `added:`, now `on` by Pass 2's verdict: 3 of 3 in each arm, no revision, the legal hold kept and proposed every time, 34% cheaper and 8.4 s faster at the median, though tokens fell only 10%). On, U6's planner is told each contractor's protected groups (`planner.build_context: protected_memberships`) and, by `agent/prompts/planner_protected.md`, to plan their removal proposals from the start, so the checkpoint need not revise the plan. The checkpoint still runs and still revises a plan that leaves one out. `tests/test_plan.py: ProtectedFactsTest`. (Shruti Tewaney)
 
+### Removed
+
+- The starter's flat `notes` switch: `notes.console` replaces it, one switch per kind of session that needs the notes (Part 1, task 6). (Vipin Mourya)
+
 ### Limited
 
 - The app has no sign-in: it serves one operator on 127.0.0.1, so anyone who can reach its port is already on the operator's machine. The guard (below, "Fixes from Milestone 1's list") stops other web pages, not other users of that machine. (Vipin Mourya)
@@ -109,6 +113,10 @@
 
 - A write's key now carries its run (`run_key`) once the callers set it, so a later run in the same console session that makes the same change gets a new key, and a replay of the run gets the same one (Milestone 1, "Limited": "A write's key holds no turn"). With a run key, the key is made from it alone, not from the console session the call happens in, so a run resumed from another session (an approval or `/answer` given there) replays its writes with the same keys and a send goes out once (Shruti Tewaney's finding). Tests in `tests/test_journal.py`. (Vipin Mourya)
 - The prompts' examples no longer use real IDs: `agent/prompts/reviser.md` and `executor.md` give SYN-GRP-EXAMPLE-HOLD, SYN-EMP-9001 and SYN-GRP-EXAMPLE-WRITE, as the tool definitions do (Milestone 1, "Limited"). (Shruti Tewaney)
+
+### Reused from our assignments and the course code
+
+- Vipin Mourya's Assignment 5 (`mourya-vipin/agentic-ai-assignment5`): no code. The hook's order (the stop, the prohibited column, the operator's stated rules, the disclosure, then approval), its failing closed, the policy file's three columns of tool-and-circumstance classes decided from computed facts, and the disclosure line added in code and refused by the hook when missing follow its `policy/hook.py`, `policy/autonomy.yaml` and `policy/disclosure.py`, written fresh for our tools and sandbox in `policy/hook.py`, `policy/autonomy.yaml` and `agent/disclosure.py`.
 
 ## Milestone 1
 

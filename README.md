@@ -1,6 +1,6 @@
 # IT access desk
 
-Team 10 (Vipin Mourya, Aman Panigrahi, Shruti Tewaney), Agentic AI Engineering, Milestone 1.
+Team 10 (Vipin Mourya, Aman Panigrahi, Shruti Tewaney), Agentic AI Engineering, Milestones 1 and 2.
 
 A local web application for the IT administrator of a 250-person company. Access requests arrive all day on
 the help desk's channel: from employees ("I need write access to Jira") and from the HR system's feed (a new
@@ -9,6 +9,11 @@ starter, an ended contract). Routine requests run as workflows. Requests that va
 operator's own questions and bulk changes. Everything the system may not do alone is written down as a
 pending record for the operator to act on by hand. Every record is synthetic; every effect lands in a local
 sandbox.
+
+Milestone 2 makes a run last: it is saved at each step and survives a restart, waits for a manager's answer on
+the channel, asks the operator before a gated action (the approvals page), can be stopped, cancelled or rolled
+back from the console, and keeps what the operator states for later in a memory store. Every tool runs on our
+MCP server, behind a policy hook.
 
 ## The one command
 
@@ -52,8 +57,13 @@ python run.py --tasks tasks/ --sweeps 3 --arm baseline            # every test t
 python -m harness.summarize results/baseline                       # the starter's summary table
 python experiments/analysis/analyze.py results/baseline            # every other number in our write-up
 python experiments/analysis/analyze.py results/pass1-before results/pass1-after   # Pass 1, both arms
-python experiments/analysis/asks.py results/m2-build --per-day 40 --minutes 30   # who reads what, and how often (Part 2, task 9)
+python run.py --tasks tasks/ tasks/sessions/ --sweeps 3 --arm m2-build   # M2's build: every test task and the long session
+python experiments/analysis/first_failures.py results/m2-build   # every warning line of every run (M2.md, Part 4)
+python experiments/analysis/asks.py results/m2-build --by-task  # who reads what, and how often (Part 2, task 9)
+python experiments/analysis/asks.py --traces traces/s-20261117-215442-ce95.jsonl   # the same, from a console session
 python experiments/analysis/pass3.py results/pass3-before results/pass3-after   # Pass 3's measures, both arms
+python scripts/definition_cost.py --per-run results/m2-build --measured docs/milestones/m2_definition_cost_2026-11-13.json
+                                                                   # the build's definition bill, no model call
 python scripts/definition_cost.py                                  # what the tool definitions cost (about $0.003)
 python scripts/definition_cost.py --per-run results/baseline --measured docs/milestones/m1_definition_cost_2026-10-25.json
                                                                    # their cost per run in an arm, no model call
@@ -71,6 +81,10 @@ runs it has finished, so repeat one under a new name.
 | `dev-v1`, `dev-v2` | `--tasks tasks/ --sweeps 1` | pilots on the first-draft and the rewritten tool definitions (M1.md, Part 3) |
 | `dev`, `dev-2`, `dev-3`, `dev-aman-check`, `dev-critique-fix`, `dev-bulk-loop`, `-2`, `-3` | one task; the `dev-bulk-loop` arms with `--set plan.bulk_change=off` | development pilots, not evidence |
 | `dev-fixes`, `dev-fixes-2` | `--tasks` t04, t05, t06 | checks of the planner and critique fixes of 2026-10-30 (CHANGES.md), at `3879eca` and `c3262f0`; not evidence |
+| `m2-build` | `--tasks tasks/ tasks/sessions/ --sweeps 3` | Milestone 2's build, 33 runs at `b55e1bb`: the first failures (M2.md, Part 4) |
+| `pass2-before`, `pass2-after` | `--tasks tasks/t06_bulk_ended_contractors.yaml --sweeps 3 --set plan.protected_facts=off` (or `=on`) | Pass 2's two arms, at `2a3294f` |
+| `pass3-before`, `pass3-after` | `--tasks tasks/ tasks/sessions/ --sweeps 3 --set strict.policy_check_access=off strict.channel_ask_template=off` (or both `=on`) | Pass 3's two arms, at `1b9814b` |
+| `pilot-split-t06-single`, `pilot-split-t06-split` | `--tasks tasks/t06_bulk_ended_contractors.yaml --sweeps 3 --set topology=single` (or `=split`) | the split's pilot, on the `m2-split` branch at `126c09f` (`decisions/0006-topology.md`) |
 | `_free/` | a scripted or fake model, such as `--backend tests.fakes:BadArgs` | free runs: tests, not evidence; `make check` and the summarizer leave them out |
 
 ## Where things are
@@ -81,16 +95,22 @@ runs it has finished, so repeat one under a new name.
 | `app/product.py` | the product's own pages: requests, people, pending records |
 | `app/security.py` | the app's guard against other web pages: the Host and Origin checks on every request, and the product forms' token |
 | `agent/` | the agent: `service.py` (the one entry point), the router, workflows, the bounded loop, the planner and executor, the critique, the tool registry and tools |
+| `agent/checkpoints.py`, `exits.py`, `session.py` | the saved runs and their journal, the resume, the three exits for a write in doubt, the console sessions |
+| `agent/approvals.py`, `escalation.py`, `control.py`, `commands.py` | the approval gate and its log, the escalation and its packet, the stop and its commands (`/stop`, `/resume`, `/cancel`, `/rollback`) |
+| `agent/context.py`, `notes.py`, `memory.py`, `inbox.py` | each call's context within a budget and its compaction, the notes, the memory store, messages mid-task |
+| `agent/disclosure.py`, `codecalls.py` | the line that tells a stranger an agent wrote it; code calls for U5 |
 | `policy/` | the autonomy policy in three columns (`autonomy.yaml`), the hook that enforces it before every tool call (`hook.py`), and the operator's stated limits (`limits.py`) |
-| `tasks/`, `checks/` | the test tasks and their checks |
+| `tasks/`, `checks/` | the test tasks and their checks; `tasks/sessions/` holds the long session, s01 |
 | `docs/milestones/M1.md`, `M2.md` | the Milestone 1 and Milestone 2 write-ups |
+| `decisions/0006-topology.md` | the topology decision: one agent; the split lives on the tag `m2-split-final` |
 | `docs/milestones/m1_*.json`, `m2_*.json` | the numbers M1.md and M2.md cite: the baseline, Pass 1, each definition-cost measurement and the strict-mode answer, by date |
-| `experiments/LEDGER.md`, `experiments/analysis/` | the passes' ledger entries, and our analysis scripts (`analyze.py`, `asks.py`, `pass3.py`) |
-| `results/`, `traces/` | every run's record and trace, and the console sessions M1.md and CHANGES.md cite |
+| `experiments/LEDGER.md`, `experiments/analysis/` | the passes' ledger entries, and our analysis scripts (`analyze.py`, `first_failures.py`, `asks.py`, `pass3.py`) |
+| `results/`, `traces/` | every run's record and trace, and the console sessions M1.md, M2.md and CHANGES.md cite |
 | `mcp_server/`, `agent/mcp_client.py` | the MCP server that runs the tools, and the registry's client to it |
 | `scripts/definition_cost.py` | measures what the tool definitions cost |
 | `scripts/disclosure_refusal.py` | the hook refusing a reply without the disclosure line, on a scratch sandbox (`traces/s-m2-disclosure-refusal.jsonl`) |
 | `scripts/strict_mode_check.py` | sends the strict tools once and keeps the vendor's answer (`docs/milestones/m2_strict_mode_<date>.json`) |
+| `scripts/stop_conditions.py`, `scripts/later_session.py` | the stop measured against its conditions; the later session's trace (`traces/s-m2-later-session.jsonl`) |
 | `CHANGES.md` | what each milestone added, removed and limited, and what we reused |
 
 ---
@@ -156,11 +176,11 @@ Until you build your agent, the console answers that the agent is not built yet.
 
 | Page | What it shows |
 |---|---|
-| `/` | Your product's own pages: a placeholder until you write them |
+| `/` | The product's own pages (`app/product.py`): requests, people, pending records |
 | `/console` | The operator's chat with the agent: sessions and their history. Each message goes to `operator_turn` |
 | `/queue` | The work waiting: your sandbox's queue (`sandbox/queue.py`), the threads your agent waits on, and what waits for approval |
 | `/threads` | The outside channel's conversations. You can write as the stranger; each message reaches the agent once, through `on_outside_reply` |
-| `/approvals` | What waits for the operator's answer, from `pending_approvals()`: empty until you build an approval gate. An item's `session_id` names the console session it is answered in |
+| `/approvals` | What waits for the operator's answer, from `pending_approvals()`: each gated action's screen, approved or denied here. An item's `session_id` names the console session it is answered in |
 | `/traces` | Every run record in `results/` (those in `results/_free/` marked free) and every session's trace |
 
 Change `app/product.py` and `app/templates/home.html` freely; the other pages
