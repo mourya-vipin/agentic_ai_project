@@ -22,7 +22,11 @@ It prints, per arm, one row per thing a person reads:
   answers with their median seconds;
 - the stop's notice: notices before a run's first call, and again on a resume;
 - the strangers: every message the agent sent (reply_send, channel_ask_template,
-  notices_send_template), by tool.
+  notices_send_template), by tool;
+- the operator's /pending page: the records a run left there for them (proposals, reply
+  drafts and manager-confirmation drafts), by tool.
+
+--by-task also prints each task's asks per run, by class, and its /pending records per run.
 
 Seconds are a person's only where a person answered: a decision whose `who` is not
 "operator" (a task file's scripted answer, "scripted") is counted, but its seconds are left
@@ -52,6 +56,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from analyze import runs_of, trace_of  # noqa: E402  (Aman Panigrahi's: the runs the summarizer counts)
 
 SENDS = ("reply_send", "channel_ask_template", "notices_send_template")
+PENDING = ("access_propose_change", "reply_draft", "manager_confirmation_draft")   # what /pending shows
 PERSON = "operator"
 
 
@@ -59,12 +64,13 @@ def _lines(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-def sessions(folders: list[Path], trace_paths: list[Path]) -> list[tuple[str, list[dict]]]:
-    """(label, trace lines) for every counted run of each arm, then each console session."""
+def sessions(folders: list[Path], trace_paths: list[Path], by_task: bool = False) -> list[tuple[str, list[dict]]]:
+    """(label, trace lines) for every counted run of each arm, then each console session.
+    by_task: the label is "<arm> <task>"."""
     out = []
     for folder in folders:
         for record in runs_of(folder):
-            out.append((folder.name, trace_of(folder, record)))
+            out.append((f"{folder.name} {record['task']}" if by_task else folder.name, trace_of(folder, record)))
     for path in trace_paths:
         files = sorted(path.glob("*.jsonl")) if path.is_dir() else [path]
         for f in files:
@@ -75,26 +81,29 @@ def sessions(folders: list[Path], trace_paths: list[Path]) -> list[tuple[str, li
 def count(runs: list[list[dict]], console: bool = False) -> dict:
     """The rows of one arm, from its runs' trace lines. console: the runs are console
     sessions, where a person answers escalations."""
-    asked: dict[str, str] = {}                    # approval_id -> action class
-    decided: dict[str, dict] = {}                 # approval_id -> the last decision line
-    waiting: dict[str, set] = defaultdict(set)    # run_key -> approval IDs not yet decided
-    withdrawn: set[str] = set()
+    # an approval is (its run's index, its ID): each run's sandbox starts again at APR-0001
+    asked: dict[tuple, str] = {}                  # approval -> action class
+    decided: dict[tuple, dict] = {}               # approval -> the last decision line
+    waiting: dict[tuple, set] = defaultdict(set)  # (run, run_key) -> approvals not yet decided
+    withdrawn: set[tuple] = set()
     packets, over_cap, answered = 0, 0, 0
     answer_seconds: list[float] = []
     notices = Counter()
     sent = Counter()
-    for lines in runs:
+    pending = Counter()
+    seen_pending: set[tuple] = set()
+    for i, lines in enumerate(runs):
         for x in lines:
             kind = x.get("type")
             if kind == "approval_requested":
-                asked.setdefault(x["approval_id"], x.get("action_class") or "?")
-                waiting[x.get("run_key")].add(x["approval_id"])
+                asked.setdefault((i, x["approval_id"]), x.get("action_class") or "?")
+                waiting[(i, x.get("run_key"))].add((i, x["approval_id"]))
             elif kind == "approval_decided":
-                decided[x["approval_id"]] = x
-                waiting[x.get("run_key")].discard(x["approval_id"])
+                decided[(i, x["approval_id"])] = x
+                waiting[(i, x.get("run_key"))].discard((i, x["approval_id"]))
             elif kind == "stop_flag":                 # the stop withdraws what its runs wait on
                 for key in x.get("run_keys") or []:
-                    withdrawn |= waiting.pop(key, set())
+                    withdrawn |= waiting.pop((i, key), set())
             elif kind == "escalation":
                 packets += 1
                 over_cap += bool(x.get("over_cap"))
@@ -107,6 +116,11 @@ def count(runs: list[list[dict]], console: bool = False) -> dict:
             elif kind == "tool_call" and x.get("name") in SENDS and not x.get("is_error") \
                     and not x.get("awaiting_approval"):              # a call put up for approval sent nothing
                 sent[x["name"]] += 1
+            elif kind == "tool_call" and x.get("name") in PENDING and not x.get("is_error"):
+                pid = _pending_id(x)                   # a call again under its key returns the same record
+                if pid is None or (i, pid) not in seen_pending:
+                    seen_pending.add((i, pid))
+                    pending[x["name"]] += 1
     n = len(runs)
     classes = defaultdict(lambda: {"asks": 0, "withdrawn": 0, "decisions": Counter(), "who": Counter(), "seconds": []})
     for approval_id, action_class in asked.items():
@@ -147,7 +161,15 @@ def count(runs: list[list[dict]], console: bool = False) -> dict:
         "stop_notice": {"first": notices["first"], "resumed": notices["resumed"],
                         "per_run": round(sum(notices.values()) / n, 3) if n else None},
         "strangers": {"sent": dict(sent), "per_run": round(sum(sent.values()) / n, 3) if n else None},
+        "pending": {"written": dict(pending), "per_run": round(sum(pending.values()) / n, 3) if n else None},
     }
+
+
+def _pending_id(call: dict) -> str | None:
+    try:
+        return json.loads(call.get("output") or "").get("pending_id")
+    except (ValueError, AttributeError):
+        return None
 
 
 def _median(values: list[float]) -> float | None:
@@ -182,6 +204,9 @@ def report(arms: dict[str, dict], per_day: float | None, minutes: float | None) 
                    f"{e['person_answers']} answers) {e['median_seconds_person']}")
         out.append(f"stop notice: {s['first']} before a run's first call, {s['resumed']} on a resume, {s['per_run']} per run")
         out.append(f"strangers: {sum(m['sent'].values())} messages sent {m['sent']}, {m['per_run']} per run")
+        q = row["pending"]
+        out.append(f"/pending: {sum(q['written'].values())} records left for the operator {q['written']}, "
+                   f"{q['per_run']} per run")
         d = day(row, per_day, minutes)
         if d:
             out.append(f"a day of {d['runs_a_day']:g} runs: {d['asks_a_day']} asks (approvals and packets sent)"
@@ -198,6 +223,7 @@ def main(argv=None) -> int:
     parser.add_argument("--per-day", type=float, help="runs a day, to scale asks per run to a day")
     parser.add_argument("--minutes", type=float, help="the operator's minutes a day for asks")
     parser.add_argument("--json", type=Path, help="also write the numbers here")
+    parser.add_argument("--by-task", action="store_true", help="also give each task's asks and /pending records")
     args = parser.parse_args(argv)
     if not args.arms and not args.traces:
         parser.error("give at least one results/<arm> folder or --traces")
@@ -206,8 +232,21 @@ def main(argv=None) -> int:
         grouped[label].append(lines)
     arms = {label: count(runs, console=(label == "console")) for label, runs in grouped.items()}
     print(report(arms, args.per_day, args.minutes))
+    tasks = {}
+    if args.by_task:
+        per_task: dict[str, list] = defaultdict(list)
+        for label, lines in sessions(args.arms, [], by_task=True):
+            per_task[label].append(lines)
+        tasks = {label: count(runs) for label, runs in sorted(per_task.items())}
+        print("\nby task (asks per run, by class; /pending records per run):")
+        for label, row in tasks.items():
+            classes = {c: a["asks_per_run"] for c, a in row["approvals"].items()}
+            print(f"  {label}: {row['runs']} runs; asks {row['asks_per_run']} {classes}; /pending {row['pending']['per_run']}"
+                  f" {row['pending']['written']}; sent {row['strangers']['per_run']}")
     if args.json:
         payload = {label: {**row, "day": day(row, args.per_day, args.minutes)} for label, row in arms.items()}
+        if tasks:
+            payload["by_task"] = tasks
         args.json.write_text(json.dumps(payload, indent=2) + "\n")
         print(f"\nwrote {args.json}")
     return 0

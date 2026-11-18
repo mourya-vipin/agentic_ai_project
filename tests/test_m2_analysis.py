@@ -70,6 +70,22 @@ class AsksTest(ScratchTest):
         a = asks.count([lines])["approvals"]["manager_note/plan_listed"]
         self.assertEqual((a["asks"], a["withdrawn_by_stop"], a["decisions"]), (1, 1, {"approved": 1}))
 
+    def test_the_same_approval_id_in_two_runs_is_two_asks(self):
+        # each run's sandbox starts again at APR-0001 (results/m2-build: 13 asks, not 2)
+        run = [{"type": "approval_requested", "approval_id": "APR-0001", "action_class": "reply_send/model_text"},
+               {"type": "approval_decided", "approval_id": "APR-0001", "decision": "approved", "who": "scripted"}]
+        a = asks.count([run, run, run])["approvals"]["reply_send/model_text"]
+        self.assertEqual((a["asks"], a["decisions"]), (3, {"approved": 3}))
+
+    def test_the_records_a_run_leaves_on_pending_are_counted_once_each(self):
+        lines = [{"type": "tool_call", "name": "access_propose_change", "is_error": False, "output": '{"pending_id": "P-1"}'},
+                 {"type": "tool_call", "name": "reply_draft", "is_error": False, "output": '{"pending_id": "P-2"}'},
+                 {"type": "tool_call", "name": "reply_draft", "is_error": False,
+                  "output": '{"pending_id": "P-2", "status": "waiting_for_operator"}'},            # the same key again
+                 {"type": "tool_call", "name": "reply_draft", "is_error": True, "output": "held"}]        # never written
+        p = asks.count([lines])["pending"]
+        self.assertEqual((p["written"], p["per_run"]), ({"access_propose_change": 1, "reply_draft": 1}, 2.0))
+
     def test_escalation_answers_are_a_persons_seconds_in_console_sessions_only(self):
         lines = [{"type": "escalation", "over_cap": False}, {"type": "escalation_answered", "seconds": 90.0}]
         console, scripted = asks.count([lines], console=True), asks.count([lines])

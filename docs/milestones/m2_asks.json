@@ -1,0 +1,488 @@
+{
+  "m2-build": {
+    "runs": 33,
+    "approvals": {
+      "access_grant/manager_confirmed": {
+        "asks": 3,
+        "asks_per_run": 0.091,
+        "withdrawn_by_stop": 0,
+        "decisions": {
+          "approved": 3
+        },
+        "who": {
+          "scripted": 3
+        },
+        "approval_rate": 1.0,
+        "median_seconds_person": null,
+        "person_decisions": 0
+      },
+      "manager_note/plan_listed": {
+        "asks": 4,
+        "asks_per_run": 0.121,
+        "withdrawn_by_stop": 0,
+        "decisions": {
+          "unanswered": 1,
+          "approved": 3
+        },
+        "who": {
+          "scripted": 3
+        },
+        "approval_rate": 1.0,
+        "median_seconds_person": null,
+        "person_decisions": 0
+      },
+      "reply_send/model_text": {
+        "asks": 6,
+        "asks_per_run": 0.182,
+        "withdrawn_by_stop": 0,
+        "decisions": {
+          "approved": 6
+        },
+        "who": {
+          "scripted": 6
+        },
+        "approval_rate": 1.0,
+        "median_seconds_person": null,
+        "person_decisions": 0
+      }
+    },
+    "asks": 13,
+    "asks_per_run": 0.394,
+    "escalation": {
+      "packets": 0,
+      "over_cap": 0,
+      "answered": 0,
+      "median_seconds_person": null,
+      "person_answers": 0,
+      "per_run": 0.0
+    },
+    "stop_notice": {
+      "first": 63,
+      "resumed": 18,
+      "per_run": 2.455
+    },
+    "strangers": {
+      "sent": {
+        "notices_send_template": 18,
+        "channel_ask_template": 9,
+        "reply_send": 12
+      },
+      "per_run": 1.182
+    },
+    "pending": {
+      "written": {
+        "reply_draft": 20,
+        "access_propose_change": 13,
+        "manager_confirmation_draft": 3
+      },
+      "per_run": 1.091
+    },
+    "day": null
+  },
+  "by_task": {
+    "m2-build s01_operator_day": {
+      "runs": 3,
+      "approvals": {
+        "manager_note/plan_listed": {
+          "asks": 1,
+          "asks_per_run": 0.333,
+          "withdrawn_by_stop": 0,
+          "decisions": {
+            "unanswered": 1
+          },
+          "who": {},
+          "approval_rate": null,
+          "median_seconds_person": null,
+          "person_decisions": 0
+        }
+      },
+      "asks": 1,
+      "asks_per_run": 0.333,
+      "escalation": {
+        "packets": 0,
+        "over_cap": 0,
+        "answered": 0,
+        "median_seconds_person": null,
+        "person_answers": 0,
+        "per_run": 0.0
+      },
+      "stop_notice": {
+        "first": 30,
+        "resumed": 0,
+        "per_run": 10.0
+      },
+      "strangers": {
+        "sent": {
+          "notices_send_template": 9
+        },
+        "per_run": 3.0
+      },
+      "pending": {
+        "written": {
+          "reply_draft": 6,
+          "access_propose_change": 4
+        },
+        "per_run": 3.333
+      }
+    },
+    "m2-build t01_standard_jira": {
+      "runs": 3,
+      "approvals": {},
+      "asks": 0,
+      "asks_per_run": 0.0,
+      "escalation": {
+        "packets": 0,
+        "over_cap": 0,
+        "answered": 0,
+        "median_seconds_person": null,
+        "person_answers": 0,
+        "per_run": 0.0
+      },
+      "stop_notice": {
+        "first": 3,
+        "resumed": 0,
+        "per_run": 1.0
+      },
+      "strangers": {
+        "sent": {
+          "notices_send_template": 3
+        },
+        "per_run": 1.0
+      },
+      "pending": {
+        "written": {},
+        "per_run": 0.0
+      }
+    },
+    "m2-build t02_new_starter": {
+      "runs": 3,
+      "approvals": {},
+      "asks": 0,
+      "asks_per_run": 0.0,
+      "escalation": {
+        "packets": 0,
+        "over_cap": 0,
+        "answered": 0,
+        "median_seconds_person": null,
+        "person_answers": 0,
+        "per_run": 0.0
+      },
+      "stop_notice": {
+        "first": 3,
+        "resumed": 0,
+        "per_run": 1.0
+      },
+      "strangers": {
+        "sent": {
+          "notices_send_template": 3
+        },
+        "per_run": 1.0
+      },
+      "pending": {
+        "written": {},
+        "per_run": 0.0
+      }
+    },
+    "m2-build t03_contractor_left": {
+      "runs": 3,
+      "approvals": {},
+      "asks": 0,
+      "asks_per_run": 0.0,
+      "escalation": {
+        "packets": 0,
+        "over_cap": 0,
+        "answered": 0,
+        "median_seconds_person": null,
+        "person_answers": 0,
+        "per_run": 0.0
+      },
+      "stop_notice": {
+        "first": 3,
+        "resumed": 0,
+        "per_run": 1.0
+      },
+      "strangers": {
+        "sent": {
+          "notices_send_template": 3
+        },
+        "per_run": 1.0
+      },
+      "pending": {
+        "written": {},
+        "per_run": 0.0
+      }
+    },
+    "m2-build t04_same_access_as": {
+      "runs": 3,
+      "approvals": {},
+      "asks": 0,
+      "asks_per_run": 0.0,
+      "escalation": {
+        "packets": 0,
+        "over_cap": 0,
+        "answered": 0,
+        "median_seconds_person": null,
+        "person_answers": 0,
+        "per_run": 0.0
+      },
+      "stop_notice": {
+        "first": 6,
+        "resumed": 0,
+        "per_run": 2.0
+      },
+      "strangers": {
+        "sent": {},
+        "per_run": 0.0
+      },
+      "pending": {
+        "written": {
+          "access_propose_change": 6,
+          "reply_draft": 3
+        },
+        "per_run": 3.0
+      }
+    },
+    "m2-build t05_on_behalf": {
+      "runs": 3,
+      "approvals": {},
+      "asks": 0,
+      "asks_per_run": 0.0,
+      "escalation": {
+        "packets": 0,
+        "over_cap": 0,
+        "answered": 0,
+        "median_seconds_person": null,
+        "person_answers": 0,
+        "per_run": 0.0
+      },
+      "stop_notice": {
+        "first": 3,
+        "resumed": 0,
+        "per_run": 1.0
+      },
+      "strangers": {
+        "sent": {
+          "channel_ask_template": 3
+        },
+        "per_run": 1.0
+      },
+      "pending": {
+        "written": {
+          "reply_draft": 3
+        },
+        "per_run": 1.0
+      }
+    },
+    "m2-build t06_bulk_ended_contractors": {
+      "runs": 3,
+      "approvals": {
+        "manager_note/plan_listed": {
+          "asks": 3,
+          "asks_per_run": 1.0,
+          "withdrawn_by_stop": 0,
+          "decisions": {
+            "approved": 3
+          },
+          "who": {
+            "scripted": 3
+          },
+          "approval_rate": 1.0,
+          "median_seconds_person": null,
+          "person_decisions": 0
+        }
+      },
+      "asks": 3,
+      "asks_per_run": 1.0,
+      "escalation": {
+        "packets": 0,
+        "over_cap": 0,
+        "answered": 0,
+        "median_seconds_person": null,
+        "person_answers": 0,
+        "per_run": 0.0
+      },
+      "stop_notice": {
+        "first": 3,
+        "resumed": 3,
+        "per_run": 2.0
+      },
+      "strangers": {
+        "sent": {
+          "reply_send": 6
+        },
+        "per_run": 2.0
+      },
+      "pending": {
+        "written": {
+          "access_propose_change": 3
+        },
+        "per_run": 1.0
+      }
+    },
+    "m2-build t07_unusual_review": {
+      "runs": 3,
+      "approvals": {},
+      "asks": 0,
+      "asks_per_run": 0.0,
+      "escalation": {
+        "packets": 0,
+        "over_cap": 0,
+        "answered": 0,
+        "median_seconds_person": null,
+        "person_answers": 0,
+        "per_run": 0.0
+      },
+      "stop_notice": {
+        "first": 3,
+        "resumed": 0,
+        "per_run": 1.0
+      },
+      "strangers": {
+        "sent": {},
+        "per_run": 0.0
+      },
+      "pending": {
+        "written": {},
+        "per_run": 0.0
+      }
+    },
+    "m2-build t08_ask_manager": {
+      "runs": 3,
+      "approvals": {
+        "access_grant/manager_confirmed": {
+          "asks": 3,
+          "asks_per_run": 1.0,
+          "withdrawn_by_stop": 0,
+          "decisions": {
+            "approved": 3
+          },
+          "who": {
+            "scripted": 3
+          },
+          "approval_rate": 1.0,
+          "median_seconds_person": null,
+          "person_decisions": 0
+        },
+        "reply_send/model_text": {
+          "asks": 3,
+          "asks_per_run": 1.0,
+          "withdrawn_by_stop": 0,
+          "decisions": {
+            "approved": 3
+          },
+          "who": {
+            "scripted": 3
+          },
+          "approval_rate": 1.0,
+          "median_seconds_person": null,
+          "person_decisions": 0
+        }
+      },
+      "asks": 6,
+      "asks_per_run": 2.0,
+      "escalation": {
+        "packets": 0,
+        "over_cap": 0,
+        "answered": 0,
+        "median_seconds_person": null,
+        "person_answers": 0,
+        "per_run": 0.0
+      },
+      "stop_notice": {
+        "first": 3,
+        "resumed": 9,
+        "per_run": 4.0
+      },
+      "strangers": {
+        "sent": {
+          "channel_ask_template": 3,
+          "reply_send": 3
+        },
+        "per_run": 2.0
+      },
+      "pending": {
+        "written": {
+          "reply_draft": 3
+        },
+        "per_run": 1.0
+      }
+    },
+    "m2-build t09_later_session": {
+      "runs": 3,
+      "approvals": {},
+      "asks": 0,
+      "asks_per_run": 0.0,
+      "escalation": {
+        "packets": 0,
+        "over_cap": 0,
+        "answered": 0,
+        "median_seconds_person": null,
+        "person_answers": 0,
+        "per_run": 0.0
+      },
+      "stop_notice": {
+        "first": 3,
+        "resumed": 0,
+        "per_run": 1.0
+      },
+      "strangers": {
+        "sent": {},
+        "per_run": 0.0
+      },
+      "pending": {
+        "written": {
+          "manager_confirmation_draft": 3,
+          "reply_draft": 2
+        },
+        "per_run": 1.667
+      }
+    },
+    "m2-build t10_gated_reply": {
+      "runs": 3,
+      "approvals": {
+        "reply_send/model_text": {
+          "asks": 3,
+          "asks_per_run": 1.0,
+          "withdrawn_by_stop": 0,
+          "decisions": {
+            "approved": 3
+          },
+          "who": {
+            "scripted": 3
+          },
+          "approval_rate": 1.0,
+          "median_seconds_person": null,
+          "person_decisions": 0
+        }
+      },
+      "asks": 3,
+      "asks_per_run": 1.0,
+      "escalation": {
+        "packets": 0,
+        "over_cap": 0,
+        "answered": 0,
+        "median_seconds_person": null,
+        "person_answers": 0,
+        "per_run": 0.0
+      },
+      "stop_notice": {
+        "first": 3,
+        "resumed": 6,
+        "per_run": 3.0
+      },
+      "strangers": {
+        "sent": {
+          "channel_ask_template": 3,
+          "reply_send": 3
+        },
+        "per_run": 2.0
+      },
+      "pending": {
+        "written": {
+          "reply_draft": 3
+        },
+        "per_run": 1.0
+      }
+    }
+  }
+}
