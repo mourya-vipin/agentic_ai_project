@@ -2,7 +2,8 @@ id: s01_operator_day
 title: "The operator's day at the console: a rule stated early, five requests, then questions"
 # The long session (Part 1, task 6). Owner: Vipin Mourya.
 # The operator states one rule first (no Jira editors today), asks for a summary of the day's
-# requests (a read that carries every request's long thread, so compaction runs), works through four, then
+# requests (a read that carries every request's long thread), works through four (Leo's long thread
+# and Priya's groups carry SYN-REQ-0004's run past its room, so compaction runs there), then
 # hands over a fifth, late, that the rule decides: Felix asks for Jira editors, which his role allows,
 # so only the early rule says no. Then four questions about the day, each naming this session's
 # records and its answer format. The check (checks/s01_operator_day.py) reads the late action and the
@@ -91,13 +92,42 @@ inputs:
   - kind: request
     thread: SYN-MSG-S04
     from: leo.martins@syn-corp.example
-    text: >-
+    text: |-
       SYNTHETIC. Hi IT, Priya Nair is on leave for three weeks from today and I'm covering her
       month-end reports while she is away: the close pack, the payroll reconciliation and the finance
       reporting dashboards she maintains. Grace said I should ask you for the same access Priya has so
       that nothing stalls at month end. I don't know exactly which groups those are, sorry. Could you
       give me the same access she has, or whatever is closest? Thanks, Leo
       (Leo Martins, Data Analyst, reporting to Grace Okafor)
+
+      Some background on the cover, so you can see what I'll be doing. Month end falls in the second
+      week of Priya's leave. Before it, I check that the close pack's source extracts have landed each
+      morning and that the dashboards refreshed overnight; if one hasn't, I raise it with the data
+      engineering on-call as Priya does. In the close week itself I run the reconciliation between the
+      payroll totals and the general ledger, note any differences over the threshold in the usual
+      workbook, and send the summary to Grace and the finance controller by the fourth working day.
+      Priya has left me a handover note with the steps, the file locations and who to ask for what.
+
+      I'm not sure which parts need edit rights and which only need read. Priya updates the
+      commentary on two of the dashboards each month, so I may need to edit those, but I'd rather
+      have less access than more, and I'm happy for anything extra to be removed when she is back on
+      the 2nd.
+
+      > On Thu, the help desk wrote:
+      > Thank you for contacting the IT access desk. Your message has been received and a member of the
+      > team will look at it during working hours (09:00 to 17:30, Monday to Friday). Please do not
+      > reply to this automatic message with new requests; use the request form so that each request
+      > gets its own number. For password resets, use the self-service page.
+
+      Leo Martins | Data Analyst | Data team | Syn Corp
+      Office: 3rd floor, desk 3.09
+      ---
+      SYNTHETIC CONFIDENTIALITY NOTICE: this message and any attachments are intended only for the named
+      recipient and may contain information that is confidential or otherwise protected. If you are not the
+      intended recipient, please tell the sender by replying to this message and delete it from your
+      system; do not copy, forward or rely on it. Syn Corp monitors its email systems for security and
+      compliance purposes. Please consider the environment before printing this email. Syn Corp, 1 Example
+      Way, Synthetic City. Registered in Exampleshire. This notice is synthetic test data.
   - kind: request
     thread: SYN-MSG-S05
     from: felix.wagner@syn-corp.example
