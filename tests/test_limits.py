@@ -87,6 +87,26 @@ class LimitsTest(ScratchTest):
         denied = [x for x in read_trace(runtime.trace("s-lim").path) if x["type"] == "hook_denied"]
         self.assertIn("limit: L1", denied[-1]["error"])
 
+    def test_a_limit_on_one_group_holds_against_removing_everything_from_someone_who_has_it(self):
+        # access_revoke_all names a person, not a group; before, a limit on one group never matched it
+        victor = "SYN-EMP-0162"
+        held = access.memberships(victor)
+        leos = {m["group_id"] for m in access.memberships(LEO)}
+        group = next(m["group_id"] for m in held if not m["protected"] and m["group_id"] not in leos)
+        hold = next(m["group_id"] for m in held if m["protected"])
+        rule = limits.from_text("s-lim", f"No removals from {group} today.")
+        self.assertEqual(rule.blocks, {"classes": ["access_revoke/*"], "group_id": group})
+        self.assertTrue(limits.blocks(rule, "access_revoke/unprotected", {"employee_id": victor}))
+        self.assertFalse(limits.blocks(rule, "access_revoke/unprotected", {"employee_id": LEO}))   # Leo does not hold it
+        removed = self.registry.call("access_revoke_all", {"employee_id": victor, "reason": "contract ended"},
+                                     ctx("workflow", "offboarding"))
+        self.assertTrue(removed.is_error)
+        self.assertIn(f"No removals from {group} today.", removed.content)
+        self.assertEqual(access.memberships(victor), held)                                   # nothing removed
+        kept = limits.Rule("L9", "s-lim", f"No removals from {hold}.", {"classes": ["access_revoke/*"],
+                                                                        "group_id": hold}, "operator_lifts", "")
+        self.assertFalse(limits.blocks(kept, "access_revoke/unprotected", {"employee_id": victor}))  # kept anyway
+
     def test_send_nothing_holds_a_workflows_notice_and_lifting_it_lets_it_go(self):
         limits.from_text("s-lim", "Send nothing until I have read it.")
         notice = {"thread_id": "SYN-MSG-D05", "request_id": REQ, "template_id": "received",

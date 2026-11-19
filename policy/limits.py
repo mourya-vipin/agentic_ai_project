@@ -144,7 +144,15 @@ def blocks(rule: Rule, action_class: str, args: dict) -> bool:
                for c in rule.blocks.get("classes", [])):
         return False
     group = rule.blocks.get("group_id")
-    return group is None or str(args.get("group_id") or "").upper() == group
+    if group is None:
+        return True
+    if not args.get("group_id") and args.get("employee_id"):
+        # access_revoke_all names a person, not a group: it would remove the group if the person holds
+        # it, unless it is protected, which access_revoke_all always keeps (tests/test_limits.py)
+        from sandbox import access
+        return any(m["group_id"] == group and not m["protected"]
+                   for m in access.memberships(str(args["employee_id"]).strip().upper()))
+    return str(args.get("group_id") or "").upper() == group
 
 
 def lift(session_id: str, rule_id: str) -> None:

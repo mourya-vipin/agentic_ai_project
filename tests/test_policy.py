@@ -112,6 +112,15 @@ class PolicyTest(ScratchTest):
         self.assertEqual(self.lines("hook_denied")[-1]["action_class"], "credential_in_message/any")
         self.assertEqual(pending.by_request(REQ), [])
 
+    def test_a_secret_in_a_status_note_is_prohibited_and_the_request_is_unchanged(self):
+        from sandbox import requests
+        before = requests.get(REQ)
+        result = self.registry.call("requests_set_status", {"request_id": REQ, "status": "done",
+                                                            "note": "Sent FAKE-0123456789abcdef0123 to Leo."}, ctx())
+        self.assertTrue(result.is_error)
+        self.assertEqual(self.lines("hook_denied")[-1]["action_class"], "credential_in_message/any")
+        self.assertEqual(requests.get(REQ), before)
+
     # -- one tool, two circumstances -----------------------------------------------------------
 
     def test_a_grant_the_policy_allows_runs_unasked(self):
@@ -204,6 +213,26 @@ class PolicyTest(ScratchTest):
         self.assertFalse(after.is_error, after.content)
         self.assertEqual(self.lines("tool_call")[-1]["action_class"], "access_grant/manager_confirmed")
         self.assertTrue(self.holds(PRIYA, "SYN-GRP-JIRA-WRITE"))
+
+    def test_a_managers_yes_about_one_person_does_not_count_for_the_requester_who_asked(self):
+        # Leo asks for Priya on his own request, and both report to Grace: the question names Leo as the
+        # requester, but her YES is about Priya, so Leo's own grant of the group is still unconfirmed
+        args = {"employee_id": PRIYA, "group_id": NEEDS_MANAGER, "request_id": REQ}
+        asked = self.registry.call("channel_ask_template", {"template": "manager_confirm", **args}, ctx())
+        self.assertFalse(asked.is_error, asked.content)
+        self.assertIn(LEO, channel.messages(asked.data["thread_id"])[-1].text)       # the requester, named
+        channel.receive(asked.data["thread_id"], "SYNTHETIC. YES.", sender="Grace Okafor")
+        from sandbox import catalog, directory, requests
+        group, request = catalog.get_group(NEEDS_MANAGER), requests.get(REQ)
+        self.assertEqual(hook.manager_answer(directory.get_employee(PRIYA), group, request), "yes")
+        self.assertIsNone(hook.manager_answer(directory.get_employee(LEO), group, request))
+        scripted, module = self.approvals(covers=True)
+        with module:
+            result = self.grant(NEEDS_MANAGER)
+        self.assertTrue(result.is_error)
+        self.assertEqual(scripted.requests, [])
+        self.assertEqual(self.lines("hook_denied")[-1]["action_class"], "access_grant/unconfirmed")
+        self.assertFalse(self.holds(LEO, NEEDS_MANAGER))
 
     # -- the stop, limits, and failing closed ------------------------------------------------------
 

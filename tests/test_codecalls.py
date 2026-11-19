@@ -105,7 +105,10 @@ class CodeCallsTest(ScratchTest):
         for source, said in (("import socket\nresult = 1", "imports socket"),
                              ('result = open("/etc/passwd").read()', "uses open"),
                              ("result = call.__globals__", "reaches for .__globals__"),
-                             ('result = __import__("os").listdir("/")', "uses __import__")):
+                             ('result = __import__("os").listdir("/")', "uses __import__"),
+                             ('try:\n    call(1)\nexcept Exception as e:\n    match e:\n'
+                              '        case Exception(__traceback__=t):\n            result = t', "Match is not allowed"),
+                             ('result = "{0.__globals__}".format(call)', "reaches for .format")):
             with self.subTest(source=source):
                 result = self.program(source)
                 self.assertTrue(result.is_error)
