@@ -197,6 +197,36 @@ class NotesThroughCompactionTest(ScratchTest):
         self.assertEqual(out.messages[-1]["content"][-1], {"type": "text", "text": before})
         self.assertEqual(notes.render("s-bud"), before)
 
+    def test_a_conversation_just_under_its_room_is_compacted_so_that_the_notes_stay_in(self):
+        # s01-compaction, every run: SYN-REQ-0004's conversation stayed under its room, the notes took it
+        # over the budget, and the notes were left out where compaction should have run
+        import json
+        from agent import notes
+        from agent.registry import CallContext, Registry
+        Registry().call("access_grant", {"employee_id": "SYN-EMP-0031", "group_id": "SYN-GRP-FINREP-READ",
+                                         "request_id": "SYN-REQ-0005"},
+                        CallContext("s-bud", 1, "model", "nonstandard_request", request_id="SYN-REQ-0005",
+                                    run_key="s-bud#1"))
+        written = notes.render("s-bud")
+        system = "s" * 4 * 4000
+
+        def call(history):
+            return context.assemble("loop", system=system, session_id="s-bud", run_key="s-bud#1", task=TASK,
+                                    history=history, tool_names=[], notes=True, summarize=lambda text: "Earlier.")
+
+        steps = [m for n in range(1, 4) for m in step(n, size=3000)]
+        room = context.room(system, call([{"role": "user", "content": TASK}]).tools)
+        kept = context.tokens(json.dumps(written))
+        pad = room - kept // 2 - context.tokens([{"role": "user", "content": TASK}] + steps)
+        history = [{"role": "user", "content": TASK + " " + "p" * 4 * pad}] + steps
+        self.assertLess(room - kept, context.tokens(history))                     # the notes do not fit beside it
+        self.assertLess(context.tokens(history), min(room, context.threshold()))  # nor is it past either line
+        out = call(history)
+        self.assertTrue(out.compacted)
+        self.assertEqual(out.messages[-1]["content"][-1], {"type": "text", "text": written})
+        self.assertNotIn("notes", [x["what"] for x in out.left_out])
+        self.assertFalse(out.unfit)
+
     def test_a_plan_steps_fill_call_gets_no_notes_and_the_trace_says_so(self):
         from agent import notes
         from agent.registry import CallContext, Registry
