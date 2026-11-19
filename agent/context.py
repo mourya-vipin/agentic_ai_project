@@ -103,6 +103,22 @@ def threshold() -> int:
     return int(runtime.switch("compaction_threshold", DEFAULT_THRESHOLD))
 
 
+def room(system, tools) -> int:
+    """The tokens of conversation a call can carry: the budget less what every call of its kind
+    carries (its system prompt and definitions)."""
+    return budget() - tokens(system) - tokens(tools)
+
+
+def limit(system, tools, kept: int = 0) -> int:
+    """Where compaction starts for this call: compaction_threshold, or the call's room less `kept`
+    if that is lower, so that a compacted call always fits (Part 1, task 6). With Pass 3's enums U4
+    carries about 4,500 tokens of prompt and definitions, which leaves 3,500, below the threshold of
+    4,000. `kept` is what the call carries besides its conversation and must keep: the notes and a
+    stranger's reply. Without it, a conversation just under the room left the notes no place, and
+    the notes were left out where compaction should have run (s01-compaction, every run)."""
+    return min(threshold(), room(system, tools) - kept)
+
+
 def _blocks(message: dict) -> list:
     content = message.get("content")
     return content if isinstance(content, list) else []
@@ -195,10 +211,13 @@ def _summarize_with_model(session_id: str, text: str) -> str:
     return (response.text or "").strip()
 
 
-def compact(messages: list[dict], *, session_id: str, run_key: str | None, summarize=None) -> tuple[list[dict], list[str]]:
+def compact(messages: list[dict], *, session_id: str, run_key: str | None, summarize=None,
+            past: int | None = None) -> tuple[list[dict], list[str]]:
     """Lecture 2, slide 31: first clear old tool results (no model call); if the conversation is still
     past the threshold, summarize the older turns with a model call. The task (the first message) is
-    never summarized, and the last KEEP_STEPS steps stay word for word. Returns (messages, stages run)."""
+    never summarized, and the last KEEP_STEPS steps stay word for word. `past` is where compaction
+    starts (limit(); compaction_threshold when not given). Returns (messages, stages run)."""
+    past = threshold() if past is None else past
     if len(messages) < 2:
         return messages, []
     trace, stages = runtime.trace(session_id), []
@@ -210,7 +229,7 @@ def compact(messages: list[dict], *, session_id: str, run_key: str | None, summa
     if cleared != messages:
         stages.append("cleared")
         messages = cleared
-    if tokens(messages) > threshold() and cut > 1:
+    if tokens(messages) > past and cut > 1:
         older = messages[1:cut]
         summary = (summarize or (lambda text: _summarize_with_model(session_id, text)))(_transcript(older))
         task = messages[0]
@@ -221,7 +240,7 @@ def compact(messages: list[dict], *, session_id: str, run_key: str | None, summa
         stages.append("summarized")
     if stages:
         trace.event("compaction", run_key=run_key, stages=stages, tokens_before=before, tokens_after=tokens(messages),
-                    threshold=threshold(), kept_steps=KEEP_STEPS)
+                    threshold=past, kept_steps=KEEP_STEPS)
     return messages, stages
 
 
@@ -254,7 +273,9 @@ def assemble(kind: str, *, system: str, session_id: str, run_key: str | None, ta
            the operator or the request gave it) and the current step (the latest turn and its results)
         2. then the latest tool results, word for word (the last KEEP_STEPS steps)
         3. then the notes and memory, at the end of the call
-        4. older turns are shortened: compaction past compaction_threshold clears their tool results
+        4. older turns are shortened: compaction past compaction_threshold (or past the call's room, the
+           budget less its system prompt, definitions, notes and stranger's reply, if that is lower)
+           clears their tool results
            to the IDs they held (large record sets go in only as IDs the agent can fetch again), then
            summarizes them with a model call
         5. still over the budget: memory is left out, then the notes; and if the call still cannot fit,
@@ -302,10 +323,13 @@ def assemble(kind: str, *, system: str, session_id: str, run_key: str | None, ta
         if memory:
             outside.append(("memory", _memory_text(memory), "memory"))
 
-    # 4. compaction, past the threshold
+    # 4. compaction, past the threshold, or past the call's room if that is lower; the room keeps a
+    # place for the notes and a stranger's reply, which come before compaction (memory goes first)
     compacted = False
-    if tokens(messages) > threshold():
-        messages, stages = compact(messages, session_id=session_id, run_key=run_key, summarize=summarize)
+    kept = sum(tokens(json.dumps(text)) for what, text, _ in outside if what != "memory")
+    past = limit(system, tools, kept)
+    if tokens(messages) > past:
+        messages, stages = compact(messages, session_id=session_id, run_key=run_key, summarize=summarize, past=past)
         compacted = bool(stages)
 
     # 5. still over the budget: leave out memory, then the notes (a stranger's reply is the current step)

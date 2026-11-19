@@ -1,6 +1,6 @@
 # Each switch has a setting and the values it may take. Our code reads it with
 # harness.runtime.switch("group.name"); run.py --set group.name=value sets it for one arm.
-# Every setting here is what the decision table in docs/milestones/M1.md says.
+# Every setting here is what the decision tables in docs/milestones/M1.md and M2.md say, or a pass's verdict.
 #
 # Rules: values list only the paths we have built. Quote "off" and "on". A switch added
 # after the first committed run in results/ carries added: YYYY-MM-DD on the switch itself,

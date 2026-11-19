@@ -4,6 +4,7 @@ summarizer does not (Part 4). Owner: Vipin Mourya.
     python experiments/analysis/pass3.py results/pass3-before results/pass3-after
     python experiments/analysis/pass3.py results/pass3-before results/pass3-after --tool access_propose_change
     python experiments/analysis/pass3.py results/pass3-before results/pass3-after --json docs/milestones/m2_pass3.json
+    python experiments/analysis/pass3.py --definitions
 
 It counts the runs the summarizer counts (the latest finished run of each task and sweep,
 as analyze.py counts them) and prints, per arm:
@@ -25,6 +26,10 @@ as analyze.py counts them) and prints, per arm:
   before they were recorded says so), the searches (tools_search) and those that found
   nothing, calls of a tool the call was not offered (a protocol error after a deferral),
   and the code calls (code_run) per run.
+
+--definitions prints the definition tokens U4 and U5 are offered with the pass's two switches
+off and on (agent/context.py: tokens), the cost of the enums; it builds them in a scratch
+sandbox, never state/.
 
 It reads results/ only and spends no tokens; on free arms (results/_free/) it tests the
 script and is not evidence.
@@ -172,12 +177,52 @@ def report(arms: dict[str, dict]) -> str:
     return "\n".join(out)
 
 
+SWITCHES = ("strict.policy_check_access", "strict.channel_ask_template")
+
+
+def definition_sizes() -> dict:
+    """Per use case with a loop, the tokens of the definitions it is offered, with the pass's two
+    switches off and on. The enums read the catalog, so this seeds a scratch sandbox."""
+    import os
+    import tempfile
+    from unittest import mock
+    from harness.paths import RESULTS_ENV, STATE_ENV, TRACES_ENV
+    with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {
+            STATE_ENV: f"{tmp}/state/runs", RESULTS_ENV: f"{tmp}/results", TRACES_ENV: f"{tmp}/traces"}):
+        import channel
+        from agent import context
+        from agent.registry import Registry
+        from agent.router import TOOLS
+        from harness import runtime
+        from sandbox import seed
+        channel.reset()
+        with channel.seeding():
+            seed.reset()
+            seed.seed(None)
+        sizes = {}
+        for setting in ("off", "on"):
+            runtime.configure(overrides=[f"{name}={setting}" for name in SWITCHES])
+            sizes[setting] = {uc: context.tokens(Registry().definitions(TOOLS[uc]))
+                              for uc in ("nonstandard_request", "operator_review")}
+        return sizes
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
-    parser.add_argument("arms", nargs="+", type=Path, help="results/<arm> folders: before, then after")
+    parser.add_argument("arms", nargs="*", type=Path, help="results/<arm> folders: before, then after")
+    parser.add_argument("--definitions", action="store_true",
+                        help="print the definition tokens U4 and U5 are offered with the two switches off and on")
     parser.add_argument("--tool", help="give the malformed and wrong-argument counts for this tool alone")
     parser.add_argument("--json", type=Path, help="also write the numbers here")
     args = parser.parse_args(argv)
+    if args.definitions:
+        sizes = definition_sizes()
+        for uc in sizes["off"]:
+            print(f"{uc}: {sizes['off'][uc]:,} definition tokens with both off, {sizes['on'][uc]:,} with both on")
+        if not args.arms:
+            return 0
+    if not args.arms:
+        parser.error("give the arms' folders, or --definitions")
     arms = {folder.name: arm(folder, args.tool) for folder in args.arms}
     print(report(arms))
     if args.json:

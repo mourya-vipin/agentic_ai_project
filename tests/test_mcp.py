@@ -67,6 +67,35 @@ class McpTest(ScratchTest):
         self.assertEqual(names, sorted(names))
         self.assertEqual(len(names), len(server.catalogue()))
 
+    def test_every_call_carries_the_ids_it_needs_and_every_result_the_ids_the_next_call_needs(self):
+        # Lecture 3, slide 47: semantic IDs in, the next call's IDs out, so they survive compaction
+        schemas = {t["name"]: t["input_schema"] for t in self.server.list_tools()}
+        needs = {"access_grant": {"employee_id", "group_id", "request_id"}, "access_revoke": {"employee_id", "group_id"},
+                 "access_revoke_all": {"employee_id"}, "access_list_memberships": {"employee_id"},
+                 "access_propose_change": {"employee_id", "group_id", "request_id"},
+                 "channel_ask_template": {"employee_id", "group_id"}, "policy_check_access": {"employee_id", "group_ids"},
+                 "reply_send": {"recipient_employee_id"}, "reply_draft": {"recipient_employee_id"},
+                 "requests_get": {"request_id"}, "requests_set_status": {"request_id"}}
+        for name, ids in needs.items():
+            with self.subTest(tool=name):
+                self.assertLessEqual(ids, set(schemas[name]["required"]))
+        returns = [("requests_list_today", {}, ["SYN-REQ-0005", "SYN-MSG-D05", "SYN-EMP-0031"]),
+                   ("access_list_memberships", {"employee_id": LEO}, ["membership_id", "SYN-GRP-"]),
+                   ("access_grant", GRANT, ["membership_id", LEO, "SYN-GRP-FINREP-READ"]),
+                   ("access_propose_change", {"employee_id": LEO, "group_id": "SYN-GRP-FINREP-WRITE", "request_id": REQ,
+                                              "action": "grant", "reason": "needs the manager"},
+                    ["SYN-PEND-0001", LEO, "SYN-GRP-FINREP-WRITE"]),
+                   ("channel_ask_template", {"template": "manager_confirm", "employee_id": LEO,
+                                             "group_id": "SYN-GRP-FINREP-WRITE", "request_id": REQ},
+                    ["SYN-MAIL-SYN-EMP-0040", "SYN-EMP-0040", REQ]),
+                   ("requests_set_status", {"request_id": REQ, "status": "done"}, [REQ])]
+        for name, args, ids in returns:
+            with self.subTest(tool=name):
+                result = self.registry.call(name, args, ctx())
+                self.assertFalse(result.is_error, result.content)
+                for want in ids:
+                    self.assertIn(want, result.content)
+
     def test_a_write_retried_under_its_key_leaves_one_effect_even_across_a_new_server(self):
         first = self.registry.call("access_grant", GRANT, ctx())
         self.server.close()                                           # the child goes away between the tries

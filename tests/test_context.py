@@ -133,6 +133,20 @@ class BudgetTest(ScratchTest):
         self.assertIn("SYN-EMP-0040 and 10 more IDs not listed here; call the tool again to see them all", cut)
         self.assertNotIn("SYN-EMP-0041", cut)
 
+    def test_a_call_whose_prompt_and_definitions_leave_less_than_the_threshold_compacts_within_its_room(self):
+        # U4 with Pass 3's enums: 789 tokens of prompt and 3,688 of definitions leave 3,523 of the 8,000,
+        # below compaction_threshold (4,000); a conversation between the two was never compacted, and unfit
+        system = "s" * 4 * 4700
+        history = [{"role": "user", "content": TASK}] + [m for n in range(1, 4) for m in step(n, size=4400)]
+        room = context.room(system, self.assemble([{"role": "user", "content": TASK}], system=system).tools)
+        self.assertLess(room, context.tokens(history))
+        self.assertLess(context.tokens(history), context.threshold())
+        out = self.assemble(history, system=system)
+        self.assertTrue(out.compacted)
+        self.assertFalse(out.unfit)
+        self.assertLessEqual(out.tokens, context.budget())
+        self.assertEqual(self.lines("compaction")[-1]["threshold"], room)
+
     def test_below_the_threshold_nothing_is_compacted(self):
         out = self.assemble([{"role": "user", "content": TASK}] + step(1, size=100))
         self.assertFalse(out.compacted)
@@ -182,6 +196,36 @@ class NotesThroughCompactionTest(ScratchTest):
         self.assertTrue(out.compacted)
         self.assertEqual(out.messages[-1]["content"][-1], {"type": "text", "text": before})
         self.assertEqual(notes.render("s-bud"), before)
+
+    def test_a_conversation_just_under_its_room_is_compacted_so_that_the_notes_stay_in(self):
+        # s01-compaction, every run: SYN-REQ-0004's conversation stayed under its room, the notes took it
+        # over the budget, and the notes were left out where compaction should have run
+        import json
+        from agent import notes
+        from agent.registry import CallContext, Registry
+        Registry().call("access_grant", {"employee_id": "SYN-EMP-0031", "group_id": "SYN-GRP-FINREP-READ",
+                                         "request_id": "SYN-REQ-0005"},
+                        CallContext("s-bud", 1, "model", "nonstandard_request", request_id="SYN-REQ-0005",
+                                    run_key="s-bud#1"))
+        written = notes.render("s-bud")
+        system = "s" * 4 * 4000
+
+        def call(history):
+            return context.assemble("loop", system=system, session_id="s-bud", run_key="s-bud#1", task=TASK,
+                                    history=history, tool_names=[], notes=True, summarize=lambda text: "Earlier.")
+
+        steps = [m for n in range(1, 4) for m in step(n, size=3000)]
+        room = context.room(system, call([{"role": "user", "content": TASK}]).tools)
+        kept = context.tokens(json.dumps(written))
+        pad = room - kept // 2 - context.tokens([{"role": "user", "content": TASK}] + steps)
+        history = [{"role": "user", "content": TASK + " " + "p" * 4 * pad}] + steps
+        self.assertLess(room - kept, context.tokens(history))                     # the notes do not fit beside it
+        self.assertLess(context.tokens(history), min(room, context.threshold()))  # nor is it past either line
+        out = call(history)
+        self.assertTrue(out.compacted)
+        self.assertEqual(out.messages[-1]["content"][-1], {"type": "text", "text": written})
+        self.assertNotIn("notes", [x["what"] for x in out.left_out])
+        self.assertFalse(out.unfit)
 
     def test_a_plan_steps_fill_call_gets_no_notes_and_the_trace_says_so(self):
         from agent import notes

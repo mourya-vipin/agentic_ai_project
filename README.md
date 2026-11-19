@@ -86,6 +86,8 @@ runs it has finished, so repeat one under a new name.
 | `m2-build` | `--tasks tasks/ tasks/sessions/ --sweeps 3` | Milestone 2's build, 33 runs at `b55e1bb`: the first failures (M2.md, Part 4) |
 | `pass2-before`, `pass2-after` | `--tasks tasks/t06_bulk_ended_contractors.yaml --sweeps 3 --set plan.protected_facts=off` (or `=on`) | Pass 2's two arms, at `2a3294f` |
 | `pass3-before`, `pass3-after` | `--tasks tasks/ tasks/sessions/ --sweeps 3 --set strict.policy_check_access=off strict.channel_ask_template=off` (or both `=on`) | Pass 3's two arms, at `1b9814b` |
+| `m2-fixes-check` | `--tasks tasks/t03_contractor_left.yaml tasks/t07_unusual_review.yaml tasks/t09_later_session.yaml tasks/sessions/ --sweeps 3` | a live check of the fixes since the build, 12 runs at `76ef771` (M2.md, Part 4); it replaces no recorded number |
+| `s01-long`, `s01-compaction`, `s01-notes-kept` | `--tasks tasks/sessions/s01_operator_day.yaml --sweeps 3` | the longer long session, 3 runs each at `871a282`, `4852098` and `fdaa7ab`: compaction in the last (M2.md, Part 1, task 6) |
 | `pilot-split-t06-single`, `pilot-split-t06-split` | `--tasks tasks/t06_bulk_ended_contractors.yaml --sweeps 3 --set topology=single` (or `=split`) | the split's pilot, on the `m2-split` branch at `126c09f` (`decisions/0006-topology.md`) |
 | `_free/` | a scripted or fake model, such as `--backend tests.fakes:BadArgs` | free runs: tests, not evidence; `make check` and the summarizer leave them out |
 
