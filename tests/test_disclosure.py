@@ -45,6 +45,17 @@ class DisclosureTest(ScratchTest):
     def test_the_line_says_an_agent_wrote_it_and_how_to_reach_a_person(self):
         self.assertIn("automated agent", disclosure.LINE)
         self.assertIn("reach a person", disclosure.LINE)
+        self.assertIn("write to it-desk@synthetic.example", disclosure.LINE)
+        self.assertNotIn("HUMAN", disclosure.LINE)         # no code reads a HUMAN reply, so the line offers none
+
+    def test_the_check_still_reads_a_committed_run_that_carries_the_earlier_line(self):
+        run = SimpleNamespace(run_id="r-disc")
+        earlier = f"Hello Leo.\n\n{common.EARLIER_DISCLOSURE_LINES[0]}"
+        with mock.patch.object(channel, "messages", return_value=[
+                channel.Message(1, THREAD, channel.AGENT, earlier, "t", "r-disc", None)]), \
+                mock.patch.object(channel, "threads", return_value=[{"thread_id": THREAD}]):
+            self.assertEqual(common.require_disclosure(run), [])
+        self.assertFalse(disclosure.has_line(earlier))     # the hook asks for today's line on every new send
 
     def test_a_template_notice_goes_out_with_the_line(self):
         result = self.send()
