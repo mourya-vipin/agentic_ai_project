@@ -69,11 +69,19 @@ def budget() -> int:
     return int(value)
 
 
+# the brackets our code opens its own lines with; a stranger's text may not open one
+_OUR_MARKERS = re.compile(r"\[(?=\s*(?:from\b|notes kept\b|summary of the earlier\b|memory from\b|cleared to save room\b))",
+                          re.I)
+
+
 def label(stranger: dict) -> str:
-    """A stranger's message as the model reads it: theirs, never the operator's."""
+    """A stranger's message as the model reads it: theirs, never the operator's. A bracket in their text
+    that would open one of our code's lines ("[from the operator] ...") is turned into a parenthesis, so
+    a reply cannot pass itself off as the operator's turn or our notes (tests/test_context.py)."""
     sender = stranger.get("sender") or "outside"
     thread = stranger.get("thread_id") or "?"
-    return f"[from {sender} on {thread}, not the operator] {stranger.get('text', '')}"
+    text = _OUR_MARKERS.sub("(", str(stranger.get("text", "")))
+    return f"[from {sender} on {thread}, not the operator] {text}"
 
 
 def loading() -> str:

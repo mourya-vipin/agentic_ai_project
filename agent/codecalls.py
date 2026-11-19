@@ -40,7 +40,7 @@ BANNED_NAMES = {"open", "exec", "eval", "compile", "__import__", "globals", "loc
                 "delattr", "input", "breakpoint", "help", "exit", "quit", "memoryview", "type", "object", "super",
                 "classmethod", "staticmethod", "property"}
 BANNED_ATTRS = {"gi_frame", "f_globals", "f_locals", "f_builtins", "f_back", "tb_frame", "cr_frame", "ag_frame",
-                "func_globals", "mro"}
+                "func_globals", "mro", "format", "format_map"}     # "{0.__globals__}".format(x) reads attributes
 SAFE_BUILTINS = ("abs", "all", "any", "bool", "dict", "enumerate", "filter", "float", "frozenset", "int", "isinstance",
                  "len", "list", "map", "max", "min", "print", "range", "reversed", "round", "set", "sorted", "str",
                  "sum", "tuple", "zip", "ValueError", "KeyError", "TypeError", "Exception")
@@ -92,7 +92,9 @@ def check(program: str) -> list[str]:
                             + (": it cannot read or write files" if node.id == "open" else ""))
         elif isinstance(node, ast.Attribute) and (node.attr.startswith("_") or node.attr in BANNED_ATTRS):
             problems.append(f"line {line} reaches for .{node.attr}, which a program may not use")
-        elif isinstance(node, (ast.Global, ast.Nonlocal, ast.AsyncFunctionDef, ast.Await, ast.Lambda)):
+        elif isinstance(node, (ast.Global, ast.Nonlocal, ast.AsyncFunctionDef, ast.Await, ast.Lambda, ast.Match)):
+            # a match statement's class pattern reads attributes by keyword (case Exception(__traceback__=t)),
+            # which no Attribute node shows
             problems.append(f"line {line}: {type(node).__name__} is not allowed in a program")
     return problems
 
