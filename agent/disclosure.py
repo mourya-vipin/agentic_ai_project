@@ -11,8 +11,9 @@ A message the operator writes and sends by hand is the operator's own and needs 
 
 from __future__ import annotations
 
-LINE = ("— Sent by the IT access desk's automated agent. To reach a person, reply HUMAN "
-        "or write to it-desk@synthetic.example.")
+# How to reach a person: the desk's address only. Until 2026-11-18 the line also said "reply HUMAN",
+# which no code of ours read: a reply on a thread no run waited on was dropped (M2.md, Part 2, task 8).
+LINE = "— Sent by the IT access desk's automated agent. To reach a person, write to it-desk@synthetic.example."
 
 
 def has_line(text: str | None) -> bool:
