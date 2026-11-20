@@ -11,6 +11,7 @@ No tokens: the models are fakes (free = True).
                    message does not name is a question (s01 in pass3-after); the routing
                    prompt names no record of the sandbox
     the request    the requester's text is escaped inside its <request> tags
+    U5's prompt    it names the notes, as the call labels them, for a question about today's work
 """
 
 from __future__ import annotations
@@ -209,6 +210,23 @@ class TheOperatorsLines(TaskRunTest):
         self.assertIn("step_limit", record["end_reasons"])
         self.assertTrue(any("Stopped at the step limit before finishing. " in r["text"] and "this turn" in r["text"]
                             for r in record["replies"]), record["replies"])
+
+
+class U5ReadsTheNotes(ScratchTest):
+    """Vipin Mourya's review: in 3 of 9 long-session runs, U5 answered "Whose access did you remove
+    today?" from directory_list_contractors_ended, not from the notes in its call
+    (results/s01-long/s01-long-s01_operator_day-s02-330844.trace.jsonl:214). Its prompt now names the notes."""
+
+    def test_u5s_prompt_names_the_notes_as_the_call_labels_them(self):
+        from unittest import mock
+
+        from agent import notes
+        with mock.patch.object(notes, "read", return_value={"done": ["removed: x"], "open": []}):
+            label = notes.render("s-any").splitlines()[0]
+        prompt = (router.PROMPTS / "operator_review.md").read_text(encoding="utf-8")
+        self.assertTrue(label.lower().startswith("[notes kept by our code for this session"), label)
+        self.assertIn("the notes kept by our code for this session", prompt)
+        self.assertIn("the changes recorded under today's requests", prompt)
 
 
 class TheRequestsText(ScratchTest):
