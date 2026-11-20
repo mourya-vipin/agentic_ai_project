@@ -38,12 +38,13 @@ class StateTest(ScratchTest):
             ({"task": "t08"}, [ASK, {**ASK, "is_error": True},                          # refused: not a question
                                {"type": "end", "terminal_reason": "waiting_reply"},
                                {"type": "outside", "handled_by": "on_outside_reply"},
-                               {"type": "outside", "handled_by": None}]),               # no run waited for it
+                               {"type": "outside", "handled_by": "on_outside_reply"},
+                               {"type": "outside_for_operator", "why": "asks for a person"}]),
             ({"task": "t08", "passed": False}, [{"type": "reply_deadline"}]),
             ({"task": "t01"}, [])])
         tasks = arm_of(folder)["tasks"]
         self.assertEqual(tasks["t08"], {"runs": 2, "passed": 1, "questions": 1, "runs_that_asked": 1, "waits": 1,
-                                        "replies_resumed": 1, "past_deadline": 1})
+                                        "replies_delivered": 2, "for_the_operator": 1, "past_deadline": 1})
         self.assertEqual((tasks["t01"]["runs"], tasks["t01"]["questions"]), (1, 0))
 
     def test_memory_writes_reads_and_the_lifetime(self):

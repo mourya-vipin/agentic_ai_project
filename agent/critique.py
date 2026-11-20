@@ -170,7 +170,8 @@ def _questions(request_id: str, stamp: str) -> list[dict]:
         question = next((m for m in messages if m.id == row["message_id"]), None)
         if question is None or request_id not in question.text:
             continue
-        reply = next((m for m in messages if m.id > question.id and m.sender not in channel.OURS), None)
+        reply = next((m for m in messages if m.id > question.id and m.sender not in channel.OURS
+                      and not hook.asks_for_a_person(m.text)), None)      # HUMAN is not an answer (Aman Panigrahi)
         said = re.sub(r"^\s*SYNTHETIC\.\s*", "", reply.text).strip() if reply else None
         answer = None if said is None else "yes" if hook.YES.match(said) else "no" if hook.NO.match(said) else ""
         out.append({"question": question, "thread_id": row["thread_id"], "answer": answer})

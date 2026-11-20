@@ -12,8 +12,9 @@ task and sweep). For each arm it prints:
 
 - each task: its runs and how many passed; the questions to a stranger (channel_ask_template
   calls that went out) and the runs that asked; the turns that ended to wait for a reply
-  (waiting_reply), the replies that resumed a run (outside lines that on_outside_reply handled),
-  and the waits that passed their deadline (reply_deadline)
+  (waiting_reply); the replies delivered (outside lines handed to on_outside_reply), and those
+  that went to the operator instead of a run (outside_for_operator: a HUMAN, or a reply that no
+  run waits for); and the waits that passed their deadline (reply_deadline)
 - the memory: the records written (memory_write lines, by how), declined and evicted; the reads
   (memory_read lines, by purpose), and the reads that returned a record; the records written per
   run. With --per-day N: the records a day at N runs a day, and the days until the store holds
@@ -57,7 +58,8 @@ def _made(line: dict, name: str) -> bool:
 def count(runs: list[tuple[dict, list[dict]]]) -> dict:
     """The numbers of one arm, from (record, trace lines) for each of its counted runs."""
     tasks: dict[str, dict] = defaultdict(lambda: {"runs": 0, "passed": 0, "questions": 0, "runs_that_asked": 0,
-                                                   "waits": 0, "replies_resumed": 0, "past_deadline": 0})
+                                                   "waits": 0, "replies_delivered": 0, "for_the_operator": 0,
+                                                   "past_deadline": 0})
     writes, declined, reads = Counter(), 0, Counter()
     evicted, reads_with_a_record = 0, 0
     later = {"runs": 0, "acted_on_the_record": 0, "passed": 0}
@@ -69,8 +71,9 @@ def count(runs: list[tuple[dict, list[dict]]]) -> dict:
         row["questions"] += asked
         row["runs_that_asked"] += int(asked > 0)
         row["waits"] += sum(1 for x in lines if x.get("type") == "end" and x.get("terminal_reason") == "waiting_reply")
-        row["replies_resumed"] += sum(1 for x in lines if x.get("type") == "outside"
-                                      and x.get("handled_by") == "on_outside_reply")
+        row["replies_delivered"] += sum(1 for x in lines if x.get("type") == "outside"
+                                        and x.get("handled_by") == "on_outside_reply")
+        row["for_the_operator"] += sum(1 for x in lines if x.get("type") == "outside_for_operator")
         row["past_deadline"] += sum(1 for x in lines if x.get("type") == "reply_deadline")
         for x in lines:
             kind = x.get("type")
@@ -132,8 +135,8 @@ def report(arms: dict[str, dict], per_day: float | None) -> str:
         lines.append(f"{name}: {row['runs']} runs")
         for task, t in row["tasks"].items():
             lines.append(f"  {task}: {t['passed']} of {t['runs']} passed; {t['questions']} questions to a stranger "
-                         f"in {t['runs_that_asked']} runs; {t['waits']} waits, {t['replies_resumed']} replies resumed "
-                         f"a run, {t['past_deadline']} past the deadline")
+                         f"in {t['runs_that_asked']} runs; {t['waits']} waits, {t['replies_delivered']} replies delivered, "
+                         f"{t['for_the_operator']} of them for the operator, {t['past_deadline']} past the deadline")
         m = row["memory"]
         lines.append(f"  memory: {m['written']} records written {m['written_by_how']}, {m['declined']} declined, "
                      f"{m['evicted']} evicted; {m['reads']} reads {m['reads_by_purpose']}, "

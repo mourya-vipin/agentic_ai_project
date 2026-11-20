@@ -16,7 +16,9 @@ from __future__ import annotations
 from harness.trace import now as wall_now
 from sandbox import clock, db
 
-KINDS = ("proposed_change", "reply_draft", "manager_confirmation", "credential_handover")
+# outside_message: a stranger's message that no run takes, kept for the operator (agent/service.py:
+# on_outside_reply; added by Aman Panigrahi)
+KINDS = ("proposed_change", "reply_draft", "manager_confirmation", "credential_handover", "outside_message")
 
 
 def create(kind, *, request_id, employee_id, key, stamp, action=None, group_id=None,

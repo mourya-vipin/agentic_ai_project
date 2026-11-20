@@ -2,21 +2,70 @@
 {% block title %}Approvals{% endblock %}
 {% block content %}
 <h1>Approvals</h1>
+<p class="muted">Each item is a step that the agent may not take alone. Read what it will do and the facts our code read,
+then approve or deny it. Nothing runs before your answer.</p>
 {% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
+<style>
+  .approval { margin: 14px 0 18px; }
+  .approval .box-head h3 { margin: 0; font-size: 16px; }
+  .approval .meta { margin: 0 0 12px; }
+  .approval .what { white-space: pre-line; padding: 12px 14px; margin: 0 0 14px; border-left: 4px solid var(--accent);
+    background: var(--agent); border-radius: 10px; }
+  .approval .group { font-size: 12px; font-weight: 700; color: var(--muted); margin: 14px 0 6px; }
+  .approval .facts th { text-transform: none; letter-spacing: 0; font-size: 12px; width: 30%; }
+  .approval .facts td { white-space: pre-line; }
+  .approval .facts.light td { color: var(--muted); }
+  .approval form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 16px 0 0; }
+  .approval form input[name=note] { flex: 1; min-width: 220px; }
+</style>
+{% set titles = {"reply_send": "Send this reply?", "access_grant": "Grant this access?",
+                 "manager_note": "Send these notes to the managers?"} %}
+{% set shown_apart = ["id", "session_id", "action", "dry run", "waiting since"] %}
 {% for item in items %}
-  <div class="line">
-    <div class="who">Approval {{ item.id }}</div>
-    <div class="scroll"><table>
-      {% for k, v in item.items() if k != 'id' %}<tr><th>{{ k }}</th><td>{{ v }}</td></tr>{% endfor %}
-    </table></div>
-    <form method="post" action="/approvals">
-      <input type="hidden" name="approval_id" value="{{ item.id }}">
-      <p><input type="text" name="note" placeholder="A note (optional)"></p>
-      <button name="decision" value="approve">Approve</button>
-      <button name="decision" value="deny">Deny</button>
-    </form>
-  </div>
+  {% set action = (item.get("action") or "")|string %}
+  {% set title = titles.get(action.split("/")[0], "Approve this step?") %}
+  <section class="box approval">
+    <div class="box-head"><h3>{{ title }}</h3><span class="chip waiting">waits for you</span></div>
+    <div class="box-body">
+      <p class="meta muted small">Approval {{ item.id }}{% if action %} · {{ action }}{% endif %}
+        {% if item.session_id %} · from <a href="/console/{{ item.session_id }}">the session of {{ item.session_id|session_label }}</a>{% endif %}
+        {% if item.get("waiting since") %} · waiting since {{ item["waiting since"]|when }}{% endif %}</p>
+
+      {% if item.get("dry run") %}
+      <div class="group">What it will do</div>
+      <div class="what">{{ item["dry run"]|replace("SYNTHETIC. ", "") }}</div>
+      {% endif %}
+
+      {% set groups = [("Their words, as they wrote them", "their words", ""),
+                       ("What our code read and checked", "(computed)", "light"),
+                       ("Other facts", "", "")] %}
+      {% for heading, marker, style in groups %}
+        {% set rows = [] %}
+        {% for k, v in item.items() if k not in shown_apart %}
+          {% if (marker and marker in k) or (not marker and "their words" not in k and "(computed)" not in k) %}
+            {% set _ = rows.append((k, v)) %}
+          {% endif %}
+        {% endfor %}
+        {% if rows %}
+        <div class="group">{{ heading }}</div>
+        <div class="scroll"><table class="facts {{ style }}">
+          {% for k, v in rows %}
+            {% set label = k|replace(" (computed)", "")|replace(" (their words)", "") %}
+            <tr><th>{{ label[:1]|upper }}{{ label[1:] }}</th><td>{{ v|string|replace("SYNTHETIC. ", "") }}</td></tr>
+          {% endfor %}
+        </table></div>
+        {% endif %}
+      {% endfor %}
+
+      <form method="post" action="/approvals">
+        <input type="hidden" name="approval_id" value="{{ item.id }}">
+        <input type="text" name="note" placeholder="A note (optional)" aria-label="A note (optional)">
+        <button name="decision" value="approve">Approve</button>
+        <button name="decision" value="deny">Deny</button>
+      </form>
+    </div>
+  </section>
 {% else %}
   {% if not error %}
   <section class="box">

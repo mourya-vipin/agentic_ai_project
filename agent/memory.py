@@ -68,7 +68,11 @@ CREATE TABLE IF NOT EXISTS records (
 
 _REMEMBER = re.compile(r"^\s*(?:please\s+)?(?:remember|note|keep in mind)\b[\s:,]*(?:that\s+)?(?P<body>.+)$",
                        re.I | re.S)
-_STANDING = re.compile(r"\b(from now on|going forward|in future|from today on|every time)\b", re.I)
+# a standing rule opens a sentence of the operator's own: at the start, or after . ! ? or a new line
+_STANDING = re.compile(r"(?:^|[.!?]\s+|\n\s*)(?:(?:and|also|please|so)\s+)?"
+                       r"(?:from now on|going forward|in future|from today on|every time)\b", re.I)
+# a requester's words that the operator quotes or pastes as a quote are not the operator's (Vipin Mourya's review)
+_QUOTED = re.compile(r'"[^"\n]*"|“[^”\n]*”|^\s*>.*$', re.M)
 _FACT = re.compile(r"^\s*(?:please\s+)?(?:remember|note|keep in mind)\b[\s:,]*that\b", re.I)
 _IDS = re.compile(r"\bSYN-(?:EMP|GRP)-[A-Z0-9-]+\b", re.I)
 _SECRET = re.compile(r"\bFAKE-[A-Z0-9-]+|\bpassword\b|\bsecret\b", re.I)
@@ -201,15 +205,18 @@ def _evict(conn) -> list[str]:
 
 def from_text(session_id: str, text: str, *, run_key: str | None = None) -> Record | None:
     """The record that an operator's message states for later, written, or None. Our code
-    reads it, never a model: a message that starts "remember", "note" or "keep in mind", or that
-    says "from now on", "going forward", "in future" or "every time". "Remember that ..." about a
-    named person or group is a fact; anything else is a preference. A question is never a record."""
+    reads it, never a model: a message that starts "remember", "note" or "keep in mind", or one
+    with a sentence that starts "from now on", "going forward", "in future" or "every time". Text
+    in quotation marks, or on a line that starts with ">", is left out first: it is someone
+    else's words, such as a requester's message that the operator pastes. "Remember that ..."
+    about a named person or group is a fact; anything else is a preference. A question is never a record."""
     text = str(text or "").strip()
     if not text or text.endswith("?"):
         return None
-    said = _REMEMBER.match(text)
-    if said is None and not _STANDING.search(text):
+    own = _QUOTED.sub(" ", text).strip()
+    if _REMEMBER.match(own) is None and not _STANDING.search(own):
         return None
+    said = _REMEMBER.match(text)
     body = (said.group("body") if said else text).strip()
     subject = _subject(body)
     kind = "fact" if _FACT.match(text) and subject else "preference"
