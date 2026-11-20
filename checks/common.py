@@ -189,10 +189,11 @@ def result(problems: list[str], ok: str, counts: dict):
 
 # The disclosure line, written here again rather than imported from agent/disclosure.py, so a
 # check never calls the code it is checking; tests/test_disclosure.py fails if the two differ.
-DISCLOSURE_LINE = "— Sent by the IT access desk's automated agent. To reach a person, write to it-desk@synthetic.example."
-# the line until 2026-11-18, which every committed run before then carries, so its check reads the same
-EARLIER_DISCLOSURE_LINES = ("— Sent by the IT access desk's automated agent. To reach a person, reply HUMAN "
-                            "or write to it-desk@synthetic.example.",)
+DISCLOSURE_LINE = ("— Sent by the IT access desk's automated agent. To reach a person, reply HUMAN "
+                   "or write to it-desk@synthetic.example.")
+# the line from 2026-11-18 to 2026-11-19, the desk's address only, so a run made then reads the same
+EARLIER_DISCLOSURE_LINES = ("— Sent by the IT access desk's automated agent. To reach a person, write to "
+                            "it-desk@synthetic.example.",)
 
 
 def require_disclosure(run) -> list[str]:

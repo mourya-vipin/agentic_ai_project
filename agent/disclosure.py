@@ -11,9 +11,12 @@ A message the operator writes and sends by hand is the operator's own and needs 
 
 from __future__ import annotations
 
-# How to reach a person: the desk's address only. Until 2026-11-18 the line also said "reply HUMAN",
-# which no code of ours read: a reply on a thread no run waited on was dropped (M2.md, Part 2, task 8).
-LINE = "— Sent by the IT access desk's automated agent. To reach a person, write to it-desk@synthetic.example."
+# How to reach a person: reply HUMAN, or write to the desk. A reply whose first word is HUMAN goes to
+# the operator on /pending and the queue, and no reader takes it as the person's answer (policy/hook.py:
+# asks_for_a_person; agent/service.py: on_outside_reply). From 2026-11-18 to 2026-11-19 the line gave the
+# address only, while nothing read a HUMAN (M2.md, Part 2, task 8).
+LINE = ("— Sent by the IT access desk's automated agent. To reach a person, reply HUMAN "
+        "or write to it-desk@synthetic.example.")
 
 
 def has_line(text: str | None) -> bool:
