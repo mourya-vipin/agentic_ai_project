@@ -136,14 +136,18 @@ def _for_the_operator(thread_id: str, text: str, run, why: str) -> Reply:
     """A stranger's message that no run takes, kept for the operator as a pending record
     ("outside_message"): /pending and the queue show it until the operator marks it done or
     dismisses it. Keyed by the message, so the same message twice is one record. A run that
-    waits on the thread keeps waiting."""
+    waits on the thread keeps waiting. If the thread does not have the message (Vipin Mourya's
+    review), the key comes from the text, so a second, different message gets its own record."""
+    import hashlib
+
     import channel
     from sandbox import db, directory, pending, requests
     message = next((m for m in reversed(channel.messages(thread_id)) if m.sender not in channel.OURS), None)
     sender = directory.by_email(message.sender) if message is not None else None
     request = (requests.get((run.findings or {}).get("request_id")) if run is not None else None) \
         or requests.by_thread(thread_id)
-    key = f"outside-{thread_id}-{message.id if message is not None else 'unknown'}"
+    which = message.id if message is not None else "text-" + hashlib.sha256((text or "").encode()).hexdigest()[:12]
+    key = f"outside-{thread_id}-{which}"
     pid = pending.create("outside_message", request_id=request["id"] if request else None,
                          employee_id=sender["id"] if sender else None, key=key, stamp=db.current_stamp(),
                          thread_id=thread_id, body=text, reason=why)

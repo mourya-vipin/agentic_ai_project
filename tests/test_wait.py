@@ -197,6 +197,21 @@ class WhatNoRunTakes(ScratchTest):
         self.assertEqual(len(waiting), 1, "her YES lets the grant be put up for the operator")
         self.assertIn("access_grant/manager_confirmed", json.dumps(waiting[0]))
 
+    def test_two_messages_that_the_thread_does_not_have_get_a_record_each(self):
+        """Vipin Mourya's review: the key ended in "-unknown", so the second folded into the first."""
+        from unittest import mock
+
+        from agent import service
+        rid = "outside-not-on-thread"
+        with fixed_run(T08, rid, backend=BACKEND), mock.patch.object(channel, "messages", return_value=[]):
+            first = service._for_the_operator(THREAD, "SYNTHETIC. HUMAN, please.", None, "asks for a person")
+            again = service._for_the_operator(THREAD, "SYNTHETIC. HUMAN, please.", None, "asks for a person")
+            other = service._for_the_operator(THREAD, "SYNTHETIC. HUMAN. Call me today.", None, "asks for a person")
+            items = self.outside_for_operator()
+        self.assertEqual(first.text, again.text, "the same message twice is one record")
+        self.assertNotEqual(first.text, other.text)
+        self.assertEqual(len(items), 2)
+
     def test_a_reply_to_a_stopped_run_is_left_for_resume(self):
         from agent import control
         rid = "outside-stopped"
