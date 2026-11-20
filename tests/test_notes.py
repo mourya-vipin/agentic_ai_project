@@ -56,6 +56,27 @@ class NotesTest(ScratchTest):
         self.assertEqual(kept["open"], [])
         self.assertIn(f"{REQ} set to done", kept["done"])
 
+    def test_a_request_left_for_the_operator_is_open_in_words_until_it_is_finished(self):
+        # U5 read "Done: SYN-REQ-0005 set to pending_operator" as no longer waiting, in 2 of 9 runs
+        # (results/s01-u5-notes/s01-u5-notes-s01_operator_day-s03-166443.trace.jsonl:246)
+        self.registry.call("access_propose_change", {"action": "grant", "employee_id": LEO, "request_id": REQ,
+                                                     "group_id": "SYN-GRP-FINREP-WRITE", "reason": "covering Priya"},
+                           ctx())
+        self.assertEqual(len(notes.read("s-notes")["open"]), 1)
+        self.registry.call("requests_set_status", {"request_id": REQ, "status": "pending_operator"}, ctx())
+        kept = notes.read("s-notes")
+        self.assertEqual(kept["done"], [])
+        self.assertIn(f"{REQ} waits for the operator (pending_operator)", kept["open"])
+        self.assertIn("Open:\n", notes.render("s-notes"))
+        self.registry.call("requests_set_status", {"request_id": REQ, "status": "in_progress"}, ctx())
+        kept = notes.read("s-notes")
+        self.assertNotIn(f"{REQ} waits for the operator (pending_operator)", kept["open"], "one status a request")
+        self.assertIn(f"{REQ} is in progress (in_progress)", kept["open"])
+        self.assertEqual(len(kept["open"]), 2, "the proposal stays open")
+        self.registry.call("requests_set_status", {"request_id": REQ, "status": "done"}, ctx())
+        kept = notes.read("s-notes")
+        self.assertEqual((kept["open"], kept["done"]), ([], [f"{REQ} set to done"]))
+
     def test_with_the_switch_off_nothing_is_recorded(self):
         runtime.configure(overrides=["notes.console=off"])
         self.registry.call("access_grant", {"employee_id": LEO, "group_id": "SYN-GRP-FINREP-READ", "request_id": REQ}, ctx())

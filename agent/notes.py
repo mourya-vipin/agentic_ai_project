@@ -23,6 +23,10 @@ from sandbox import clock, db
 
 KIND = "console"
 MAX_LINES = 40            # the newest are kept; the session's effects are in the sandbox too
+# A status that leaves the request unfinished goes under "Open:", in words. Until 2026-11-20 every status
+# went under "Done:" as "set to pending_operator", and U5 twice read it as no longer waiting for the
+# operator (results/s01-u5-notes/s01-u5-notes-s01_operator_day-s03-166443.trace.jsonl:246).
+STILL_OPEN = {"pending_operator": "waits for the operator", "in_progress": "is in progress", "new": "is not started"}
 
 
 def enabled(kind: str = KIND) -> bool:
@@ -55,12 +59,20 @@ def _line(tool: str, args: dict, data: dict) -> tuple[str, str] | None:
     if tool == "notices_send_template":
         return "done", f"notice {args.get('template_id')} on {args.get('thread_id')}{on}"
     if tool == "requests_set_status":
-        return "done", f"{data.get('request_id') or r} set to {data.get('status')}"
+        rid, status = data.get("request_id") or r, data.get("status")
+        if status in STILL_OPEN:       # not finished: an open line, in words, so "Done:" never holds it
+            return "open", f"{rid} {STILL_OPEN[status]} ({status})"
+        return "done", f"{rid} set to {status}"
     if tool == "credentials_issue":
         return "done", f"credential {data.get('credential_id')} issued to {e}"
     if tool == "credentials_record_handover":
         return "open", f"hand over {data.get('credential_id')} to {e} in person ({data.get('pending_id')})"
     return None
+
+
+def _status_line(line: str, request_id) -> bool:
+    """Whether an open line is the request's status line (STILL_OPEN), not a proposal or a draft on it."""
+    return any(line == f"{request_id} {words} ({status})" for status, words in STILL_OPEN.items())
 
 
 def read(session_id: str) -> dict:
@@ -89,10 +101,13 @@ def after_call(ctx, tool: str, args: dict, data) -> None:
     notes = read(ctx.session_id)
     section, line = entry
     if line not in notes[section]:
+        if tool == "requests_set_status":
+            rid = data.get("request_id") or (args or {}).get("request_id")
+            # a request has one status: its earlier open status line goes
+            notes["open"] = [o for o in notes["open"] if not _status_line(o, rid)]
+            if data.get("status") == "done":
+                notes["open"] = [o for o in notes["open"] if f" on {rid}" not in o]
         notes[section].append(line)
-        if tool == "requests_set_status" and data.get("status") == "done":
-            rid = data.get("request_id")
-            notes["open"] = [o for o in notes["open"] if f" on {rid}" not in o]
         _write(ctx.session_id, notes)
         runtime.trace(ctx.session_id).event("notes_updated", section=section, line=line)
 
