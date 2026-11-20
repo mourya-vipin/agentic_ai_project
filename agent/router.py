@@ -510,13 +510,16 @@ def _again(cp, event: dict) -> LoopResult:
 
 def _reply_on(thread_id: str | None) -> str | None:
     """The stranger's words on the thread after our last message there, or None. In a run.py
-    run, only the messages of this run count."""
+    run, only the messages of this run count. A message that asks for a person (HUMAN) is the
+    operator's to read, not the run's answer (agent/service.py: on_outside_reply)."""
+    from policy.hook import asks_for_a_person
     if not thread_id:
         return None
     run = runtime.current_run()
     found = channel.messages(thread_id, run.run_id if run is not None else None)
     ours = [m.id for m in found if m.sender in channel.OURS]
-    after = [m.text for m in found if m.sender not in channel.OURS and m.id > (ours[-1] if ours else 0)]
+    after = [m.text for m in found if m.sender not in channel.OURS and m.id > (ours[-1] if ours else 0)
+             and not asks_for_a_person(m.text)]
     return "\n".join(after) or None
 
 

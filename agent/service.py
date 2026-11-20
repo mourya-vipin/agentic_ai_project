@@ -110,19 +110,49 @@ def on_outside_reply(thread_id: str, text: str) -> Reply:
 
     Owner: Aman Panigrahi. The run that waits for a reply on this thread continues from
     its checkpoint (checkpoints.resume), in this process or after a restart. The notes
-    mark the thread as answered (agent/notes.py). If no run waits on the thread, the
-    message stays in the channel, and the reply is empty."""
+    mark the thread as answered (agent/notes.py). A message goes to the operator instead,
+    as a pending record on /pending and the queue (_for_the_operator), when its first word is
+    HUMAN, a request for a person, or when no run waits on the thread: before, such a
+    message stayed in the channel and no one was told. A run that a stop holds while it waits
+    still waits on the thread, so its reply goes to checkpoints.resume, which refuses it, and
+    /resume reads the thread."""
     run = next((cp for cp in checkpoints.waiting("reply") if (cp.waiting_for or {}).get("thread_id") == thread_id),
                None)
+    from policy.hook import asks_for_a_person
+    if asks_for_a_person(text):
+        return _for_the_operator(thread_id, text, run, "asks for a person")
     session_id = run.session_id if run is not None else _this_session()
     if session_id:
         notes.thread_answered(session_id, thread_id)
     if run is None:
-        return Reply()
+        return _for_the_operator(thread_id, text, None, "has no run that waits for it")
     try:
         return checkpoints.resume(run.run_key, {"kind": "reply", "thread_id": thread_id, "text": text})
     finally:
         checkpoints.flush()
+
+
+def _for_the_operator(thread_id: str, text: str, run, why: str) -> Reply:
+    """A stranger's message that no run takes, kept for the operator as a pending record
+    ("outside_message"): /pending and the queue show it until the operator marks it done or
+    dismisses it. Keyed by the message, so the same message twice is one record. A run that
+    waits on the thread keeps waiting."""
+    import channel
+    from sandbox import db, directory, pending, requests
+    message = next((m for m in reversed(channel.messages(thread_id)) if m.sender not in channel.OURS), None)
+    sender = directory.by_email(message.sender) if message is not None else None
+    request = (requests.get((run.findings or {}).get("request_id")) if run is not None else None) \
+        or requests.by_thread(thread_id)
+    key = f"outside-{thread_id}-{message.id if message is not None else 'unknown'}"
+    pid = pending.create("outside_message", request_id=request["id"] if request else None,
+                         employee_id=sender["id"] if sender else None, key=key, stamp=db.current_stamp(),
+                         thread_id=thread_id, body=text, reason=why)
+    traced = run.session_id if run is not None else _this_session()
+    if traced:          # the threads page has no session: the pending record is what the operator reads
+        runtime.trace(traced).event("outside_for_operator", thread_id=thread_id, pending_id=pid, why=why,
+                                    run_key=run.run_key if run is not None else None)
+    waits = f" Run {run.run_no} still waits for a reply on {thread_id}." if run is not None else ""
+    return Reply(f"The message on {thread_id} {why}, so it waits for the operator on /pending as {pid}.{waits}")
 
 
 # What the console's panel says of each status, and the commands that it offers for it.

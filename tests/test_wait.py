@@ -154,6 +154,60 @@ class TheWait(ScratchTest):
         self.assertIn("resumed", [x["type"] for x in lines])
 
 
+class WhatNoRunTakes(ScratchTest):
+    """Vipin Mourya's review: a message that no run waits for stayed in the channel, and no one was told
+    (traces/s-20261117-215442-ce95.jsonl:312, the manager's "no" after her "yes"); and nothing read the
+    HUMAN that our disclosure line offered until #65. Both now wait for the operator on /pending and the queue."""
+
+    def outside_for_operator(self):
+        from sandbox import pending
+        return pending.open_items("outside_message")
+
+    def test_a_message_that_no_run_waits_for_waits_for_the_operator(self):
+        from sandbox import queue
+        rid = "outside-unwaited"
+        with fixed_run(T08, rid, backend=BACKEND) as run:
+            reply = turns.outside_reply(THREAD, "SYNTHETIC. Hi IT, did someone want to ask me about Dev Rao?",
+                                        sender="hannah.lee@syn-corp.example")
+            items = self.outside_for_operator()
+            lines = read_trace(run.trace_path)
+            shown = [i["summary"] for i in queue.arrived()]
+        self.assertIn("has no run that waits for it, so it waits for the operator on /pending as SYN-PEND-", reply.text)
+        self.assertEqual([(i["employee_id"], i["thread_id"]) for i in items], [(HANNAH, THREAD)])
+        self.assertTrue(any(s.startswith(f"{HANNAH} wrote on {THREAD} (has no run that waits for it)") for s in shown),
+                        shown)
+        self.assertEqual([x["why"] for x in lines if x["type"] == "outside_for_operator"],
+                         ["has no run that waits for it"])
+
+    def test_human_goes_to_the_operator_and_the_run_waits_on_for_the_managers_answer(self):
+        from agent import approvals
+        rid = "outside-human"
+        with fixed_run(T08, rid, backend=BACKEND):
+            asked = turns.operator_turn(rid, "Please handle the new access requests.")
+            self.assertEqual(asked.waiting_for, THREAD)
+            human = turns.outside_reply(THREAD, "SYNTHETIC. HUMAN. I would like to talk to a person first.",
+                                        sender="hannah.lee@syn-corp.example")
+            self.assertIn("asks for a person", human.text)
+            self.assertIn("still waits for a reply", human.text)
+            self.assertEqual([cp.waiting_for["thread_id"] for cp in checkpoints.waiting("reply")], [THREAD])
+            self.assertEqual(approvals.pending(), [], "HUMAN is not her answer, so nothing is put up")
+            self.assertEqual(len(self.outside_for_operator()), 1)
+            turns.outside_reply(THREAD, YES, sender="hannah.lee@syn-corp.example")      # then her answer
+            waiting = approvals.pending()
+        self.assertEqual(len(waiting), 1, "her YES lets the grant be put up for the operator")
+        self.assertIn("access_grant/manager_confirmed", json.dumps(waiting[0]))
+
+    def test_a_reply_to_a_stopped_run_is_left_for_resume(self):
+        from agent import control
+        rid = "outside-stopped"
+        with fixed_run(T08, rid, backend=BACKEND):
+            turns.operator_turn(rid, "Please handle the new access requests.")
+            cp = checkpoints.waiting("reply")[0]
+            control.stop(rid, cp.run_no)
+            turns.outside_reply(THREAD, YES, sender="hannah.lee@syn-corp.example")
+            self.assertEqual(self.outside_for_operator(), [], "/resume reads the thread")
+
+
 class TheDeadline(ScratchTest):
     def test_past_the_deadline_the_next_turn_ends_the_run_and_leaves_the_request_for_the_operator(self):
         rid = "wait-deadline"
@@ -172,7 +226,8 @@ class TheDeadline(ScratchTest):
         self.assertIn("none came, so it ended", late.text)
         self.assertEqual(checkpoints.load(f"{rid}#1").findings["end_reason"], bounds.REPLY_DEADLINE)
         self.assertEqual(status, "pending_operator")
-        self.assertEqual((after.text, after.waiting_for), ("", None), "a late reply continues nothing")
+        self.assertIsNone(after.waiting_for, "a late reply continues nothing")
+        self.assertIn("has no run that waits for it, so it waits for the operator on /pending", after.text)
 
     def test_the_deadline_skips_the_weekend(self):
         self.assertEqual(bounds.reply_deadline("2026-10-23T09:00:00Z"), "2026-10-27T09:00:00Z")   # Friday -> Tuesday

@@ -373,7 +373,9 @@ def _answer_it_follows(request: dict | None) -> str | None:
         question = next((m for m in messages if m.id == row["message_id"]), None)
         if question is None or request["id"] not in question.text:
             continue
-        answer = next((m for m in messages if m.id > question.id and m.sender not in channel.OURS), None)
+        from policy.hook import asks_for_a_person          # a HUMAN message is not her answer (Aman Panigrahi)
+        answer = next((m for m in messages if m.id > question.id and m.sender not in channel.OURS
+                       and not asks_for_a_person(m.text)), None)
         if answer is not None:
             from sandbox import directory
             who = directory.get_employee(row["thread_id"].removeprefix("SYN-MAIL-")) or {}

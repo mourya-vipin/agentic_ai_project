@@ -140,13 +140,21 @@ def classify(tool: str, args: dict, ctx) -> str:
 
 
 YES, NO = re.compile(r"^(yes|y|approved?|agreed?)\b", re.I), re.compile(r"^(no|n|declined?|refused?)\b", re.I)
+ASKS_FOR_A_PERSON = re.compile(r"^HUMAN\b", re.I)    # a request for a person (Aman Panigrahi)
+
+
+def asks_for_a_person(text: str) -> bool:
+    """Whether a stranger's message asks for a person: its first word, after the sandbox's
+    "SYNTHETIC." mark, is HUMAN: a request for a person. Such a message goes to the
+    operator (agent/service.py: on_outside_reply), and no reader takes it as an answer."""
+    return bool(ASKS_FOR_A_PERSON.match(re.sub(r"^\s*SYNTHETIC\.\s*", "", text or "").strip()))
 
 
 def manager_answer(person: dict, group: dict, request: dict | None) -> str | None:
     """The manager's answer to our manager_confirm question for this person, group and request:
     "yes", "no", or None when we never asked or no reply has come. Read by code from the channel:
     the first reply after the question on the manager's thread, by its first word, as the question
-    asks (YES or NO). The reply is the stranger's word: a yes only lets the grant be put up for
+    asks (YES or NO). A reply whose first word is HUMAN asks for a person, so it is not the answer. The reply is the stranger's word: a yes only lets the grant be put up for
     the operator, who still decides."""
     manager = directory.manager_of(person["id"])
     if manager is None:
@@ -161,6 +169,8 @@ def manager_answer(person: dict, group: dict, request: dict | None) -> str | Non
         return None
     for m in messages:
         if m.id > asked[-1].id and m.sender not in channel.OURS:
+            if asks_for_a_person(m.text):
+                continue        # it goes to the operator (agent/service.py: on_outside_reply), not to the run
             words = re.sub(r"^\s*SYNTHETIC\.\s*", "", m.text).strip()
             return "yes" if YES.match(words) else "no" if NO.match(words) else None
     return None

@@ -56,6 +56,8 @@ holds no reply_draft and no reply_send, our code tells it so, once, and the loop
 
 from __future__ import annotations
 
+import json
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import date
@@ -128,12 +130,12 @@ def carry_on(cp, event: dict, *, system: str, tools: list[str], bound: Bound,
         ended = _make_approved_calls(cp, messages, step, actions)
         if ended is not None:
             runtime.trace(cp.session_id).end(ended, f"step {step}: an approved call ended the turn again")
-            return LoopResult(f"Stopped: {ended.replace('_', ' ')}.", actions, ended, step)
+            return LoopResult(_ended_text(ended, "", messages), actions, ended, step)
     elif event.get("kind") == "restart":
         messages, ended, held = _finish_the_step(cp, messages, actions)
         if ended is not None:
             runtime.trace(cp.session_id).end(ended, f"step {step}: the step that the stop of the process cut")
-            return LoopResult(held or f"Stopped: {ended.replace('_', ' ')}.", actions, ended, step)
+            return LoopResult(held or _ended_text(ended, "", messages), actions, ended, step)
         messages = _with_text(messages, RESTARTED)
     else:
         messages = _with_text(messages, _event_text(event))
@@ -170,13 +172,13 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
     while True:
         used, elapsed = client.total_tokens - start_tokens, time.monotonic() - start
         if step - first >= bound.max_steps:
-            return end(bounds.STEP_LIMIT, f"{bound.max_steps} model calls", _stopped("the step limit", text))
+            return end(bounds.STEP_LIMIT, f"{bound.max_steps} model calls", _stopped("the step limit", text, actions))
         if used >= bound.token_budget:
             return end(bounds.LOOP_TOKEN_BUDGET, f"{used:,} >= {bound.token_budget:,} tokens before step {step + 1}",
-                       _stopped("the token budget", text))
+                       _stopped("the token budget", text, actions))
         if elapsed >= bound.wall_clock_s:
             return end(bounds.WALL_CLOCK, f"{elapsed:.1f}s >= {bound.wall_clock_s:g}s before step {step + 1}",
-                       _stopped("the time limit", text))
+                       _stopped("the time limit", text, actions))
         if control.stopped(run_key):
             return end(control.END_STOPPED, f"{run_key} stopped by the operator before step {step + 1}",
                        f"Stopped by the operator before step {step + 1}." + (f" Last said: {text}" if text else ""))
@@ -191,7 +193,7 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
                                  memory=memory)
         if built.unfit:
             return end(context.BUDGET_UNFIT, f"{built.tokens:,} > {context.budget():,} tokens before step {step + 1}",
-                       _stopped("the context budget", text))
+                       _stopped("the context budget", text, actions))
         messages = _kept(built, messages)
 
         step += 1
@@ -273,7 +275,7 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
         if held is not None:
             return end(ended or exits._escalated(), f"step {step}: a write in doubt, held for the operator", held)
         if ended is not None:
-            return end(ended, f"step {step}", f"Stopped: {ended.replace('_', ' ')}. {text}".strip())
+            return end(ended, f"step {step}", _ended_text(ended, text, messages))
         if step % PROGRESS_EVERY == 0:
             trace.progress(f"{use_case}{' ' + request_id if request_id else ''}: step {step}, "
                            f"{calls_made} tool calls so far.")
@@ -417,8 +419,24 @@ def _reply_missing(use_case: str, run_key: str | None, request_id: str | None) -
     return not any(entry.get("tool") in REPLY_TOOLS for entry in checkpoints.journal_of(run_key).values())
 
 
-def _stopped(limit: str, text: str) -> str:
-    return f"Stopped at {limit} before finishing." + (f" Last said: {text}" if text else "")
+def _stopped(limit: str, text: str, actions: list[str]) -> str:
+    """What the operator reads when a bound ends the turn: what the turn wrote, or that it wrote nothing."""
+    done = f" In this turn it did: {'; '.join(actions)}." if actions else " It wrote nothing in this turn."
+    return f"Stopped at {limit} before finishing.{done}" + (f" Last said: {text}" if text else "")
+
+
+APPROVAL_ID = re.compile(r"\bAPR-\d+\b")
+
+
+def _ended_text(reason: str, text: str, messages: list[dict]) -> str:
+    """What the operator reads when a call ends the turn. A wait for an approval names each
+    approval and where to answer it, as the planned path does: the registry writes the ID in
+    the call's result ("Waiting for the operator's approval APR-0001 ..."). Anything else is a stop."""
+    if reason == AWAITING_APPROVAL:
+        ids = list(dict.fromkeys(APPROVAL_ID.findall(json.dumps(messages[-1:], default=str))))
+        which = ", ".join(ids) if ids else "an approval"
+        return f"Waiting for you: {which}. Answer it on /approvals; the call does not run before your answer."
+    return f"Stopped: {reason.replace('_', ' ')}. {text}".strip()
 
 
 def _kept(built: context.Assembled, messages: list[dict]) -> list[dict]:

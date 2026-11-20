@@ -86,7 +86,7 @@
   {% for i in records %}
     <a class="q-item" href="/pending">
       <span class="q-mark" aria-hidden="true">&#9998;</span>
-      <span class="q-main"><span>{{ i.summary|capitalize }}</span>
+      <span class="q-main"><span>{{ i.summary[:1]|upper }}{{ i.summary[1:] }}</span>
         <span class="muted small">{{ i.id }}{% if i.request %} · for request {{ i.request }}{% endif %}</span></span>
       <span class="q-side"><span class="chip waiting">for you</span><span class="muted small">{{ i.since|when }}</span></span>
     </a>

@@ -294,7 +294,10 @@ def thread_reply(request: Request, thread_id: str = Form(...), text: str = Form(
         if reply is None:
             notice = "A turn waiting on this thread (wait_for_reply) took the message; on_outside_reply was not called."
         else:
-            notice = f"The agent replied: {reply.text}" if reply.text else "The agent took the reply."
+            # this page plays the person outside, who never sees our app: the notice is for the tester
+            notice = ("What the desk did with this message (only you, the tester, see this; the operator sees it on "
+                      f"the console, the queue and /approvals): {reply.text}" if reply.text else
+                      "The desk took the message. Only you, the tester, see this note.")
     except Exception as exc:
         notice = _agent_error(exc)
     return page(request, "threads.html", threads=_threads(), thread=thread_id,

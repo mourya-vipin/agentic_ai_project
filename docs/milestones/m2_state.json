@@ -8,7 +8,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t01_standard_jira": {
@@ -17,7 +18,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t02_new_starter": {
@@ -26,7 +28,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t03_contractor_left": {
@@ -35,7 +38,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t04_same_access_as": {
@@ -44,7 +48,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t05_on_behalf": {
@@ -53,7 +58,8 @@
         "questions": 3,
         "runs_that_asked": 3,
         "waits": 3,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t06_bulk_ended_contractors": {
@@ -62,7 +68,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t07_unusual_review": {
@@ -71,7 +78,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t08_ask_manager": {
@@ -80,7 +88,8 @@
         "questions": 3,
         "runs_that_asked": 3,
         "waits": 3,
-        "replies_resumed": 3,
+        "replies_delivered": 3,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t09_later_session": {
@@ -89,7 +98,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t10_gated_reply": {
@@ -98,7 +108,8 @@
         "questions": 3,
         "runs_that_asked": 3,
         "waits": 3,
-        "replies_resumed": 3,
+        "replies_delivered": 3,
+        "for_the_operator": 0,
         "past_deadline": 0
       }
     },
@@ -138,7 +149,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t01_standard_jira": {
@@ -147,7 +159,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t02_new_starter": {
@@ -156,7 +169,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t03_contractor_left": {
@@ -165,7 +179,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t04_same_access_as": {
@@ -174,7 +189,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t05_on_behalf": {
@@ -183,7 +199,8 @@
         "questions": 3,
         "runs_that_asked": 3,
         "waits": 3,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t06_bulk_ended_contractors": {
@@ -192,7 +209,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t07_unusual_review": {
@@ -201,7 +219,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t08_ask_manager": {
@@ -210,7 +229,8 @@
         "questions": 3,
         "runs_that_asked": 3,
         "waits": 3,
-        "replies_resumed": 3,
+        "replies_delivered": 3,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t09_later_session": {
@@ -219,7 +239,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t10_gated_reply": {
@@ -228,7 +249,8 @@
         "questions": 3,
         "runs_that_asked": 3,
         "waits": 2,
-        "replies_resumed": 3,
+        "replies_delivered": 3,
+        "for_the_operator": 0,
         "past_deadline": 0
       }
     },
@@ -268,7 +290,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t01_standard_jira": {
@@ -277,7 +300,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t02_new_starter": {
@@ -286,7 +310,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t03_contractor_left": {
@@ -295,7 +320,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t04_same_access_as": {
@@ -304,7 +330,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t05_on_behalf": {
@@ -313,7 +340,8 @@
         "questions": 3,
         "runs_that_asked": 3,
         "waits": 3,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t06_bulk_ended_contractors": {
@@ -322,7 +350,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t07_unusual_review": {
@@ -331,7 +360,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t08_ask_manager": {
@@ -340,7 +370,8 @@
         "questions": 3,
         "runs_that_asked": 3,
         "waits": 3,
-        "replies_resumed": 3,
+        "replies_delivered": 3,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t09_later_session": {
@@ -349,7 +380,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t10_gated_reply": {
@@ -358,7 +390,8 @@
         "questions": 3,
         "runs_that_asked": 3,
         "waits": 3,
-        "replies_resumed": 3,
+        "replies_delivered": 3,
+        "for_the_operator": 0,
         "past_deadline": 0
       }
     },
@@ -398,7 +431,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t03_contractor_left": {
@@ -407,7 +441,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t07_unusual_review": {
@@ -416,7 +451,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       },
       "t09_later_session": {
@@ -425,7 +461,8 @@
         "questions": 0,
         "runs_that_asked": 0,
         "waits": 0,
-        "replies_resumed": 0,
+        "replies_delivered": 0,
+        "for_the_operator": 0,
         "past_deadline": 0
       }
     },

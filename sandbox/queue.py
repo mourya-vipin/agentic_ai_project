@@ -11,6 +11,7 @@ Each item is {"id", "summary", "status", "since", ...}; the page shows any furth
 from __future__ import annotations
 
 import importlib
+import re
 
 from sandbox import pending, requests
 
@@ -25,12 +26,20 @@ def arrived() -> list[dict]:
     """The requests still open, and the pending records the operator has not closed."""
     items = [{"id": r["id"], "summary": " ".join(r["text"].split())[:SUMMARY], "status": r["status"],
               "since": r["received_at"], "thread": r["thread_id"]} for r in requests.open_requests()]
-    items += [{"id": p["id"], "summary": f"{p['kind'].replace('_', ' ')}"
+    items += [{"id": p["id"], "summary": _outside(p) if p["kind"] == "outside_message" else
+               f"{p['kind'].replace('_', ' ')}"
                + (f" ({p['action']} {p['group_id']})" if p["group_id"] else "")
                + (f" for {p['employee_id']}" if p["employee_id"] else ""),
                "status": "waiting for the operator", "since": p["created_at"], "request": p["request_id"]}
               for p in pending.open_items()]
     return items
+
+
+def _outside(p: dict) -> str:
+    """A stranger's message that no run takes (agent/service.py: on_outside_reply; added by Aman Panigrahi)."""
+    who = p["employee_id"] or "someone outside"
+    said = " ".join(re.sub(r"^\s*SYNTHETIC\.\s*", "", p["body"] or "").split())     # the sandbox's mark, as the app drops it
+    return f"{who} wrote on {p['thread_id']} ({p['reason']}): {said}"[:SUMMARY * 2]
 
 
 def held() -> list[dict]:

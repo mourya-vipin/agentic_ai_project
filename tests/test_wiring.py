@@ -326,7 +326,9 @@ class TheOutsideReply(ScratchTest):
         self.waiting_run()
         with mock.patch.object(checkpoints, "resume") as resume:
             reply = service.on_outside_reply("SYN-MAIL-SYN-EMP-0099", "SYNTHETIC. Hello?")
-        self.assertEqual((reply.text, reply.actions, reply.waiting_for), ("", [], None))
+        # it continues no run; it waits for the operator on /pending (tests/test_wait.py: WhatNoRunTakes)
+        self.assertEqual((reply.actions, reply.waiting_for), ([], None))
+        self.assertIn("has no run that waits for it, so it waits for the operator on /pending", reply.text)
         resume.assert_not_called()
 
 
