@@ -120,6 +120,24 @@ class GateTest(ScratchTest):
         shown = approvals.screen("access_grant", {"employee_id": LEO, "group_id": group, "request_id": REQ},
                                  "access_grant/manager_confirmed", {"policy": {}, "already_holds": False})
         self.assertTrue(shown["manager's answer (computed)"].startswith("YES, the first reply"))
+        self.assertEqual(shown["the manager's reply (their words)"],
+                         f"Grace Okafor (SYN-EMP-0040), on {asked.data['thread_id']}: SYNTHETIC. YES, that is fine.")
+
+    def test_a_human_reply_is_not_the_managers_answer_on_the_screen_or_in_the_critique(self):
+        group = "SYN-GRP-FINREP-WRITE"
+        asked = self.registry.call("channel_ask_template", {"template": "manager_confirm", "employee_id": LEO,
+                                                            "group_id": group, "request_id": REQ}, self.ctx())
+        thread = asked.data["thread_id"]
+        channel.receive(thread, "SYNTHETIC. HUMAN, please call me about this.", sender="Grace Okafor")
+        grant = lambda: approvals.screen("access_grant", {"employee_id": LEO, "group_id": group, "request_id": REQ},
+                                         "access_grant/manager_confirmed", {"policy": {}, "already_holds": False})
+        self.assertIn("none on record", grant()["manager's answer (computed)"])
+        self.assertNotIn("the manager's reply (their words)", grant())
+        channel.receive(thread, "SYNTHETIC. YES, that is fine.", sender="Grace Okafor")
+        shown = grant()
+        self.assertTrue(shown["manager's answer (computed)"].startswith("YES"))
+        self.assertIn("YES, that is fine.", shown["the manager's reply (their words)"])
+        self.assertNotIn("HUMAN", shown["the manager's reply (their words)"])
 
     # -- the answer -------------------------------------------------------------------------
 
