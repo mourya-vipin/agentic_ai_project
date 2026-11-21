@@ -197,20 +197,41 @@ class WhatNoRunTakes(ScratchTest):
         self.assertEqual(len(waiting), 1, "her YES lets the grant be put up for the operator")
         self.assertIn("access_grant/manager_confirmed", json.dumps(waiting[0]))
 
-    def test_two_messages_that_the_thread_does_not_have_get_a_record_each(self):
-        """Vipin Mourya's review: the key ended in "-unknown", so the second folded into the first."""
+    def test_one_open_record_a_thread_and_reason_and_none_on_a_thread_of_no_one(self):
+        """Vipin Mourya's second review: a stranger could fill /pending, with one record a message on
+        any thread ID, and the queue named the sender that the address claimed as if it were checked."""
+        from sandbox import queue
+        rid = "outside-flood"
+        hannah = dict(sender="hannah.lee@syn-corp.example")
+        with fixed_run(T08, rid, backend=BACKEND):
+            first = turns.outside_reply(THREAD, "SYNTHETIC. Hi IT, a question about Dev.", **hannah)
+            again = turns.outside_reply(THREAD, "SYNTHETIC. Hi IT, and a second question.", **hannah)
+            human = turns.outside_reply(THREAD, "SYNTHETIC. HUMAN, please.", **hannah)
+            no_one = turns.outside_reply("SYN-MAIL-SYN-EMP-9999", "SYNTHETIC. HUMAN.", sender="x@example.com")
+            made_up = turns.outside_reply("SYN-NOT-A-THREAD", "SYNTHETIC. Hello?", sender="x@example.com")
+            items = self.outside_for_operator()
+            shown = [i["summary"] for i in queue.arrived() if THREAD in i["summary"]]
+        self.assertIn("so it waits for the operator on /pending as", first.text)
+        self.assertIn(f"It joins {items[0]['id']}, which already waits for the operator", again.text)
+        self.assertIn("so it waits for the operator on /pending as", human.text, "a HUMAN gets its own record")
+        self.assertEqual([(i["thread_id"], i["reason"]) for i in items],
+                         [(THREAD, "has no run that waits for it"), (THREAD, "asks for a person")])
+        for reply in (no_one, made_up):
+            self.assertIn("is not kept for the operator", reply.text)
+        self.assertEqual(len(shown), 2)
+        self.assertTrue(all(s.endswith(queue.UNCHECKED_SENDER) for s in shown), shown)
+
+    def test_a_message_that_the_thread_does_not_have_is_keyed_by_its_text(self):
+        """Vipin Mourya's review of #66: the key ended in "-unknown"."""
         from unittest import mock
 
         from agent import service
-        rid = "outside-not-on-thread"
-        with fixed_run(T08, rid, backend=BACKEND), mock.patch.object(channel, "messages", return_value=[]):
-            first = service._for_the_operator(THREAD, "SYNTHETIC. HUMAN, please.", None, "asks for a person")
-            again = service._for_the_operator(THREAD, "SYNTHETIC. HUMAN, please.", None, "asks for a person")
-            other = service._for_the_operator(THREAD, "SYNTHETIC. HUMAN. Call me today.", None, "asks for a person")
+        with fixed_run(T08, "outside-not-on-thread", backend=BACKEND), \
+                mock.patch.object(channel, "messages", return_value=[]):
+            service._for_the_operator(THREAD, "SYNTHETIC. HUMAN, please.", None, "asks for a person")
             items = self.outside_for_operator()
-        self.assertEqual(first.text, again.text, "the same message twice is one record")
-        self.assertNotEqual(first.text, other.text)
-        self.assertEqual(len(items), 2)
+        self.assertEqual(len(items), 1)
+        self.assertTrue(items[0]["key"].startswith(f"outside-{THREAD}-text-"), items[0]["key"])
 
     def test_a_reply_to_a_stopped_run_is_left_for_resume(self):
         from agent import control

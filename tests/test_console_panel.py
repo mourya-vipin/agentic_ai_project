@@ -8,6 +8,8 @@ holds (source and age). Owner: Aman Panigrahi. No tokens: no model is called.
     the list       a session with a waiting run says so
     the words      the chat shows "/stop 1" as "Stop run 1", and a run key as "run 1"; the trace keeps the command
     no side effect reading the panel writes no trace line and changes no run
+    the threads    a person's mailbox thread writes as that person by default
+    the start-up   a claim that a stopped process left is released
 """
 
 from __future__ import annotations
@@ -146,6 +148,25 @@ class ConsolePanelTest(ScratchTest):
         self.assertEqual(plain("SYNTHETIC. Hi IT, could I get Jira?"), "Hi IT, could I get Jira?")
         self.assertEqual(plain("SYNTHETIC. EVENT: contract_ended; EMPLOYEE: SYN-EMP-0150; END: 2026-10-20"),
                          "Contract ended · employee SYN-EMP-0150 · end 2026-10-20")
+
+    def test_a_mailbox_thread_writes_as_its_owner(self):
+        """Vipin Mourya's review: since #72 the hook counts a manager's YES only from the manager's own address,
+        and the page wrote as "outside" on her thread, so a tester's YES did nothing."""
+        page = self.client.get("/threads", params={"thread": "SYN-MAIL-SYN-EMP-0060"}).text
+        self.assertIn('name="sender" value="hannah.lee@syn-corp.example"', page)
+        channel.receive("SYN-thread-9", "A question from outside", sender="SYN-person-9")
+        page = self.client.get("/threads", params={"thread": "SYN-thread-9"}).text
+        self.assertIn('name="sender" value="SYN-person-9"', page)
+
+    def test_a_claim_that_a_stopped_process_left_is_released_at_start_up(self):
+        """Vipin Mourya's review: a claim was released only in the turn's `finally`, so a kill during a
+        turn left the request "another console session is working on it" after make serve."""
+        from sandbox import requests
+        self.assertTrue(requests.claim("SYN-REQ-0001", "s-killed"))
+        self.assertFalse(requests.claim("SYN-REQ-0001", "s-next"))
+        with TestClient(app):              # the app starts again, as make serve does
+            pass
+        self.assertTrue(requests.claim("SYN-REQ-0001", "s-next"))
 
     def test_the_queue_shows_each_paused_run_in_words(self):
         self.runs()

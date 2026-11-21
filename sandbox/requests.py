@@ -84,6 +84,14 @@ def claim(request_id, session_id) -> bool:
     return row["session_id"] == sid
 
 
+def release_all() -> int:
+    """Every claim, released, and how many there were. The app calls it once at start-up
+    (agent/service.py: on_start), as a claim lives only within one turn of one process.
+    Added by Aman Panigrahi."""
+    with db.connect() as conn:
+        return conn.execute("DELETE FROM request_claims").rowcount
+
+
 def release(request_id, session_id) -> None:
     with db.connect() as conn:
         conn.execute("DELETE FROM request_claims WHERE request_id = ? AND session_id = ?",

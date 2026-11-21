@@ -100,13 +100,7 @@ def _limits(session_id: str, text: str) -> tuple[list[str], str | None]:
 
 
 def on_outside_reply(thread_id: str, text: str) -> Reply:
-    """A stranger's message on this thread, delivered here once.
-
-    The message is stored, and this returns an empty Reply until you build the
-    outside exchange, so a message typed on the threads page is ignored. Once you
-    build it, the agent asks on the thread, ends its turn with
-    Reply(waiting_for=thread_id), and carries on here when the answer arrives,
-    finding the work that waits on this thread. Do not wait for `text` again.
+    """A stranger's message on this thread, delivered here once. The channel has stored it.
 
     Owner: Aman Panigrahi. The run that waits for a reply on this thread continues from
     its checkpoint (checkpoints.resume), in this process or after a restart. The notes
@@ -135,28 +129,70 @@ def on_outside_reply(thread_id: str, text: str) -> Reply:
 def _for_the_operator(thread_id: str, text: str, run, why: str) -> Reply:
     """A stranger's message that no run takes, kept for the operator as a pending record
     ("outside_message"): /pending and the queue show it until the operator marks it done or
-    dismisses it. Keyed by the message, so the same message twice is one record. A run that
-    waits on the thread keeps waiting. If the thread does not have the message (Vipin Mourya's
-    review), the key comes from the text, so a second, different message gets its own record."""
+    dismisses it. A run that waits on the thread keeps waiting. So that a stranger cannot fill
+    /pending (Vipin Mourya's review):
+
+        which threads   a thread that we wrote on, a request's own thread, or the mailbox of a
+                        person in the directory (SYN-MAIL-<employee ID>). A message on any other
+                        thread stays on the threads page, and no record is made.
+        how many        one open record for each thread and reason. A later message joins it:
+                        the thread holds every message, and the reply names the record.
+        the sender      as the message gives it: our code does not check the address, and the
+                        queue says so.
+
+    The key is the message's ID, so the same message twice is one record. If the thread does not
+    have the message, the key comes from the text."""
     import hashlib
 
     import channel
     from sandbox import db, directory, pending, requests
-    message = next((m for m in reversed(channel.messages(thread_id)) if m.sender not in channel.OURS), None)
-    sender = directory.by_email(message.sender) if message is not None else None
+    on_thread = channel.messages(thread_id)
+    message = next((m for m in reversed(on_thread) if m.sender not in channel.OURS), None)
     request = (requests.get((run.findings or {}).get("request_id")) if run is not None else None) \
         or requests.by_thread(thread_id)
-    which = message.id if message is not None else "text-" + hashlib.sha256((text or "").encode()).hexdigest()[:12]
-    key = f"outside-{thread_id}-{which}"
-    pid = pending.create("outside_message", request_id=request["id"] if request else None,
-                         employee_id=sender["id"] if sender else None, key=key, stamp=db.current_stamp(),
-                         thread_id=thread_id, body=text, reason=why)
     traced = run.session_id if run is not None else _this_session()
+    if not _known_thread(thread_id, on_thread, run, request):
+        if traced:
+            runtime.trace(traced).event("outside_not_kept", thread_id=thread_id, why="not a thread of ours")
+        return Reply(f"Nothing of ours is on {thread_id}, and it is no one's mailbox in the directory, so the "
+                     "message stays on the threads page and is not kept for the operator.")
+    waits = f" Run {run.run_no} still waits for a reply on {thread_id}." if run is not None else ""
+    joined = next((p for p in pending.open_items("outside_message")
+                   if p["thread_id"] == thread_id and p["reason"] == why), None)
+    if joined is not None:
+        if traced:
+            runtime.trace(traced).event("outside_for_operator", thread_id=thread_id, pending_id=joined["id"],
+                                        why=why, joined=True, run_key=run.run_key if run is not None else None)
+        return Reply(f"The message on {thread_id} {why}. It joins {joined['id']}, which already waits for the "
+                     f"operator on /pending; the thread has every message.{waits}")
+    sender = directory.by_email(message.sender) if message is not None else None
+    which = message.id if message is not None else "text-" + hashlib.sha256((text or "").encode()).hexdigest()[:12]
+    pid = pending.create("outside_message", request_id=request["id"] if request else None,
+                         employee_id=sender["id"] if sender else None, key=f"outside-{thread_id}-{which}",
+                         stamp=db.current_stamp(), thread_id=thread_id, body=text, reason=why)
     if traced:          # the threads page has no session: the pending record is what the operator reads
         runtime.trace(traced).event("outside_for_operator", thread_id=thread_id, pending_id=pid, why=why,
                                     run_key=run.run_key if run is not None else None)
-    waits = f" Run {run.run_no} still waits for a reply on {thread_id}." if run is not None else ""
     return Reply(f"The message on {thread_id} {why}, so it waits for the operator on /pending as {pid}.{waits}")
+
+
+def _known_thread(thread_id: str, on_thread: list, run, request: dict | None) -> bool:
+    """Whether a message on this thread can become a pending record (_for_the_operator)."""
+    import channel
+    from sandbox import directory
+    if run is not None or request is not None or any(m.sender in channel.OURS for m in on_thread):
+        return True
+    return thread_id.startswith("SYN-MAIL-") and directory.get_employee(thread_id.removeprefix("SYN-MAIL-")) is not None
+
+
+def on_start() -> None:
+    """What the app does once, at start-up (app/main.py: lifespan). A claim on a request lives
+    only within one turn of one process (router.process_requests releases it at the end). So a
+    claim found at start-up is from a process that stopped during a turn, such as a kill before
+    `make serve`, and our code releases it. Before, that request stayed "another console session
+    is working on it" until `make app` reset the sandbox (Vipin Mourya's review)."""
+    from sandbox import requests
+    requests.release_all()
 
 
 # What the console's panel says of each status, and the commands that it offers for it.

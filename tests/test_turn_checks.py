@@ -12,6 +12,8 @@ No tokens: the models are fakes (free = True).
                    prompt names no record of the sandbox
     the request    the requester's text is escaped inside its <request> tags
     U5's prompt    it names the notes, as the call labels them, for a question about today's work
+    the summary    a last answer that says a message went out, with no send in the journal, gets
+                   our code's line that no message went out
 """
 
 from __future__ import annotations
@@ -227,6 +229,29 @@ class U5ReadsTheNotes(ScratchTest):
         self.assertTrue(label.lower().startswith("[notes kept by our code for this session"), label)
         self.assertIn("the notes kept by our code for this session", prompt)
         self.assertIn("the changes recorded under today's requests", prompt)
+
+
+class TheSummarysClaims(ScratchTest):
+    """Milestone 1's "For Milestone 2" (Vipin Mourya's review): the loop's summary said that the
+    requester "has been informed" when the reply was only drafted
+    (pass1-before-t05_on_behalf-s03-1167e0, trace line 29)."""
+
+    DRAFTED = ["drafted a reply to SYN-EMP-0007: SYN-PEND-0002, for the operator to send"]
+
+    def test_a_send_that_the_journal_does_not_hold_gets_our_line(self):
+        from unittest import mock
+        with mock.patch.object(checkpoints, "journal_of", return_value={"k1": {"tool": "reply_draft"}}):
+            note = loop._not_sent("nonstandard_request", "s#1", "Arjun has been informed.", self.DRAFTED)
+            said_draft = loop._not_sent("nonstandard_request", "s#1", "I drafted the reply for you.", self.DRAFTED)
+            u5 = loop._not_sent("operator_review", "s#1", "Arjun was informed this morning.", [])
+        self.assertIn("[from our code] No message went to anyone in this run.", note)
+        self.assertIn("SYN-PEND-0002", note)
+        self.assertEqual((said_draft, u5), ("", ""), "no claim; and U5 only reads")
+
+    def test_a_send_in_the_journal_gets_no_line(self):
+        from unittest import mock
+        with mock.patch.object(checkpoints, "journal_of", return_value={"k1": {"tool": "reply_send"}}):
+            self.assertEqual(loop._not_sent("nonstandard_request", "s#1", "Arjun has been informed.", []), "")
 
 
 class TheRequestsText(ScratchTest):
