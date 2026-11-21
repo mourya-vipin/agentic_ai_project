@@ -155,26 +155,31 @@ def _case(recipient: str, request_id: str | None, stamp: str) -> dict:
 
 
 def _questions(request_id: str, stamp: str) -> list[dict]:
-    """The manager_confirm questions this run sent under the request (channel_ask_template), each with
-    the manager's first answer after it, if any: "yes", "no" or "" (read by its first word, as
-    policy/hook.py reads it)."""
+    """The manager_confirm questions this run sent under the request (channel_ask_template), the latest
+    per person and group, each with the person it asks about and the manager's answer: "yes", "no",
+    "" (neither) or None (none yet). The answer is the hook's own reading (policy/hook.py:
+    manager_reply): her own message after the latest question about this person and group, a HUMAN
+    message skipped, so the critique and the gate never disagree."""
     import channel
     from policy import hook
     from sandbox import db
     with db.connect() as conn:
         rows = conn.execute("SELECT thread_id, message_id FROM notices_sent WHERE template_id = 'manager_confirm' "
                             "AND stamp = ? ORDER BY message_id", (stamp,)).fetchall()
-    out = []
+    latest = {}
     for row in rows:
-        messages = channel.messages(row["thread_id"])
-        question = next((m for m in messages if m.id == row["message_id"]), None)
-        if question is None or request_id not in question.text:
+        question = next((m for m in channel.messages(row["thread_id"]) if m.id == row["message_id"]), None)
+        about = hook.question_about(question.text) if question is not None else None
+        if about is None or f" on {request_id} " not in question.text:
             continue
-        reply = next((m for m in messages if m.id > question.id and m.sender not in channel.OURS
-                      and not hook.asks_for_a_person(m.text)), None)      # HUMAN is not an answer (Aman Panigrahi)
+        latest[about] = {"question": question, "thread_id": row["thread_id"], "employee_id": about[0],
+                         "group_id": about[1]}
+    out = []
+    for (person, group), q in latest.items():
+        reply = hook.manager_reply({"id": person}, {"id": group}, {"id": request_id})
         said = re.sub(r"^\s*SYNTHETIC\.\s*", "", reply.text).strip() if reply else None
-        answer = None if said is None else "yes" if hook.YES.match(said) else "no" if hook.NO.match(said) else ""
-        out.append({"question": question, "thread_id": row["thread_id"], "answer": answer})
+        q["answer"] = None if said is None else "yes" if hook.YES.match(said) else "no" if hook.NO.match(said) else ""
+        out.append(q)
     return out
 
 
@@ -191,14 +196,11 @@ def _asked_unanswered(request_id: str, stamp: str) -> list[dict]:
     for q in _questions(request_id, stamp):
         if q["answer"] is not None:
             continue                                                   # answered: it waits no more
-        question, row = q["question"], q
-        groups = GROUP_ID.findall(question.text)
-        people = [p for p in re.findall(r"SYN-EMP-\d{4}", question.text)]
-        manager = row["thread_id"].removeprefix("SYN-MAIL-")
-        employee = next((p for p in people if p != manager), None)
-        if groups and employee:
-            out.append({"id": f"the question to {manager} (message {question.id})", "kind": "manager_question",
-                        "group_id": groups[0].upper(), "employee_id": employee, "status": "open", "manager": manager})
+        question = q["question"]
+        manager = q["thread_id"].removeprefix("SYN-MAIL-")
+        # the person the question asks about, not its first employee ID (the requester's; a review, 2026-11-20)
+        out.append({"id": f"the question to {manager} (message {question.id})", "kind": "manager_question",
+                    "group_id": q["group_id"], "employee_id": q["employee_id"], "status": "open", "manager": manager})
     return out
 
 

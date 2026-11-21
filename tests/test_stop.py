@@ -240,12 +240,12 @@ def _at(line) -> float:
 
 
 def stopped_mid_run(test) -> dict:
-    """A planned t06 run on SlowPlanner in a second thread. The checkpoint after Victor's
+    """A planned t06 run on SlowReviser in a second thread. The checkpoint after Victor's
     listing fails and the reviser's model call starts; the stop is sent from this thread
     while it runs. Returns what the conditions read: the trace, the run key, the writes."""
     run_id = f"stop-{_uuid.uuid4().hex[:8]}"
     out: dict = {"run_id": run_id}
-    with fixed_run(T06, run_id, backend="tests.fakes:SlowPlanner") as run:
+    with fixed_run(T06, run_id, backend="tests.fakes:SlowReviser") as run:
         worker = _threading.Thread(target=lambda: out.setdefault(
             "result", executor.run_planned(run_id, fakes.T06_TEXT, bound=Bound())))
         worker.start()
@@ -277,7 +277,7 @@ class StopConditionsTest(ScratchTest):
         self.assertLess(notice, first_write)
         self.assertLessEqual(_at(lines[notice]), _at(lines[first_write]))
         self.assertIn("/stop 1", lines[notice - 1]["text"])                  # the console's progress line
-        with fixed_run(T06, run["run_id"], backend="tests.fakes:SlowPlanner", fresh=False):
+        with fixed_run(T06, run["run_id"], backend="tests.fakes:SlowReviser", fresh=False):
             control.resume(run["key"])
         resumed = [x for x in read_trace(run["trace_path"]) if x["type"] == "run_notice" and x["resumed"]]
         self.assertEqual(len(resumed), 1)
@@ -292,8 +292,8 @@ class StopConditionsTest(ScratchTest):
             latencies.append(_at(refused) - _at(stop))
             self.assertEqual([x["terminal_reason"] for x in run["lines"] if x["type"] == "end"][-1],
                              executor.STOPPED)
-        # the call in flight at the stop (the reviser's model call, SlowPlanner.DELAY_S) finishes first
-        self.assertTrue(all(0 <= s < fakes.SlowPlanner.DELAY_S + 1.0 for s in latencies), latencies)
+        # the call in flight at the stop (the reviser's model call, SlowReviser.REVISER_S) finishes first
+        self.assertTrue(all(0 <= s < fakes.SlowReviser.REVISER_S + 1.0 for s in latencies), latencies)
 
     def test_durable_the_stop_saves_the_run_and_the_resume_writes_nothing_twice(self):
         run = stopped_mid_run(self)
@@ -301,7 +301,7 @@ class StopConditionsTest(ScratchTest):
         last_call = [x for x in run["lines"] if x["type"] == "tool_call"][-1]
         self.assertEqual(saved.status, checkpoints.STOPPED)
         self.assertGreaterEqual(saved.updated_at, last_call["at"])           # saved after the last call
-        with fixed_run(T06, run["run_id"], backend="tests.fakes:SlowPlanner", fresh=False):
+        with fixed_run(T06, run["run_id"], backend="tests.fakes:SlowReviser", fresh=False):
             control.resume(run["key"])
             fakes.approve_all()
         with db.connect() as conn:

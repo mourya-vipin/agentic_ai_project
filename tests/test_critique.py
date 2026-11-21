@@ -321,3 +321,45 @@ class AskedManagerTest(ScratchTest):
             self.assertTrue(any("no approval is on record" in w for w in check()), "before her answer")
             channel.receive(asked.data["thread_id"], "SYNTHETIC. YES. Dev is on my team now.", sender="hannah.lee@syn-corp.example")
             self.assertEqual(check(), [])
+
+    def test_the_question_is_about_the_person_not_the_requester(self):
+        """The template names the requester first ("Arjun Mehta (SYN-EMP-0007) asked for Dev Rao (SYN-EMP-0052)
+        to get ..."); the open question is Dev's, so its approver is Dev's manager (a review, 2026-11-20)."""
+        from agent.registry import CallContext, get_registry
+        from policy import hook
+        run_id = f"crit-who-{uuid.uuid4().hex[:8]}"
+        with fixed_run("tasks/t10_gated_reply.yaml", run_id):
+            ctx = CallContext(run_id, 1, "model", "nonstandard_request", request_id="SYN-REQ-0001",
+                              run_key=f"{run_id}#1")
+            get_registry().call("channel_ask_template", {"template": "manager_confirm", "employee_id": "SYN-EMP-0052",
+                                                         "group_id": "SYN-GRP-GITHUB-ENG", "request_id": "SYN-REQ-0001"}, ctx)
+            [question] = critique._questions("SYN-REQ-0001", run_id)
+            self.assertIn("(SYN-EMP-0007) asked for", question["question"].text)       # the requester comes first
+            self.assertEqual(hook.question_about(question["question"].text), ("SYN-EMP-0052", "SYN-GRP-GITHUB-ENG"))
+            [waiting] = critique._asked_unanswered("SYN-REQ-0001", run_id)
+            self.assertEqual((waiting["employee_id"], waiting["group_id"]), ("SYN-EMP-0052", "SYN-GRP-GITHUB-ENG"))
+
+    def test_only_the_managers_own_reply_counts_and_a_question_asked_again_waits_again(self):
+        import channel
+        from agent.registry import CallContext, get_registry
+        run_id = f"crit-own-{uuid.uuid4().hex[:8]}"
+        args = {"template": "manager_confirm", "employee_id": "SYN-EMP-0052", "group_id": "SYN-GRP-GITHUB-ENG",
+                "request_id": "SYN-REQ-0001"}
+        with fixed_run("tasks/t08_ask_manager.yaml", run_id):
+            ctx = CallContext(run_id, 1, "model", "nonstandard_request", request_id="SYN-REQ-0001",
+                              run_key=f"{run_id}#1")
+            asked = get_registry().call("channel_ask_template", args, ctx)
+            thread = asked.data["thread_id"]
+            answer = lambda: [q["answer"] for q in critique._questions("SYN-REQ-0001", run_id)]
+            channel.receive(thread, "SYNTHETIC. YES, add him.", sender="arjun.mehta@syn-corp.example")
+            self.assertEqual(answer(), [None], "the requester's YES on her thread is not hers")
+            channel.receive(thread, "SYNTHETIC. YES.", sender="hannah.lee@syn-corp.example")
+            self.assertEqual(answer(), ["yes"])
+            # asked again (a later run's question; within one run the channel refuses the same text twice)
+            from sandbox import db
+            first = next(m for m in channel.messages(thread) if m.id == asked.data["message_id"])
+            again = channel.send(thread, first.text)
+            with db.connect() as conn:
+                conn.execute("INSERT INTO notices_sent (key, thread_id, message_id, template_id, stamp, at) "
+                             "VALUES (?, ?, ?, 'manager_confirm', ?, ?)", ("asked-again", thread, again.id, run_id, "x"))
+            self.assertEqual(answer(), [None], "the latest question waits, as the hook reads it")
