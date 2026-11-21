@@ -48,6 +48,7 @@ CONSOLE_LINES = ("operator", "reply", "progress", "outside", "error", "approval"
 @asynccontextmanager
 async def lifespan(_app):
     runtime.configure()          # settings, prices and switches, loaded once at start-up
+    service.on_start()           # a claim left by a process that stopped during a turn is released
     yield
 
 
@@ -283,7 +284,20 @@ def _threads() -> list[dict]:
 @app.get("/threads", response_class=HTMLResponse)
 def threads(request: Request, thread: str | None = None):
     messages = [m.as_dict() for m in channel.messages(thread)] if thread else []
-    return page(request, "threads.html", threads=_threads(), thread=thread, messages=messages, notice=None)
+    return page(request, "threads.html", threads=_threads(), thread=thread, messages=messages, notice=None,
+                owner=_thread_owner(thread))
+
+
+def _thread_owner(thread: str | None) -> str | None:
+    """The address of the person whose mailbox the thread is (SYN-MAIL-<employee ID>), or None.
+    The page writes as that person unless the tester changes it: the hook counts a manager's
+    answer only from the manager's own address (#72), so a YES sent as "outside" did nothing (Vipin
+    Mourya's review)."""
+    if not thread or not thread.startswith("SYN-MAIL-"):
+        return None
+    from sandbox import directory
+    person = directory.get_employee(thread.removeprefix("SYN-MAIL-"))
+    return person["email"] if person else None
 
 
 @app.post("/threads/reply", response_class=HTMLResponse)
@@ -301,7 +315,8 @@ def thread_reply(request: Request, thread_id: str = Form(...), text: str = Form(
     except Exception as exc:
         notice = _agent_error(exc)
     return page(request, "threads.html", threads=_threads(), thread=thread_id,
-                messages=[m.as_dict() for m in channel.messages(thread_id)], notice=notice)
+                messages=[m.as_dict() for m in channel.messages(thread_id)], notice=notice,
+                owner=_thread_owner(thread_id))
 
 
 # -- approvals -------------------------------------------------------------------------------

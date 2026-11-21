@@ -52,6 +52,10 @@ A U4 run must write its reply to the requester with a tool. The requester never 
 model's answer, which goes to the operator. When the model ends a U4 turn and the run's journal
 holds no reply_draft and no reply_send, our code tells it so, once, and the loop goes on
 (NO_REPLY; a reply_missing line in the trace). A turn that waits for a stranger is not checked.
+
+When a run's last answer says that a message went out ("informed", "sent", "told") and the
+run's journal holds no send, our code adds a line that says no message went out, with what the
+run drafted (_not_sent; a send_not_made line in the trace). U5 is not checked: it only reads.
 """
 
 from __future__ import annotations
@@ -219,7 +223,11 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
             trace.event("reply_missing", run_key=run_key, request_id=request_id, step=step)
             continue
         if not calls:
-            return end(done, f"step {step}, stop_reason {response.stop_reason}", response.text)
+            note = _not_sent(use_case, run_key, response.text, actions)
+            if note:
+                trace.event("send_not_made", run_key=run_key, request_id=request_id, step=step)
+            return end(done, f"step {step}, stop_reason {response.stop_reason}",
+                       response.text + note if note else response.text)
 
         messages.append(response.assistant_message())
         results, ended, held = [], None, None
@@ -417,6 +425,25 @@ def _reply_missing(use_case: str, run_key: str | None, request_id: str | None) -
     if use_case not in REPLY_REQUIRED or not run_key or not request_id:
         return False
     return not any(entry.get("tool") in REPLY_TOOLS for entry in checkpoints.journal_of(run_key).values())
+
+
+# a summary that says a message went out. Milestone 1 found one that said the requester "has been
+# informed" when the reply was only drafted (pass1-before-t05_on_behalf-s03-1167e0, trace line 29)
+CLAIMS_A_SEND = re.compile(r"\b(?:informed|notified|emailed|messaged|told|sent|let\s+\w+\s+know)\b", re.I)
+
+
+def _not_sent(use_case: str, run_key: str | None, text: str, actions: list[str]) -> str:
+    """The note that our code adds to a run's last answer when the answer says that a message
+    went out, and the run's journal holds no send. A run that writes only: U5 only reads, and
+    its answers are about the day's other runs."""
+    if use_case == "operator_review" or not run_key or not text or not CLAIMS_A_SEND.search(text):
+        return ""
+    from policy.hook import SENDS
+    if any(entry.get("tool") in SENDS for entry in checkpoints.journal_of(run_key).values()):
+        return ""
+    drafted = [a for a in actions if a.startswith("drafted ")]
+    return ("\n\n[from our code] No message went to anyone in this run." +
+            (f" Drafted, for you to send from /pending: {'; '.join(drafted)}." if drafted else ""))
 
 
 def _stopped(limit: str, text: str, actions: list[str]) -> str:

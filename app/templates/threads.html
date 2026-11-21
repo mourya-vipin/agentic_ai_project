@@ -31,7 +31,8 @@
 
   <section class="box inbox-thread">
     {% if thread %}
-      {% set them = (messages|rejectattr('sender', 'in', ['agent', 'operator'])|map(attribute='sender')|first) or 'outside' %}
+      {# a person's mailbox thread (SYN-MAIL-<employee ID>): write as its owner, whose YES the hook counts #}
+      {% set them = owner or (messages|rejectattr('sender', 'in', ['agent', 'operator'])|map(attribute='sender')|first) or 'outside' %}
       <div class="box-head"><span>{{ them|person }} <span class="muted small" style="text-transform: none; letter-spacing: 0">· {{ thread }}</span></span>
         {% if current and current.request_id %}<a class="small" href="/requests/{{ current.request_id }}">Open request {{ current.request_id }}</a>{% endif %}</div>
       {% if notice %}<div class="notice inbox-notice">{{ notice }}</div>{% endif %}

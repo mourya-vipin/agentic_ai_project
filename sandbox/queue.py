@@ -36,10 +36,14 @@ def arrived() -> list[dict]:
 
 
 def _outside(p: dict) -> str:
-    """A stranger's message that no run takes (agent/service.py: on_outside_reply; added by Aman Panigrahi)."""
+    """A stranger's message that no run takes (agent/service.py: on_outside_reply; added by Aman Panigrahi).
+    The sender is the one that the message's address gives: our code does not check it."""
     who = p["employee_id"] or "someone outside"
     said = " ".join(re.sub(r"^\s*SYNTHETIC\.\s*", "", p["body"] or "").split())     # the sandbox's mark, as the app drops it
-    return f"{who} wrote on {p['thread_id']} ({p['reason']}): {said}"[:SUMMARY * 2]
+    return f"{who} wrote on {p['thread_id']} ({p['reason']}): {said}"[:SUMMARY * 2] + UNCHECKED_SENDER
+
+
+UNCHECKED_SENDER = " (the sender is as the message's address gives it, not checked)"
 
 
 def held() -> list[dict]:
