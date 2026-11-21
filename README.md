@@ -152,6 +152,10 @@ source .venv/bin/activate      # in every new terminal
 make test                      # the starter's own tests; they spend no tokens
 ```
 
+Clone the repository in full, not with `--depth 1` or as a ZIP: `make check`'s
+ledger check reads the git history, to show that each pass's prediction was
+committed before its first run, and fails without it.
+
 Choose your model in `settings.yaml`: the `provider`, `model`, `base_url` and
 `api_key_env` lines, as in your assignments. Add its line to `pricing.yaml` if the
 sheet does not have it, with its source and the date you read it. Then:
@@ -176,7 +180,7 @@ without resetting the sandbox, to show that something survives a restart.
 tokens. `make seed TASK=tasks/<file>.yaml` seeds one test task's inputs instead of
 the demo data.
 
-Until you build your agent, the console answers that the agent is not built yet.
+Without an API key the pages all work, and a console turn answers with the error that names the key it needs.
 
 ## The pages
 
@@ -244,8 +248,11 @@ Every field is optional, so `Reply(waiting_for=thread_id)` works as written.
 ## The outside channel
 
 Strangers' messages arrive on the channel: your seed puts them there. A message
-written on the threads page goes to `on_outside_reply`, which returns an empty
-`Reply()` until you build it. To ask a stranger, your agent writes on their
+written on the threads page goes to `on_outside_reply`. If a run waits on that
+thread, the message resumes it. One whose first word is HUMAN, or one that no run
+waits for, goes to the operator instead, as a pending record (`outside_message`)
+on `/pending` and the queue. On a manager's thread, only a message from the
+manager's own address or name counts as their answer. To ask a stranger, your agent writes on their
 thread and ends its turn waiting on it:
 
 ```python
@@ -339,8 +346,9 @@ several strangers, one per thread. A test task in which your agent asks no one h
 `outside: []`.
 
 The strangers are scripted: each answers when a turn ends waiting on their thread.
-No Milestone 1 task waits on anyone, so all of ours have `outside: []`; the starter's
-`tasks/example.yaml`, removed in this milestone (CHANGES.md), showed the format.
+Of ours, t08 and t10 have a stranger, the manager Hannah Lee on
+`SYN-MAIL-SYN-EMP-0060`; the others have `outside: []`. The starter's
+`tasks/example.yaml`, removed in Milestone 1 (CHANGES.md), showed the format.
 
 The check is a function in `checks/` that decides pass or fail after the run. It
 receives the run (`RunInfo`): its ID, the test task, the state folder, the

@@ -198,8 +198,10 @@ EARLIER_DISCLOSURE_LINES = ("— Sent by the IT access desk's automated agent. T
 
 def require_disclosure(run) -> list[str]:
     """One problem per message the agent sent in this run without the disclosure line as its
-    last paragraph (Part 2, task 8), read from the channel. Every check calls it and adds what
-    it returns to its problems. Added by Vipin Mourya."""
+    last paragraph (Part 2, task 8), read from the channel. Every Milestone 2 task's check calls it
+    and adds what it returns to its problems (t05, t06, t08 to t10, s01). Milestone 1's checks do
+    not, so that Milestone 1's committed runs, made before the line, read the same if checked
+    again; tests/test_disclosure.py reads t01 to t03's notices instead. Added by Vipin Mourya."""
     from checks.helpers import sent_by_agent
 
     return [f"message {m.id} on {t['thread_id']} has no disclosure line"
