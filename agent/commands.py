@@ -6,7 +6,10 @@ Owner: Shruti Tewaney.
     /stop <n>        stop run n of this session
     /cancel <n>      end run n for good; what it did stays
     /resume <n>      lift run n's stop and carry on from its saved state
+    /resume <n> <text>   the same, with the operator's new words for the run (an answer, a change)
     /rollback <n>    undo run n's writes, newest first, where they can be undone
+    /rollback <n> list   show run n's writes, numbered, newest first, and undo nothing
+    /rollback <n> 2 3    undo only those numbers of the list; the rest stay
     /answer <id> <text>   answer an escalation's packet (ESC-0001), from any console session
     /packet <id>     open an escalation's packet, one held over the day's cap included
 
@@ -30,12 +33,16 @@ PACKET = re.compile(r"^\s*/(?P<name>answer|packet)\b\s*(?P<id>ESC-\d{1,6})?\s*(?
 NEEDS_RUN = ("cancel", "resume", "rollback")
 COMMAND = re.compile(r"^\s*/(?P<name>[a-z]+)\b(?P<rest>.*)$", re.IGNORECASE | re.DOTALL)
 RUN_NO = re.compile(r"^\s*#?(?P<n>\d{1,6})\s*$")
+RESUME_WITH = re.compile(r"^\s*/resume\s+#?(?P<n>\d{1,6})\s+(?P<text>\S.*)$", re.IGNORECASE | re.DOTALL)
+ROLLBACK_PICK = re.compile(r"^\s*/rollback\s+#?(?P<n>\d{1,6})\s+(?P<pick>list|\d{1,4}(?:[\s,]+\d{1,4})*)\s*$",
+                           re.IGNORECASE)
 
 USAGE = {
     "stop": "/stop stops every run of this session; /stop <run number> stops one.",
     "cancel": "/cancel <run number> ends that run for good.",
-    "resume": "/resume <run number> lifts that run's stop and carries on.",
-    "rollback": "/rollback <run number> undoes that run's writes, newest first.",
+    "resume": "/resume <run number> lifts that run's stop and carries on; words after the number go to the run.",
+    "rollback": "/rollback <run number> undoes that run's writes, newest first; /rollback <run number> list "
+                "numbers them, and /rollback <run number> 1 3 undoes only those.",
     "answer": "/answer <packet ID, such as ESC-0001> <your answer> answers a held run's question.",
     "packet": "/packet <packet ID, such as ESC-0001> shows what a held run needs.",
 }
@@ -58,6 +65,21 @@ def handle(session_id: str, text: str) -> Reply | None:
     packet = PACKET.match(text or "")
     if packet:
         return _packet_command(session_id, packet["name"].lower(), packet["id"], packet["text"].strip())
+    with_text = RESUME_WITH.match(text or "")
+    if with_text:
+        run_no, said = int(with_text["n"]), with_text["text"].strip()
+        runtime.trace(session_id).event("operator_command", command="resume", run_no=run_no, well_formed=True,
+                                        new_input=True)
+        return control.resume(control.run_key(session_id, run_no), said)
+    pick = ROLLBACK_PICK.match(text or "")
+    if pick:
+        run_no, which = int(pick["n"]), pick["pick"].lower()
+        key = control.run_key(session_id, run_no)
+        runtime.trace(session_id).event("operator_command", command="rollback", run_no=run_no, well_formed=True,
+                                        pick=which)
+        if which == "list":
+            return control.rollback_list(key)
+        return control.rollback(key, only=[int(x) for x in re.findall(r"\d+", which)])
     parsed = parse(text)
     if parsed is None:
         return None

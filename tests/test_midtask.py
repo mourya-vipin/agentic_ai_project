@@ -119,6 +119,8 @@ class MidTaskTest(ScratchTest):
         rid = "midtask-undo"
         mid, reply, kinds, lines = self.during_a_turn(rid, REPLACES, backend="tests.test_midtask:ReplacedByAQuestion")
         self.assertIn(f"access_grant (employee_id={LEO}, group_id={FINREP_READ}, request_id={REQ})", reply.text)
+        self.assertIn("Or pick what to undo, by its number", reply.text)            # the operator picks
+        self.assertIn(f"access_grant of {FINREP_READ} for {LEO} → access_revoke", reply.text)
         routes = [x["intent"] for x in lines if x["type"] == "route" and x.get("scope") == "operator"]
         self.assertEqual(routes, ["process_requests", "question"], "a fresh run takes the new message")
         self.assertIn(ReplacedByAQuestion.ANSWER, reply.text, "the new task's answer")
@@ -153,6 +155,89 @@ class TheWays(ScratchTest):
         self.assertIn("this one is not kept", replies[-1].text)
         self.assertTrue(all("waits" in r.text for r in replies[:-1]))
         self.assertEqual(len(inbox.after_turn("s-mid")), inbox.MAX_QUEUED)
+
+
+# -- a message to a run that waits for a stranger (Part 2, task 7) ------------------------------
+
+T08 = "tasks/t08_ask_manager.yaml"
+DEV, HANNAH_THREAD = "SYN-EMP-0052", "SYN-MAIL-SYN-EMP-0060"
+GITHUB_ENG = "SYN-GRP-GITHUB-ENG"
+WAIT_ADDS = "Also tell Arjun that the GitHub group can take a day to sync."
+WAIT_REPLACES = "Forget that. Instead, just tell me which requests are open."
+HER_YES = "SYNTHETIC. YES. Dev is on my team now, so he can be in the GitHub engineers group."
+
+
+class AsksThenHearsTheOperator(__import__("tests.test_wait", fromlist=["x"]).AsksTheManagerThenGrants):
+    """t08's fake (it asks Dev's manager and waits), which keeps what each U4 call carried, and
+    routes the replacement as a question that U5 answers."""
+    seen: list[str] = []
+    ANSWER = "SYN-REQ-0001 is open: it waits for Dev's manager."
+
+    def create(self, *, system, messages, tools):
+        if not tools and "groups_mentioned" not in (system or ""):
+            asked = json.dumps(messages).rsplit("The operator's message:", 1)[-1]
+            intent = "question" if "Forget that" in asked else "process_requests"
+            return [{"type": "text", "text": json.dumps({"intent": intent, "request_ids": []})}], "end_turn", \
+                self.name, Usage(40, 20)
+        if tools and "reply_send" not in {t["name"] for t in tools}:       # U5, the new task
+            return [{"type": "text", "text": self.ANSWER}], "end_turn", self.name, Usage(40, 12)
+        if tools:
+            AsksThenHearsTheOperator.seen.append(json.dumps(messages))
+        return super().create(system=system, messages=messages, tools=tools)
+
+
+class WhileARunWaits(ScratchTest):
+    """A run that waits for a stranger has not finished: a message that adds to its task reaches
+    it when the reply resumes it, and one that replaces its task ends it at once."""
+
+    def setUp(self):
+        super().setUp()
+        AsksThenHearsTheOperator.seen = []
+
+    def approve_all(self):
+        from agent import approvals
+        for _ in range(5):
+            waiting = approvals.pending()
+            if not waiting:
+                return
+            turns.decide_approval(waiting[0]["id"], True, "the operator approves it")
+
+    def test_a_message_that_adds_reaches_the_run_when_the_reply_resumes_it(self):
+        import channel
+        from tests.support import check_run
+        rid = "midtask-wait-add"
+        with fixed_run(T08, rid, backend="tests.test_midtask:AsksThenHearsTheOperator"):
+            first = turns.operator_turn(rid, PROCESS)
+            self.assertEqual(first.waiting_for, HANNAH_THREAD)
+            mid = turns.operator_turn(rid, WAIT_ADDS)
+            self.assertIn("waits for a reply. Your message is added to its task", mid.text)
+            before = len(AsksThenHearsTheOperator.seen)
+            self.assertFalse(any(WAIT_ADDS in c for c in AsksThenHearsTheOperator.seen))   # not before the reply
+            turns.outside_reply(HANNAH_THREAD, HER_YES, sender="hannah.lee@syn-corp.example")
+            self.approve_all()
+        after = AsksThenHearsTheOperator.seen[before:]
+        self.assertTrue(after and all("adding to the task] " + WAIT_ADDS in c for c in after))
+        result = check_run(T08, rid)
+        self.assertTrue(result["passed"], result["reason"])                  # the earlier work once, then on
+        asked = [m for m in channel.messages(HANNAH_THREAD) if m.sender in channel.OURS]
+        self.assertEqual(len(asked), 1, "the question went once")
+
+    def test_a_message_that_replaces_ends_the_waiting_run_and_her_late_reply_runs_nothing(self):
+        from agent import checkpoints
+        rid = "midtask-wait-replace"
+        with fixed_run(T08, rid, backend="tests.test_midtask:AsksThenHearsTheOperator"):
+            turns.operator_turn(rid, PROCESS)
+            reply = turns.operator_turn(rid, WAIT_REPLACES)
+            self.assertIn("stopped, because your message replaced its task. It had written:", reply.text)
+            self.assertIn(AsksThenHearsTheOperator.ANSWER, reply.text)          # the new task's answer
+            self.assertEqual(checkpoints.load(f"{rid}#1").status, checkpoints.CANCELLED)
+            calls = len(AsksThenHearsTheOperator.seen)
+            late = turns.outside_reply(HANNAH_THREAD, HER_YES, sender="hannah.lee@syn-corp.example")
+            self.assertEqual(len(AsksThenHearsTheOperator.seen), calls, "no run took her reply")
+            self.assertNotIn(GITHUB_ENG, {m["group_id"] for m in access.memberships(DEV)})
+            told = pending.open_items("outside_message")
+        self.assertIsNotNone(late)
+        self.assertEqual(len(told), 1, "her reply goes to the operator on /pending, as no run waits for it")
 
 
 if __name__ == "__main__":

@@ -11,7 +11,8 @@ refused, whoever makes it (the loop, the executor, a workflow, a second agent).
     stopped(run_key)                the hook's question, before every call
     cancel(run_key)                 ends the run for good; what it did stays
     resume(run_key)                 lifts the flag, recorded with its time, and carries on
-    rollback(run_key)               undoes each write newest first, where it can be undone
+    rollback(run_key, only=None)    undoes each write newest first, where it can be undone, or only
+                                    the numbers the operator picks from undo_list(run_key)
 
 Every command is written to the `log` table with its time, and to the session's trace.
 
@@ -48,6 +49,8 @@ CREATE TABLE IF NOT EXISTS flags (
 CREATE TABLE IF NOT EXISTS log (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, run_key TEXT NOT NULL,
     command TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS undone (
+    run_key TEXT NOT NULL, undo_id TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY (run_key, undo_id));
 """
 
 
@@ -233,11 +236,11 @@ def resume(key: str, new_input: str | None = None) -> Reply:
 def compensations(completed: dict) -> list[dict]:
     """The undo of each journaled write (the checkpoint's `completed`), newest first. A write with
     none gets {"tool": None, "why": ...}, so rollback can print "none" for it."""
-    entries = sorted(completed.values(), key=lambda e: e.get("at") or "", reverse=True)
+    entries = sorted(completed.items(), key=lambda kv: kv[1].get("at") or "", reverse=True)
     out = []
-    for entry in entries:
+    for journal_key, entry in entries:
         tool, args, result = entry.get("tool"), dict(entry.get("args") or {}), entry.get("result") or {}
-        undo = {"of": tool, "at": entry.get("at")}
+        undo = {"of": tool, "at": entry.get("at"), "id": str(journal_key)}
         if tool == "access_grant":
             out.append({**undo, "tool": "access_revoke", "args": {
                 "employee_id": args.get("employee_id"), "group_id": args.get("group_id"), "reason": "rollback"}})
@@ -246,7 +249,7 @@ def compensations(completed: dict) -> list[dict]:
                 "employee_id": args.get("employee_id"), "group_id": args.get("group_id")}})
         elif tool == "access_revoke_all":
             for group in result.get("removed") or []:
-                out.append({**undo, "tool": "access_grant", "args": {
+                out.append({**undo, "id": f"{journal_key}:{group}", "tool": "access_grant", "args": {
                     "employee_id": result.get("employee_id") or args.get("employee_id"), "group_id": group}})
             if not result.get("removed"):
                 out.append({**undo, "tool": None, "why": "nothing was removed"})
@@ -261,35 +264,80 @@ def compensations(completed: dict) -> list[dict]:
     return out
 
 
-def rollback(key: str) -> Reply:
+def undo_list(key: str) -> list[dict]:
+    """The undo of each of the run's journaled writes that no rollback has handled yet, newest
+    first, numbered from 1 as the operator picks them (/rollback <n> 2 3). An entry with
+    "tool": None has no undo and prints "none"."""
+    checkpoints = _module("agent.checkpoints")
+    cp = checkpoints.load(key) if checkpoints is not None else None
+    if cp is None:
+        return []
+    with _connect() as conn:
+        done = {r["undo_id"] for r in conn.execute("SELECT undo_id FROM undone WHERE run_key = ?", (key,))}
+    left = [u for u in compensations(cp.completed or {}) if u["id"] not in done]
+    return [{**u, "n": n} for n, u in enumerate(left, start=1)]
+
+
+def describe(undo: dict) -> str:
+    """One line of the undo list, as the operator reads it before picking."""
+    if undo["tool"] is None:
+        return f"{undo['n']}. {undo['of']}: none ({undo['why']})"
+    args = undo["args"]
+    return f"{undo['n']}. {undo['of']} of {args.get('group_id')} for {args.get('employee_id')} → {undo['tool']}"
+
+
+def rollback_list(key: str) -> Reply:
+    """/rollback <n> list: the numbered undo list, and nothing done."""
+    _, run_no = split_key(key)
+    left = undo_list(key)
+    if not left:
+        return Reply(f"Run {run_no} has nothing left to undo.")
+    return Reply("\n".join([f"Run {run_no} wrote, newest first; nothing is undone yet:", *map(describe, left),
+                            f"/rollback {run_no} undoes them all; /rollback {run_no} 1 3 undoes only those."]))
+
+
+def rollback(key: str, only: list[int] | None = None) -> Reply:
     """Apply each write's compensation, newest first, through the registry with
-    origin="operator_command", printing "none" where there is none. The run stays stopped.
-    A second rollback undoes only what the run wrote since the last one."""
+    origin="operator_command", printing "none" where there is none. With `only`, apply just
+    those numbers of undo_list(key), the operator's pick; the others stay, and a later rollback
+    can still undo them. The run stays stopped. Each undo is done once: a second rollback
+    undoes only what no rollback has handled."""
     session_id, run_no = split_key(key)
     checkpoints = _module("agent.checkpoints")
     cp = checkpoints.load(key) if checkpoints is not None else None
     if cp is None:
         return Reply(f"Run {run_no} has no saved journal, so there is nothing to roll back.")
+    left = undo_list(key)
+    if only is not None:
+        unknown = sorted(set(only) - {u["n"] for u in left})
+        if unknown or not only:
+            return Reply(f"Nothing was undone: run {run_no} has no undo numbered "
+                         f"{', '.join(map(str, unknown)) or '(none given)'}. /rollback {run_no} list shows them.")
+        left = [u for u in left if u["n"] in set(only)]
     last = next((h["at"] for h in reversed(history(key)) if h["command"] == "rollback"), None)
-    written = {k: e for k, e in (cp.completed or {}).items() if last is None or (e.get("at") or "") > last}
-    if last is not None and not written:
+    if last is not None and not left:
         return Reply(f"Run {run_no} was rolled back at {last}, and it has written nothing since; nothing changed.")
     with _connect() as conn:
         if _state(conn, key) not in (STOPPED, CANCELLED):
             _set(conn, key, STOPPED)        # nothing else of the run may run while it is undone
             _log(conn, key, "stop", "before rollback")
     from agent.registry import CallContext, get_registry
-    registry, lines = get_registry(), []
-    for n, undo in enumerate(compensations(written), start=1):
+    registry, lines, handled = get_registry(), [], []
+    for n, undo in enumerate(left, start=1):
         if undo["tool"] is None:
             lines.append(f"{undo['of']}: none ({undo['why']})")
+            handled.append(undo["id"])
             continue
         ctx = CallContext(session_id, n, "workflow", cp.use_case, run_key=key, origin="operator_command")
         result = registry.call(undo["tool"], undo["args"], ctx)
         lines.append(f"{undo['of']} → {undo['tool']} {undo['args'].get('group_id')}: "
                      + ("failed: " + result.content[:120] if result.is_error else "done"))
+        if not result.is_error:
+            handled.append(undo["id"])
     with _connect() as conn:
-        _log(conn, key, "rollback", "; ".join(lines))
+        at = _log(conn, key, "rollback", ("only " + ", ".join(map(str, only)) + ": " if only else "") + "; ".join(lines))
+        conn.executemany("INSERT OR IGNORE INTO undone (run_key, undo_id, at) VALUES (?, ?, ?)",
+                         [(key, u, at) for u in handled])
     runtime.trace(session_id).end(END_ROLLED_BACK, key)
-    return Reply(f"Rolled back run {run_no}, newest first:\n" + ("\n".join(lines) or "nothing to undo"),
-                 actions=lines)
+    head = f"Rolled back run {run_no}" + (f", only {', '.join(map(str, only))}" if only else "") + ", newest first:"
+    return Reply(head + "\n" + ("\n".join(lines) or "nothing to undo"), actions=lines)

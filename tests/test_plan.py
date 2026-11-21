@@ -312,6 +312,24 @@ class PlanApprovalTest(PlannedTest):
         key = approvals.get(apr)["run_key"]
         self.assertFalse(approvals.covers(key, listed["action_class"], other))
 
+    def test_after_the_plans_yes_a_step_it_did_not_list_is_put_up_again_and_nothing_is_sent(self):
+        # the registry, not only covers(): an unlisted note of the approved run waits for a new answer
+        from agent.registry import AWAITING_APPROVAL, CallContext, Registry
+        self.run_planned("GoodPlannerWithHold")
+        decided = approvals.log()
+        self.assertEqual([e["setting"] for e in decided], ["plan"])          # the switch that put it up
+        key = decided[0]["run_key"]
+        before = len(self.sent())
+        ctx = CallContext(key.split("#")[0], 10, "executor", "bulk_change", plan_step=10, run_key=key)
+        args = disclosure.stamp_call("reply_send", {"recipient_employee_id": fakes.HANNAH,
+                                                    "body": "SYNTHETIC. A note the plan did not list."})
+        result = Registry().call("reply_send", args, ctx)
+        self.assertEqual(result.end_reason, AWAITING_APPROVAL)
+        waiting = approvals.pending()
+        self.assertEqual(len(waiting), 1)
+        self.assertTrue(waiting[0]["action"].startswith("manager_note/plan_listed"), waiting[0]["action"])
+        self.assertEqual(len(self.sent()), before)                          # nothing sent
+
     def test_a_stop_withdraws_the_plan_and_resume_asks_again_with_the_same_notes(self):
         from agent import commands, control
         run_id = f"plan-{uuid.uuid4().hex[:8]}"

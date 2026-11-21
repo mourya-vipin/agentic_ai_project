@@ -56,8 +56,10 @@ def operator_turn(session_id: str, text: str) -> Reply:
          each call (policy/limits.py). The reply starts with what our code recorded. The
          router gets the recorded rule as a fact, so the rule alone is not taken for a task.
       3. If a run of the session is live in this process, the message goes to the inbox
-         (agent/inbox.py): it adds to the run's task, replaces it, waits, or is refused.
-         Otherwise the router sends the message to its path.
+         (agent/inbox.py): it adds to the run's task, replaces it, waits, or is refused. If a
+         run waits for a stranger's reply or an approval, a message that adds to its task is
+         kept for it, and one that replaces it ends it and starts a fresh run
+         (inbox.post_to_waiting). Otherwise the router sends the message to its path.
       4. At the end of the turn, a preference or a fact that the message states for later is
          kept, with its source and age (agent/memory.py). The reply ends with what was kept.
     The turn writes the async checkpoints before it replies, so that the operator never
@@ -68,10 +70,20 @@ def operator_turn(session_id: str, text: str) -> Reply:
             return command
         recorded, rule = _limits(session_id, text)
         live = inbox.live_run(session_id)
+        waiting = inbox.waiting_run(session_id) if live is None else None
+        way, said = inbox.post_to_waiting(session_id, text, waiting) if waiting is not None else (None, None)
         if live is not None:
             reply = inbox.post(session_id, text, live)
             session.add(session_id, "operator", text)
             session.add(session_id, "agent", reply.text)
+        elif said is not None:                   # it adds to the task of a run that waits
+            reply = said
+            session.add(session_id, "operator", text)
+            session.add(session_id, "agent", reply.text)
+        elif way == inbox.REPLACE:               # it replaced a waiting run's task: a fresh run takes it
+            routed = router.handle_operator(session_id, text, rule=rule)
+            reply = Reply("\n".join([router._what_it_did(waiting.run_key).text, routed.text]), routed.actions,
+                          routed.waiting_for)
         else:
             reply = router.handle_operator(session_id, text, rule=rule)
         kept = memory.from_text(session_id, text)
@@ -109,12 +121,19 @@ def on_outside_reply(thread_id: str, text: str) -> Reply:
     HUMAN, a request for a person, or when no run waits on the thread: before, such a
     message stayed in the channel and no one was told. A run that a stop holds while it waits
     still waits on the thread, so its reply goes to checkpoints.resume, which refuses it, and
-    /resume reads the thread."""
+    /resume reads the thread. A reply that lands after the run's deadline ends the run
+    (reply_deadline, as the operator's next turn would) and goes to the operator instead."""
     run = next((cp for cp in checkpoints.waiting("reply") if (cp.waiting_for or {}).get("thread_id") == thread_id),
                None)
     from policy.hook import asks_for_a_person
     if asks_for_a_person(text):
         return _for_the_operator(thread_id, text, run, "asks for a person")
+    if run is not None and _past_its_deadline(run):
+        # the deadline is checked here too, not only at the operator's next turn: a reply that
+        # lands after it ends the run reply_deadline and goes to the operator, never into the run
+        router._past_deadline(run.session_id)
+        notes.thread_answered(run.session_id, thread_id)
+        return _for_the_operator(thread_id, text, None, "came after its run's deadline")
     session_id = run.session_id if run is not None else _this_session()
     if session_id:
         notes.thread_answered(session_id, thread_id)
@@ -124,6 +143,13 @@ def on_outside_reply(thread_id: str, text: str) -> Reply:
         return checkpoints.resume(run.run_key, {"kind": "reply", "thread_id": thread_id, "text": text})
     finally:
         checkpoints.flush()
+
+
+def _past_its_deadline(run) -> bool:
+    """Whether the run waited for its reply past its deadline, on the sandbox's clock."""
+    from sandbox import clock
+    deadline = (run.waiting_for or {}).get("deadline")
+    return bool(deadline) and clock.now() > deadline
 
 
 def _for_the_operator(thread_id: str, text: str, run, why: str) -> Reply:

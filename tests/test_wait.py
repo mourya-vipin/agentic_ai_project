@@ -265,6 +265,19 @@ class TheDeadline(ScratchTest):
         self.assertIsNone(after.waiting_for, "a late reply continues nothing")
         self.assertIn("has no run that waits for it, so it waits for the operator on /pending", after.text)
 
+    def test_a_reply_that_lands_after_the_deadline_before_any_turn_ends_the_run_and_goes_to_the_operator(self):
+        rid = "wait-deadline-reply-first"
+        with fixed_run(T05, rid, backend=BACKEND):
+            turns.operator_turn(rid, "Please handle the new access requests.")
+            clock.set_now("2026-10-23T09:00:01Z")                       # past the deadline, no turn since
+            after = turns.outside_reply(THREAD, YES, sender="hannah.lee@syn-corp.example")
+            status = requests.get(REQ)["status"]
+        saved = checkpoints.load(f"{rid}#1")
+        self.assertEqual(saved.findings["end_reason"], bounds.REPLY_DEADLINE)
+        self.assertIsNone(after.waiting_for, "the late reply continues nothing")
+        self.assertIn("came after its run's deadline", after.text)
+        self.assertEqual(status, "pending_operator")
+
     def test_the_deadline_skips_the_weekend(self):
         self.assertEqual(bounds.reply_deadline("2026-10-23T09:00:00Z"), "2026-10-27T09:00:00Z")   # Friday -> Tuesday
         self.assertEqual(bounds.reply_deadline("2026-10-21T09:00:00Z"), "2026-10-23T09:00:00Z")   # Wednesday -> Friday

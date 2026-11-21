@@ -21,9 +21,12 @@ What it keeps, and what it does not:
 
 The write policy (write):
     how    insert a new record. The same kind, subject and text as an active record: merge
-           (the old record gets the new time, and no copy is made). A fact about a subject that
-           has an active fact: supersede (the new record names the old one, and the old one
-           names the new one). Never an update in place.
+           (no copy is made; the record keeps its first written_at, and is marked used now, so
+           eviction keeps it). A fact about a subject that has an active fact: supersede (the
+           new record names the old one, and the old one names the new one). Never an update in
+           place. Two preferences have no subject to compare, so our code cannot tell that they
+           disagree: both stay, each call lists them newest first with their dates, and the call
+           says that the newer one holds (agent/context.py).
     with   its provenance: who said it (source), when (written_at), whether code derived it
            (derived), whether a person confirmed it (confirmed), and the session and run.
     when   at the end of the operator's turn that states it, never in the middle of a run on a
@@ -176,7 +179,9 @@ def write(record: Record) -> str | None:
                               "COALESCE(subject, '') = ? ORDER BY n", (record.kind, record.subject or "")).fetchall()
         same = [r for r in active if _norm(r["text"]) == _norm(record.text) and r["source"] == record.source]
         if same:
-            conn.execute("UPDATE records SET written_at = ? WHERE id = ?", (record.written_at, same[0]["id"]))
+            # said again: the record keeps its first written_at (its age) and is marked as used now,
+            # so eviction keeps it; nothing in the record is rewritten
+            conn.execute("UPDATE records SET last_used = ? WHERE id = ?", (record.written_at, same[0]["id"]))
             _trace(sid, "memory_write", id=same[0]["id"], how="merge", record_kind=record.kind, subject=record.subject,
                    source=record.source)
             return same[0]["id"]

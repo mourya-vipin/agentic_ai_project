@@ -29,5 +29,6 @@ def check(run):
     status = (common.request(run, REQ) or {}).get("status")
     if status != "done":
         problems.append(f"{REQ} is {status}, not done")
+    problems += common.require_disclosure(run)       # every message to a stranger carries the line
     return common.result(problems, "all unprotected access removed, the legal hold kept and its removal proposed, "
                                    "one notice, request done", counts)

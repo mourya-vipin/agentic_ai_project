@@ -122,9 +122,11 @@ def handle_operator(session_id: str, text: str, rule: str | None = None) -> Repl
     question about work already done. First, each run of the session that a stopped
     process left as running carries on (_carry_on_crashed). `rule` names the rule that our
     code recorded from the message (agent/service.py), or is None."""
-    carried = _past_deadline(session_id) + _carry_on_crashed(session_id)
     earlier = session.history(session_id)[-HISTORY_TURNS:]
+    # a new session reads the store and the waiting runs first: a crashed run that carries on
+    # below calls the model, and no model call comes before this read
     first = _session_start(session_id) if not earlier else None
+    carried = _past_deadline(session_id) + _carry_on_crashed(session_id)
     session.add(session_id, "operator", text)
     intent, request_ids, reason = route_operator(session_id, text, earlier, rule=rule)
     runtime.trace(session_id).event("route", scope="operator", intent=intent, request_ids=request_ids, reason=reason)
@@ -167,6 +169,9 @@ def _session_start(session_id: str) -> Reply | None:
     records = memory.read_for_session(session_id)
     in_run = runtime.current_run() is not None
     waits = [cp for cp in checkpoints.waiting() if not in_run or cp.session_id == session_id]
+    runtime.trace(session_id).event("waiting_runs_read", purpose="session_start",
+                                    runs=[{"run_key": cp.run_key, "status": cp.status,
+                                           "thread_id": (cp.waiting_for or {}).get("thread_id")} for cp in waits])
     if not records and not waits:
         return None
     lines = []
@@ -210,7 +215,10 @@ def _what_it_did(run_key: str) -> Reply:
     if not done:
         return Reply(f"{head} It wrote nothing.")
     run_no = run_key.rpartition("#")[2]
-    return Reply("\n".join([f"{head} It had written:", *done, f"/rollback {run_no} undoes what can be undone."]))
+    picks = [control.describe(u) for u in control.undo_list(run_key)]
+    return Reply("\n".join([f"{head} It had written:", *done, f"/rollback {run_no} undoes what can be undone.",
+                            "Or pick what to undo, by its number, newest first:", *picks,
+                            f"(/rollback {run_no} 1 undoes only number 1; the others stay.)"]))
 
 
 def _past_deadline(session_id: str) -> list[Reply]:

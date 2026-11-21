@@ -586,3 +586,17 @@ class AlwaysWrongFiller(GoodPlanner):
     def note(self, request):
         return true_note(request) + " I also removed SYN-GRP-PAYROLL-ADMIN."
 
+
+
+class SendsAndSetsStatusAtOnce(AsksTheManagerHearsNo):
+    """t10, with the reply to Arjun and a status write in one response: the status call comes after
+    the gated reply_send, so it must wait for the operator's answer and run once, after it (the gate:
+    nothing in the run proceeds while a call waits)."""
+    NOTE = "the reply to Arjun is sent"
+
+    def create(self, *, system, messages, tools):
+        content, stop, name, usage = super().create(system=system, messages=messages, tools=tools)
+        if any(b.get("type") == "tool_use" and b.get("name") == "reply_send" for b in content):
+            content = content + [{"type": "tool_use", "id": "toolu_status_after", "name": "requests_set_status",
+                                  "input": {"request_id": "SYN-REQ-0001", "status": "done", "note": self.NOTE}}]
+        return content, stop, name, usage

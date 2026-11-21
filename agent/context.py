@@ -278,7 +278,8 @@ def _memory_text(memory: list | None) -> str:
     for r in memory or []:
         get = r.get if isinstance(r, dict) else (lambda k, r=r: getattr(r, k, None))
         lines.append(f"- [{get('kind')}, from {get('source')}, written {get('written_at')}] {get('text')}")
-    return ("[Memory from earlier sessions, each with its source and age]\n" + "\n".join(lines)) if lines else ""
+    return ("[Memory from earlier sessions, each with its source and age, newest first; where two disagree, "
+            "the newer one holds]\n" + "\n".join(lines)) if lines else ""
 
 
 def assemble(kind: str, *, system: str, session_id: str, run_key: str | None, task: str | None,

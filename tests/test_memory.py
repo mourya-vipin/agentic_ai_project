@@ -178,33 +178,70 @@ class TheReadRule(MemoryTest):
         self.assertEqual(len(memory.for_call("s-mem", [], "nonstandard_request")), memory.MAX_IN_CALL)
 
 
+SESSION_CHILD = r"""
+import json, sys
+from harness import turns
+from tests.support import fixed_run
+
+task, rid, backend, fresh, text = sys.argv[1:6]
+with fixed_run(task, rid, backend=backend, fresh=fresh == "fresh"):
+    reply = turns.operator_turn(rid, text)
+print("REPLY " + json.dumps(reply.text))
+"""
+
+
 class TheLaterSession(ScratchTest):
+    """Each session is its own process and its own run ID, as after a restart of the app: what the
+    second session knows of the first comes only from the store on disk."""
+
+    def session(self, rid, text, *, backend="tests.fakes:RoutesQuestion", fresh=False):
+        import os
+        import subprocess
+        import sys
+        from harness import ROOT
+        done = subprocess.run([sys.executable, "-c", SESSION_CHILD, T05, rid, backend,
+                               "fresh" if fresh else "keep", text], cwd=ROOT, env=os.environ.copy(),
+                              capture_output=True, text=True, timeout=180)
+        self.assertEqual(done.returncode, 0, done.stderr[-2000:])
+        return json.loads(done.stdout.split("REPLY ", 1)[1])
+
+    def trace_of(self, rid):
+        return read_trace(next((self.tmp / "traces").rglob(f"{rid}.trace.jsonl")))
+
     def test_session_two_acts_on_session_ones_preference_without_being_told_again(self):
-        with fixed_run(T05, "mem-session-1", backend="tests.fakes:RoutesQuestion"):
-            said = turns.operator_turn("mem-session-1", PREFERENCE)
-        self.assertIn("Kept for later sessions as M1 (a preference, from you)", said.text)
-        with fixed_run(T05, "mem-session-2", backend=BACKEND, fresh=False) as run:
-            first = turns.operator_turn("mem-session-2", "Please handle the new access requests.")
-            lines = read_trace(run.trace_path)
+        said = self.session("mem-session-1", PREFERENCE, fresh=True)
+        self.assertIn("Kept for later sessions as M1 (a preference, from you)", said)
+        first = self.session("mem-session-2", "Please handle the new access requests.", backend=BACKEND)
+        lines = self.trace_of("mem-session-2")
+        with fixed_run(T05, "mem-session-read", backend="never-stops", fresh=False):
             drafted = [p for p in pending.by_request(REQ) if p["kind"] == "manager_confirmation"]
             asked = [m for m in channel.messages(f"SYN-MAIL-{HANNAH}") if m.sender == channel.AGENT]
-        self.assertTrue(first.text.startswith("From earlier sessions, our memory holds:"), first.text)
+        self.assertTrue(first.startswith("From earlier sessions, our memory holds:"), first)
         kinds = [x["type"] for x in lines if x.get("session_id") == "mem-session-2"]
         self.assertLess(kinds.index("memory_read"), kinds.index("model_call"), "the store is read first")
+        self.assertLess(kinds.index("waiting_runs_read"), kinds.index("model_call"), "and the waiting runs")
         self.assertEqual((len(drafted), asked), (1, []), "the preference was used, read from the store")
 
     def test_a_fact_then_its_contradiction_and_a_third_session_sees_only_the_newer(self):
-        with fixed_run(T05, "mem-fact-1", backend="tests.fakes:RoutesQuestion"):
-            turns.operator_turn("mem-fact-1", "Remember that Victor Lam's legal hold stays until Legal says it can go.")
-        with fixed_run(T05, "mem-fact-2", backend="tests.fakes:RoutesQuestion", fresh=False):
-            turns.operator_turn("mem-fact-2", "Remember that Victor Lam's legal hold can go now.")
-        with fixed_run(T05, "mem-fact-3", backend="tests.fakes:RoutesQuestion", fresh=False):
-            third = turns.operator_turn("mem-fact-3", "What is still open?")
-        self.assertIn("legal hold can go now", third.text)
-        self.assertNotIn("stays until Legal", third.text)
+        self.session("mem-fact-1", "Remember that Victor Lam's legal hold stays until Legal says it can go.",
+                     fresh=True)
+        self.session("mem-fact-2", "Remember that Victor Lam's legal hold can go now.")
+        third = self.session("mem-fact-3", "What is still open?")
+        self.assertIn("legal hold can go now", third)
+        self.assertNotIn("stays until Legal", third)
         records = memory.all_records()
         self.assertEqual([(r.kind, r.subject, bool(r.superseded_by)) for r in records],
                          [("fact", VICTOR, True), ("fact", VICTOR, False)])
+
+    def test_a_preference_said_again_keeps_its_first_time(self):
+        with fixed_run(T05, "mem-merge", backend="never-stops"):
+            first = memory.write(memory.Record(kind="preference", text="Keep replies short.", source="operator",
+                                               session_id="mem-merge", written_at="2026-11-01T09:00:00Z"))
+            again = memory.write(memory.Record(kind="preference", text="Keep replies short.", source="operator",
+                                               session_id="mem-merge", written_at="2026-11-05T09:00:00Z"))
+            [record] = memory.all_records()
+        self.assertEqual(first, again)
+        self.assertEqual(record.written_at, "2026-11-01T09:00:00Z")
 
     def test_t09_passes_through_run_py(self):
         record = self.run_task(T09, "aman", backend=BACKEND)

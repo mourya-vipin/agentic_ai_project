@@ -4,6 +4,7 @@ No tokens. Owner: Shruti Tewaney."""
 
 import importlib
 import threading
+from unittest import mock
 
 import channel
 from agent import checkpoints, commands, control
@@ -17,6 +18,7 @@ from tests.support import ScratchTest
 SID = "s-stop"
 LEO, REQ = "SYN-EMP-0031", "SYN-REQ-0005"
 ALLOWED = "SYN-GRP-FINREP-READ"
+JIRA = "SYN-GRP-JIRA-READ"             # a group Leo holds
 READ = {"employee_id": LEO, "email": None, "name": None}
 
 
@@ -170,6 +172,44 @@ class StopTest(ScratchTest):
         second = commands.handle(SID, f"/rollback {cp.run_no}")
         self.assertIn("nothing changed", second.text)
         self.assertEqual(self.lines("end")[-1]["terminal_reason"], control.END_ROLLED_BACK)
+
+    def test_the_operator_picks_which_writes_to_undo_and_the_others_stay(self):
+        cp = checkpoints.new_run(SID, "nonstandard_request", "grant Leo, remove Jira")
+        ctx_ = CallContext(SID, 1, "model", "nonstandard_request", request_id=REQ, run_key=cp.run_key)
+        grant = self.registry.call("access_grant", {"employee_id": LEO, "group_id": ALLOWED, "request_id": REQ}, ctx_)
+        self.assertFalse(grant.is_error, grant.content)
+        revoke = self.registry.call("access_revoke", {"employee_id": LEO, "group_id": JIRA, "request_id": REQ,
+                                                      "reason": "asked to leave Jira"}, ctx_)
+        self.assertFalse(revoke.is_error, revoke.content)
+        commands.handle(SID, f"/stop {cp.run_no}")
+        listed = commands.handle(SID, f"/rollback {cp.run_no} list")
+        self.assertIn(f"1. access_revoke of {JIRA}", listed.text)          # newest first, numbered
+        self.assertIn(f"2. access_grant of {ALLOWED}", listed.text)
+        self.assertTrue(self.holds(LEO, ALLOWED))                          # a list undoes nothing
+        wrong = commands.handle(SID, f"/rollback {cp.run_no} 7")
+        self.assertIn("Nothing was undone", wrong.text)
+        self.assertTrue(self.holds(LEO, ALLOWED))
+        picked = commands.handle(SID, f"/rollback {cp.run_no} 2")            # only the grant
+        self.assertIn(f"access_grant → access_revoke {ALLOWED}: done", picked.text)
+        self.assertFalse(self.holds(LEO, ALLOWED))
+        self.assertFalse(self.holds(LEO, JIRA))                             # the removal the operator kept stays
+        self.assertEqual([u["of"] for u in control.undo_list(cp.run_key)], ["access_revoke"])
+        rest = commands.handle(SID, f"/rollback {cp.run_no}")                # later, the rest
+        self.assertIn(f"access_revoke → access_grant {JIRA}: done", rest.text)
+        self.assertTrue(self.holds(LEO, JIRA))
+        self.assertIn("nothing changed", commands.handle(SID, f"/rollback {cp.run_no}").text)
+
+    def test_resume_with_words_lifts_the_stop_and_hands_the_words_to_the_run(self):
+        key = control.run_key(SID, 1)
+        control.stop(SID, 1)
+        with mock.patch.object(control, "resume", wraps=control.resume) as resumed:
+            commands.handle(SID, "/resume 1 use the read-only group instead")
+        resumed.assert_called_once_with(key, "use the read-only group instead")
+        self.assertFalse(control.stopped(key))
+        self.assertEqual(control.history(key)[-1]["detail"], "use the read-only group instead")
+        from agent import loop
+        said = loop._event_text({"kind": "stop_lifted", "new_input": "use the read-only group instead"})
+        self.assertIn("[from the operator] use the read-only group instead", said)
 
     def test_rollback_without_a_journal_changes_nothing(self):
         reply = control.rollback(control.run_key(SID, 1))
