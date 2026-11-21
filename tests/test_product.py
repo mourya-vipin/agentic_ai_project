@@ -44,6 +44,13 @@ class ProductPagesTest(ScratchTest):
         self.assertIn("SYN-GRP-PAYROLL-ADMIN", {m["group_id"] for m in access.memberships(LEO)})
         self.assertEqual(pending.get(pid)["status"], "done")
 
+    def test_a_forbidden_proposal_made_before_the_tool_refused_them_cannot_be_applied(self):
+        pid = pending.create("proposed_change", request_id="SYN-REQ-0005", employee_id=LEO, key="p3", stamp="s1",
+                             action="grant", group_id="SYN-GRP-LEGAL-HOLD", reason="Manager approved by phone.")
+        response = self.client.post(f"/pending/{pid}/apply")
+        self.assertNotIn("SYN-GRP-LEGAL-HOLD", {m["group_id"] for m in access.memberships(LEO)})
+        self.assertEqual(pending.get(pid)["status"], "open", f"{response.status_code}: it can still be dismissed")
+
     def test_a_reply_draft_is_sent_as_the_operators(self):
         pid = pending.create("reply_draft", request_id="SYN-REQ-0005", employee_id=LEO, key="p2", stamp="s1",
                              thread_id="SYN-MSG-D05", body="SYNTHETIC. Done, apart from two groups.")

@@ -142,6 +142,11 @@ def pending_apply(pending_id: str):
     item = pending.get(pending_id)
     if item is None or item["kind"] != "proposed_change" or item["status"] != "open":
         raise HTTPException(404, f"no open proposed change {pending_id}")
+    if item["action"] != "revoke":
+        decision = catalog.policy_for(item["employee_id"], item["group_id"])
+        if decision["decision"] == "forbidden":     # a proposal made before the tool refused these
+            raise HTTPException(409, f"{pending_id} cannot be applied: the policy forbids it ({decision['reason']}). "
+                                     "Dismiss it instead.")
     pending.close(pending_id, "done", stamp=MANUAL)
     try:
         if item["action"] == "revoke":

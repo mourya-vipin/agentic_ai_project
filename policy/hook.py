@@ -150,11 +150,23 @@ def asks_for_a_person(text: str) -> bool:
     return bool(ASKS_FOR_A_PERSON.match(re.sub(r"^\s*SYNTHETIC\.\s*", "", text or "").strip()))
 
 
+def from_the_manager(sender: str | None, manager: dict | None) -> bool:
+    """Whether a message on the manager's thread is the manager's: its sender is their address or
+    their name, ignoring case. Before 2026-11-20 any sender's YES there counted as hers, so the
+    requester, or anyone, could write YES on her thread and the grant went up as manager_confirmed.
+    Every reader of her answer should ask this too (agent/approvals.py, agent/critique.py)."""
+    if not manager or not sender:
+        return False
+    said = str(sender).strip().casefold()
+    return said in {str(manager.get("email") or "").casefold(), str(manager.get("name") or "").casefold()} - {""}
+
+
 def manager_answer(person: dict, group: dict, request: dict | None) -> str | None:
     """The manager's answer to our manager_confirm question for this person, group and request:
     "yes", "no", or None when we never asked or no reply has come. Read by code from the channel:
     the first reply after the question on the manager's thread, by its first word, as the question
-    asks (YES or NO). A reply whose first word is HUMAN asks for a person, so it is not the answer. The reply is the stranger's word: a yes only lets the grant be put up for
+    asks (YES or NO). Only the manager's own message counts (from_the_manager), and one whose first
+    word is HUMAN asks for a person, so it is not the answer. The reply is the stranger's word: a yes only lets the grant be put up for
     the operator, who still decides."""
     manager = directory.manager_of(person["id"])
     if manager is None:
@@ -169,6 +181,8 @@ def manager_answer(person: dict, group: dict, request: dict | None) -> str | Non
         return None
     for m in messages:
         if m.id > asked[-1].id and m.sender not in channel.OURS:
+            if not from_the_manager(m.sender, manager):
+                continue        # someone else on her thread: not her answer (a review, 2026-11-20)
             if asks_for_a_person(m.text):
                 continue        # it goes to the operator (agent/service.py: on_outside_reply), not to the run
             words = re.sub(r"^\s*SYNTHETIC\.\s*", "", m.text).strip()

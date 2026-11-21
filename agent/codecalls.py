@@ -108,6 +108,15 @@ def _limits():           # in the child, before it runs: a CPU limit and no chil
         pass
 
 
+def _child_env() -> dict:
+    """The child's environment: empty, so no key or path of ours reaches the program. On Windows,
+    Python cannot start without SYSTEMROOT, so that one variable is kept there (a review, 2026-11-20);
+    Windows also has no CPU limit for the child (_limits is POSIX only), which CHANGES lists."""
+    if os.name == "nt" and os.environ.get("SYSTEMROOT"):
+        return {"SYSTEMROOT": os.environ["SYSTEMROOT"]}
+    return {}
+
+
 def run(program: str, ctx, registry, allowed: list[str]) -> dict:
     """Run one program. Returns {"result", "calls", "tools"}; raises PermanentError with a repair
     fact when the program is stopped, raises, runs too long or calls a tool it may not."""
@@ -122,7 +131,7 @@ def run(program: str, ctx, registry, allowed: list[str]) -> dict:
     allowed = [t for t in allowed if t not in (TOOL, "tools_search")]
     calls, used, start = 0, [], time.monotonic()
     with tempfile.TemporaryDirectory(prefix="program-") as scratch:
-        child = subprocess.Popen([sys.executable, "-I", "-S", "-c", RUNNER], cwd=scratch, env={},
+        child = subprocess.Popen([sys.executable, "-I", "-S", "-c", RUNNER], cwd=scratch, env=_child_env(),
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
                                  preexec_fn=_limits if os.name == "posix" else None)
         timer = threading.Timer(WALL_S, child.kill)      # a program that blocks or loops is killed on time
@@ -159,6 +168,11 @@ def run(program: str, ctx, registry, allowed: list[str]) -> dict:
             if child.poll() is None:
                 child.kill()
             child.wait()
+            for pipe in (child.stdin, child.stdout):     # closed, so no handle outlives the program
+                try:
+                    pipe.close()
+                except OSError:
+                    pass
     trace.event("program", status="done", calls=calls, tools=sorted(set(used)), run_key=ctx.run_key)
     return {"result": message.get("done"), "calls": calls, "tools": sorted(set(used))}
 

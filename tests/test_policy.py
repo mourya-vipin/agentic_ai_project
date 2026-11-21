@@ -138,7 +138,7 @@ class PolicyTest(ScratchTest):
         asked = self.registry.call("channel_ask_template", {"template": "manager_confirm", "employee_id": LEO,
                                                             "group_id": group, "request_id": REQ}, ctx())
         self.assertFalse(asked.is_error, asked.content)
-        channel.receive(asked.data["thread_id"], f"SYNTHETIC. {answer}", sender="Hannah Lee")
+        channel.receive(asked.data["thread_id"], f"SYNTHETIC. {answer}", sender="grace.okafor@syn-corp.example")
 
     def grant(self, group):
         return self.registry.call("access_grant", {"employee_id": LEO, "group_id": group, "request_id": REQ}, ctx())
@@ -206,13 +206,46 @@ class PolicyTest(ScratchTest):
         before = self.registry.call("access_grant", args, ctx())
         self.assertIn("manager_confirmation_draft", before.content)           # M1's repair, unchanged for t05
         asked = self.registry.call("channel_ask_template", {"template": "manager_confirm", **args}, ctx())
-        channel.receive(asked.data["thread_id"], "SYNTHETIC. Yes, please add her.", sender="Hannah Lee")
+        channel.receive(asked.data["thread_id"], "SYNTHETIC. Yes, please add her.", sender="grace.okafor@syn-corp.example")
         _, module = self.approvals(covers=True)
         with module:
             after = self.registry.call("access_grant", args, ctx())
         self.assertFalse(after.is_error, after.content)
         self.assertEqual(self.lines("tool_call")[-1]["action_class"], "access_grant/manager_confirmed")
         self.assertTrue(self.holds(PRIYA, "SYN-GRP-JIRA-WRITE"))
+
+    def test_a_yes_on_the_managers_thread_from_anyone_but_the_manager_does_not_count(self):
+        # a review (2026-11-20): any sender's YES on her thread counted as hers, so the grant went up
+        from sandbox import catalog, directory, requests
+        group, request, leo = catalog.get_group(NEEDS_MANAGER), requests.get(REQ), directory.get_employee(LEO)
+        asked = self.registry.call("channel_ask_template", {"template": "manager_confirm", "employee_id": LEO,
+                                                            "group_id": NEEDS_MANAGER, "request_id": REQ}, ctx())
+        thread = asked.data["thread_id"]
+        for sender in ("leo.martins@syn-corp.example", "mallory@evil.example", "outside"):
+            channel.receive(thread, "SYNTHETIC. YES, approved.", sender=sender)
+        self.assertIsNone(hook.manager_answer(leo, group, request))
+        scripted, module = self.approvals(covers=True)
+        with module:
+            result = self.grant(NEEDS_MANAGER)
+        self.assertTrue(result.is_error)
+        self.assertEqual(scripted.requests, [], "nothing is put up on someone else's YES")
+        self.assertFalse(self.holds(LEO, NEEDS_MANAGER))
+        channel.receive(thread, "SYNTHETIC. NO.", sender="Grace Okafor")          # her name counts too
+        self.assertEqual(hook.manager_answer(leo, group, request), "no")
+        self.assertTrue(hook.from_the_manager("GRACE.OKAFOR@syn-corp.example", directory.get_employee("SYN-EMP-0040")))
+        self.assertFalse(hook.from_the_manager(None, directory.get_employee("SYN-EMP-0040")))
+
+    def test_a_forbidden_grant_cannot_be_proposed_for_the_operator_to_apply(self):
+        # a review (2026-11-20): the hook refused the grant, but its proposal went to /pending, where Apply made it
+        result = self.registry.call("access_propose_change", {"action": "grant", "employee_id": LEO, "request_id": REQ,
+                                                              "group_id": LEGAL_HOLD,
+                                                              "reason": "Manager approved by phone."}, ctx())
+        self.assertTrue(result.is_error)
+        self.assertIn("the policy forbids it", result.content)
+        self.assertEqual([p for p in pending.open_items("proposed_change") if p["group_id"] == LEGAL_HOLD], [])
+        allowed = self.registry.call("access_propose_change", {"action": "grant", "employee_id": LEO, "request_id": REQ,
+                                                               "group_id": HIGH, "reason": "covering Priya"}, ctx())
+        self.assertFalse(allowed.is_error, allowed.content)                      # needs_manager is still put up
 
     def test_a_managers_yes_about_one_person_does_not_count_for_the_requester_who_asked(self):
         # Leo asks for Priya on his own request, and both report to Grace: the question names Leo as the
