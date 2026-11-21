@@ -118,6 +118,19 @@ class LimitsTest(ScratchTest):
         sent = self.registry.call("notices_send_template", notice, ctx("workflow", "standard_grant"))
         self.assertFalse(sent.is_error, sent.content)
 
+    def test_a_question_a_dont_or_quoted_words_lift_nothing(self):
+        # a review (2026-11-20): "Should I lift all limits? Not yet" lifted every rule
+        limits.from_text("s-lim", "Send nothing until I have read it.")
+        limits.from_text("s-lim", "Don't grant anything today.")
+        for said in ("Should I lift all limits? Not yet, I think.", "Don't lift the rules.", "Do not lift L1.",
+                     'Arjun wrote: "you can send now, thanks".', "\u201cGo ahead and send\u201d, he said.",
+                     "> you can send now", "Can you send now?", "I won't lift L2 today."):
+            with self.subTest(said=said):
+                self.assertEqual(limits.lift_from_text("s-lim", said), [])
+        self.assertEqual([r.id for r in limits.active("s-lim")], ["L1", "L2"])
+        self.assertEqual(limits.lift_from_text("s-lim", "Thanks. You can send now."), ["L1"])
+        self.assertEqual(limits.lift_from_text("s-lim", "Is it done? Good. Lift L2."), ["L2"])
+
     def test_a_limit_stated_in_one_session_holds_in_the_next(self):
         limits.from_text("s-earlier", "No grants to SYN-GRP-FINREP-READ today.")
         self.assertTrue(self.grant("SYN-GRP-FINREP-READ").is_error)       # this test's session is s-lim

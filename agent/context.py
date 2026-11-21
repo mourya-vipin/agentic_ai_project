@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 from harness import runtime
@@ -69,9 +70,18 @@ def budget() -> int:
     return int(value)
 
 
-# the brackets our code opens its own lines with; a stranger's text may not open one
-_OUR_MARKERS = re.compile(r"\[(?=\s*(?:from\b|notes kept\b|summary of the earlier\b|memory from\b|cleared to save room\b))",
-                          re.I)
+# the brackets our code opens its own lines with; a stranger's text may not open one. A memory
+# record's line opens "[M1, preference, from the operator, ..." (agent/memory.py: as_line)
+_OUR_MARKERS = re.compile(r"\[(?=\s*(?:from\b|notes kept\b|summary of the earlier\b|memory from\b|cleared to save room\b"
+                          r"|M\d+\s*,\s*(?:preference|fact)\b))", re.I)
+
+
+def _plain(text: str) -> str:
+    """The text with look-alike characters folded (a fullwidth bracket to "[") and invisible format
+    characters (a zero-width space) taken out, so a bracket cannot hide from _OUR_MARKERS (a review,
+    2026-11-20). Only the text the model reads changes; the channel keeps the message as sent."""
+    folded = unicodedata.normalize("NFKC", text)
+    return "".join(c for c in folded if unicodedata.category(c) != "Cf")
 
 
 def label(stranger: dict) -> str:
@@ -80,7 +90,7 @@ def label(stranger: dict) -> str:
     a reply cannot pass itself off as the operator's turn or our notes (tests/test_context.py)."""
     sender = stranger.get("sender") or "outside"
     thread = stranger.get("thread_id") or "?"
-    text = _OUR_MARKERS.sub("(", str(stranger.get("text", "")))
+    text = _OUR_MARKERS.sub("(", _plain(str(stranger.get("text", ""))))
     return f"[from {sender} on {thread}, not the operator] {text}"
 
 

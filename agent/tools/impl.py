@@ -158,7 +158,18 @@ def policy_check_access(args, ctx, key):
 
 def requests_get(args, ctx, key):
     item = _request(args.get("request_id"))
-    return {**item, "changes": access.by_request(item["id"]), "pending": pending.by_request(item["id"])}
+    return {**item, "changes": access.by_request(item["id"]),
+            "pending": [_for_the_model(p) for p in pending.by_request(item["id"])]}
+
+
+def _for_the_model(record: dict) -> dict:
+    """A pending record as a tool result carries it. A stranger's message kept for the operator
+    (outside_message) is theirs, not a record of ours, so its words stay out: the operator reads
+    them on /pending, and a model call reads a stranger only through context.label (found in a
+    review, 2026-11-20: a HUMAN message came back verbatim in requests_get)."""
+    if record.get("kind") != "outside_message":
+        return record
+    return {**record, "body": "(a stranger's message, kept for the operator on /pending; its words are not shown here)"}
 
 
 def requests_list_today(args, ctx, key):
@@ -327,6 +338,14 @@ def access_propose_change(args, ctx, key):
         # an attack pilot (2026-10-30) proposed removing a legal hold from someone who did not hold it
         raise PermanentError(f"{person['id']} does not hold {group['id']}, so there is nothing to remove; nothing "
                              f"was proposed. access_list_memberships lists what {person['id']} holds.")
+    if action == "grant":
+        decision = catalog.policy_for(person["id"], group["id"])
+        if decision["decision"] == "forbidden":
+            # a review (2026-11-20): the hook refused the grant itself, but a proposal of it went to
+            # /pending, where one click on Apply made it real; a prohibition is never put up
+            raise PermanentError(f"Cannot propose granting {group['id']} to {person['id']}: the policy forbids it "
+                                 f"({decision['reason']}). Nothing was proposed, and no approval can allow it; "
+                                 "tell the operator what was asked and why it cannot be done.")
     request = _request(args.get("request_id"))
     case = _case(args, ctx)
     if action == "revoke" and ctx.use_case == "nonstandard_request" and case and case["requester_id"] \

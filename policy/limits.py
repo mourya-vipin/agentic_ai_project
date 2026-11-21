@@ -49,6 +49,10 @@ _AFTER = re.compile(r"\b(?:nobody gets|no one gets|grants? (?:of|to|for)|grant(?
 _LIFT_ID = re.compile(r"\blift\s+(?:limit\s+|rule\s+)?(L\d+)\b", re.I)
 _LIFT_ALL = re.compile(r"\blift (all )?(the )?(limits|rules)\b", re.I)
 _LIFT_SENDS = re.compile(r"\b(you can send( now)?|go ahead and send|sending is fine( now)?)\b", re.I)
+# Only the operator's own statement lifts a rule: not a question, not a "don't", not words they quote.
+_QUOTED = re.compile(r'"[^"]*"|“[^”]*”|^\s*>.*$', re.M)
+_SENTENCE = re.compile(r"[^.!?\n]+[.!?]*")
+_NEGATED = re.compile(r"\b(?:don'?t|do not|never|not|no need to|shouldn'?t|should not|won'?t|can'?t|cannot)\b", re.I)
 
 
 @dataclass
@@ -164,8 +168,10 @@ def lift(session_id: str, rule_id: str) -> None:
 
 
 def lift_from_text(session_id: str, text: str) -> list[str]:
-    """The rules an operator's message lifts, by ID, all of them, or every send limit."""
-    text = str(text or "")
+    """The rules an operator's message lifts, by ID, all of them, or every send limit. Only a sentence
+    of the operator's own lifts: one that asks ("Should I lift all limits?"), says not to ("Don't lift
+    the rules"), or that they quote ('Arjun wrote: "you can send now"') lifts nothing."""
+    text = " ".join(_lifting(str(text or "")))
     live = active(session_id)
     if _LIFT_ALL.search(text):
         chosen = [r.id for r in live]
@@ -176,3 +182,12 @@ def lift_from_text(session_id: str, text: str) -> list[str]:
     for rule_id in chosen:
         lift(session_id, rule_id)
     return chosen
+
+
+def _lifting(text: str) -> list[str]:
+    """The sentences of the operator's own that may lift a rule: quotes left out first, then every
+    question and every sentence with a negation dropped (found in a review, 2026-11-20)."""
+    own = _QUOTED.sub(" ", text)
+    return [s.strip() for s in _SENTENCE.findall(own)
+            if s.strip() and not s.strip().endswith("?") and not _NEGATED.search(s)]
+

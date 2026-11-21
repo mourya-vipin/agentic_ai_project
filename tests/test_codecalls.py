@@ -115,6 +115,14 @@ class CodeCallsTest(ScratchTest):
                 self.assertIn("stopped before it ran", result.content)
                 self.assertIn(said, result.content)
 
+    def test_the_child_gets_no_environment_but_what_windows_needs_to_start(self):
+        # a review (2026-11-20): with env={} the child cannot start on Windows, which needs SYSTEMROOT
+        with mock.patch.dict(codecalls.os.environ, {"SYSTEMROOT": r"C:\Windows", "OPENAI_API_KEY": "sk-x"}):
+            with mock.patch.object(codecalls.os, "name", "nt"):
+                self.assertEqual(codecalls._child_env(), {"SYSTEMROOT": r"C:\Windows"})
+            with mock.patch.object(codecalls.os, "name", "posix"):
+                self.assertEqual(codecalls._child_env(), {})
+
     def test_a_program_that_runs_on_is_stopped_on_time(self):
         self.offer()
         with mock.patch.object(codecalls, "WALL_S", 1.0):
