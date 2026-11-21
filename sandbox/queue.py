@@ -35,15 +35,19 @@ def arrived() -> list[dict]:
     return items
 
 
+UNCHECKED_SENDER = " (the sender is as the message's address gives it, not checked)"
+
+
 def _outside(p: dict) -> str:
     """A stranger's message that no run takes (agent/service.py: on_outside_reply; added by Aman Panigrahi).
-    The sender is the one that the message's address gives: our code does not check it."""
+    A person named on the line is the one the message's address gives: our code does not check it,
+    and the line says so. A text cut to fit ends in "…"."""
     who = p["employee_id"] or "someone outside"
     said = " ".join(re.sub(r"^\s*SYNTHETIC\.\s*", "", p["body"] or "").split())     # the sandbox's mark, as the app drops it
-    return f"{who} wrote on {p['thread_id']} ({p['reason']}): {said}"[:SUMMARY * 2] + UNCHECKED_SENDER
-
-
-UNCHECKED_SENDER = " (the sender is as the message's address gives it, not checked)"
+    line = f"{who} wrote on {p['thread_id']} ({p['reason']}): {said}"
+    if len(line) > SUMMARY * 2:
+        line = line[:SUMMARY * 2 - 1] + "…"
+    return line + (UNCHECKED_SENDER if p["employee_id"] else "")
 
 
 def held() -> list[dict]:

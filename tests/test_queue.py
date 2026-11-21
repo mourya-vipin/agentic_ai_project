@@ -65,3 +65,16 @@ class QueueTest(ScratchTest):
         self.assertIn("say whether it landed", page)
         self.assertIn(REQ, page)
         self.assertTrue(access.memberships(LEO))
+
+    def test_a_strangers_line_marks_a_name_from_an_address_and_a_cut(self):
+        """Aman Panigrahi's note on a stranger's message: the person named comes from the address,
+        not checked. With no one named there is no name to doubt, and a cut text ends in "…"."""
+        message = {"thread_id": "SYN-MAIL-SYN-EMP-0060", "reason": "asks for a person", "body": "SYNTHETIC. HUMAN."}
+        named = queue._outside({**message, "employee_id": "SYN-EMP-0060"})
+        no_one = queue._outside({**message, "employee_id": None})
+        long = queue._outside({**message, "employee_id": "SYN-EMP-0060", "body": "SYNTHETIC. " + "word " * 60})
+        self.assertEqual(named, "SYN-EMP-0060 wrote on SYN-MAIL-SYN-EMP-0060 (asks for a person): HUMAN."
+                         + queue.UNCHECKED_SENDER)
+        self.assertEqual(no_one, "someone outside wrote on SYN-MAIL-SYN-EMP-0060 (asks for a person): HUMAN.")
+        self.assertTrue(long.endswith("…" + queue.UNCHECKED_SENDER), long)
+        self.assertEqual(len(long), queue.SUMMARY * 2 + len(queue.UNCHECKED_SENDER))
