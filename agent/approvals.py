@@ -362,53 +362,48 @@ def plan_screen(steps: list[dict], facts: dict, ctx=None) -> dict:
 
 
 def _answer_it_follows(request: dict | None) -> str | None:
-    """For a reply after our manager_confirm question on this request: the first message the manager
-    wrote after it, as they wrote it, the message the reply answers (read as policy/hook.py reads the yes)."""
-    import channel
-    from sandbox import db
+    """For a reply after our manager_confirm question on this request: the manager's own reply to the
+    latest question about each person and group, as she wrote it, the message the reply answers. Read
+    with the hook's own reader (policy/hook.py: manager_reply), so the screen and the gate agree."""
+    from policy import hook
+    from sandbox import db, directory
     if not request:
         return None
     with db.connect() as conn:
         asked = conn.execute("SELECT thread_id, message_id FROM notices_sent WHERE template_id = 'manager_confirm' "
                              "ORDER BY message_id").fetchall()
+    seen = set()
     for row in reversed(asked):
-        messages = channel.messages(row["thread_id"])
-        question = next((m for m in messages if m.id == row["message_id"]), None)
-        if question is None or request["id"] not in question.text:
+        question = next((m for m in _messages(row["thread_id"]) if m.id == row["message_id"]), None)
+        about = hook.question_about(question.text) if question is not None else None
+        if about is None or about in seen or f" on {request['id']} " not in question.text:
             continue
-        from policy.hook import asks_for_a_person          # a HUMAN message is not her answer (Aman Panigrahi)
-        answer = next((m for m in messages if m.id > question.id and m.sender not in channel.OURS
-                       and not asks_for_a_person(m.text)), None)
-        if answer is not None:
-            from sandbox import directory
-            who = directory.get_employee(row["thread_id"].removeprefix("SYN-MAIL-")) or {}
-            name = f"{who['name']} ({who['id']})" if who else answer.sender
-            return f"{name}, on {row['thread_id']}: " + " ".join(answer.text.split())[:TEXT_CHARS]
+        seen.add(about)
+        person = directory.get_employee(about[0]) or {"id": about[0]}
+        manager = directory.manager_of(about[0]) or {}
+        words = _managers_words(person, {"id": about[1]}, request, manager)
+        if words is not None:
+            return words
     return None
 
 
-def _managers_words(person: dict, group: dict, request: dict | None, manager: dict) -> str | None:
-    """The message the manager's answer above is read from, as they wrote it: the first reply on their
-    thread after our latest manager_confirm question about this person, group and request, a HUMAN
-    message skipped, as policy/hook.py: manager_answer reads it."""
+def _messages(thread_id: str):
     import channel
+    return channel.messages(thread_id)
+
+
+def _managers_words(person: dict, group: dict, request: dict | None, manager: dict) -> str | None:
+    """The message the manager's answer is read from, as she wrote it: the hook's own reader
+    (policy/hook.py: manager_reply), her own reply after our latest question about this person, group
+    and request, a HUMAN message or anyone else's skipped."""
     from policy import hook
-    from sandbox import db
     if not manager:
         return None
-    thread = f"SYN-MAIL-{manager['id']}"
-    with db.connect() as conn:
-        asked_ids = {r["message_id"] for r in conn.execute(
-            "SELECT message_id FROM notices_sent WHERE thread_id = ? AND template_id = 'manager_confirm'", (thread,))}
-    messages = channel.messages(thread)
-    asked = [m for m in messages if m.id in asked_ids and hook._asks_about(m.text, person, group, request)]
-    if not asked:
-        return None
-    reply = next((m for m in messages if m.id > asked[-1].id and m.sender not in channel.OURS
-                  and not hook.asks_for_a_person(m.text)), None)
+    reply = hook.manager_reply(person, group, request)
     if reply is None:
         return None
-    return f"{manager.get('name')} ({manager['id']}), on {thread}: " + " ".join(reply.text.split())[:TEXT_CHARS]
+    return (f"{manager.get('name')} ({manager['id']}), on SYN-MAIL-{manager['id']}: "
+            + " ".join(reply.text.split())[:TEXT_CHARS])
 
 
 def _group(group_id: str) -> dict:

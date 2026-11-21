@@ -161,13 +161,13 @@ def from_the_manager(sender: str | None, manager: dict | None) -> bool:
     return said in {str(manager.get("email") or "").casefold(), str(manager.get("name") or "").casefold()} - {""}
 
 
-def manager_answer(person: dict, group: dict, request: dict | None) -> str | None:
-    """The manager's answer to our manager_confirm question for this person, group and request:
-    "yes", "no", or None when we never asked or no reply has come. Read by code from the channel:
-    the first reply after the question on the manager's thread, by its first word, as the question
-    asks (YES or NO). Only the manager's own message counts (from_the_manager), and one whose first
-    word is HUMAN asks for a person, so it is not the answer. The reply is the stranger's word: a yes only lets the grant be put up for
-    the operator, who still decides."""
+def manager_reply(person: dict, group: dict, request: dict | None):
+    """The manager's own reply to our latest manager_confirm question about this person, group and
+    request: the channel message, or None when we never asked or she has not replied. Only her own
+    message counts (from_the_manager), and one whose first word is HUMAN asks for a person, so it is
+    not the answer. The one reader of her answer: manager_answer below, and the approval screens and
+    the critique (agent/approvals.py, agent/critique.py), so all of them read the same message
+    (shared on a review, 2026-11-20; Shruti Tewaney)."""
     manager = directory.manager_of(person["id"])
     if manager is None:
         return None
@@ -185,9 +185,30 @@ def manager_answer(person: dict, group: dict, request: dict | None) -> str | Non
                 continue        # someone else on her thread: not her answer (a review, 2026-11-20)
             if asks_for_a_person(m.text):
                 continue        # it goes to the operator (agent/service.py: on_outside_reply), not to the run
-            words = re.sub(r"^\s*SYNTHETIC\.\s*", "", m.text).strip()
-            return "yes" if YES.match(words) else "no" if NO.match(words) else None
+            return m
     return None
+
+
+def manager_answer(person: dict, group: dict, request: dict | None) -> str | None:
+    """The manager's answer to our manager_confirm question for this person, group and request:
+    "yes", "no", or None when we never asked, no reply has come, or it is neither. Read by code from
+    her own reply (manager_reply), by its first word, as the question asks (YES or NO). The reply is
+    the stranger's word: a yes only lets the grant be put up for the operator, who still decides."""
+    reply = manager_reply(person, group, request)
+    if reply is None:
+        return None
+    words = re.sub(r"^\s*SYNTHETIC\.\s*", "", reply.text).strip()
+    return "yes" if YES.match(words) else "no" if NO.match(words) else None
+
+
+QUESTION_ABOUT = re.compile(r"\((SYN-EMP-\d{4})\) to get .*?\((SYN-GRP-[A-Z0-9-]+)\)\. Do you agree\?")
+
+
+def question_about(text: str) -> tuple[str, str] | None:
+    """The person and the group a manager_confirm question asks about, read from their own places in
+    the template, never the first employee ID in it: that is the requester's."""
+    found = QUESTION_ABOUT.search(text or "")
+    return (found.group(1), found.group(2)) if found else None
 
 
 def _asks_about(text: str, person: dict, group: dict, request: dict | None) -> bool:

@@ -415,6 +415,19 @@ class SlowPlanner(GoodPlanner):
         return super().create(system=system, messages=messages, tools=tools)
 
 
+class SlowReviser(SlowPlanner):
+    """SlowPlanner, with the reviser's call taking REVISER_S in all: the call a stop test lands in
+    (tests/test_stop.py: stopped_mid_run), wide enough that a slow machine's polling thread still
+    sends the stop while it runs. SlowPlanner itself stays as scripts/stop_conditions.py measured it."""
+    REVISER_S = 1.0
+
+    def create(self, *, system, messages, tools):
+        import time
+        if system.startswith("You are the reviser"):
+            time.sleep(self.REVISER_S - self.DELAY_S)
+        return super().create(system=system, messages=messages, tools=tools)
+
+
 class MidTaskOperator(GoodPlanner):
     """Plans t06 with the hold; while the plan is being written, the operator types MESSAGE in
     the same console session (agent/inbox.py: post). Every fill request is kept in `seen`."""

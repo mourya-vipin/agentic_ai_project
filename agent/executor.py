@@ -35,8 +35,8 @@ The run, in order:
      on every call. The executor writes trace.end itself, with one of its reasons.
 
 The run is checkpointed (agent/checkpoints.py) after the plan and after every step, so
-a run waiting for the operator survives a restart. Until the router passes a run key,
-the executor opens its own run.
+a run waiting for the operator survives a restart. The router passes each run's key
+(agent/router.py: _in_run); called without one, as the tests call it, the executor opens its own.
 """
 
 from __future__ import annotations

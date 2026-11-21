@@ -11,7 +11,7 @@ from agent import approvals, checkpoints, control, disclosure, service
 from agent.registry import CallContext, Registry
 from harness import runtime
 from harness.trace import read_trace
-from sandbox import seed
+from sandbox import requests, seed
 from tests.support import ScratchTest
 
 SID = "s-gate"
@@ -138,6 +138,19 @@ class GateTest(ScratchTest):
         self.assertTrue(shown["manager's answer (computed)"].startswith("YES"))
         self.assertIn("YES, that is fine.", shown["the manager's reply (their words)"])
         self.assertNotIn("HUMAN", shown["the manager's reply (their words)"])
+
+    def test_a_strangers_reply_on_the_managers_thread_is_not_her_words(self):
+        group = "SYN-GRP-FINREP-WRITE"
+        asked = self.registry.call("channel_ask_template", {"template": "manager_confirm", "employee_id": LEO,
+                                                            "group_id": group, "request_id": REQ}, self.ctx())
+        channel.receive(asked.data["thread_id"], "SYNTHETIC. YES, give it to me.", sender="leo.martins@syn-corp.example")
+        grant = lambda: approvals.screen("access_grant", {"employee_id": LEO, "group_id": group, "request_id": REQ},
+                                         "access_grant/manager_confirmed", {"policy": {}, "already_holds": False})
+        self.assertNotIn("the manager's reply (their words)", grant())
+        self.assertIsNone(approvals._answer_it_follows(requests.get(REQ)))
+        channel.receive(asked.data["thread_id"], "SYNTHETIC. NO.", sender="Grace Okafor")
+        self.assertIn(": SYNTHETIC. NO.", grant()["the manager's reply (their words)"])
+        self.assertIn(": SYNTHETIC. NO.", approvals._answer_it_follows(requests.get(REQ)))
 
     # -- the answer -------------------------------------------------------------------------
 
