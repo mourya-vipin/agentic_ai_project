@@ -115,6 +115,25 @@ class CodeCallsTest(ScratchTest):
                 self.assertIn("stopped before it ran", result.content)
                 self.assertIn(said, result.content)
 
+    def test_past_the_checks_the_childs_own_wall_still_stops_files_sockets_and_processes(self):
+        # as if a program got past the code check and its builtins included open and __import__:
+        # the audit hook in the child refuses each one, at run time
+        self.offer()
+        loose = codecalls.SAFE_BUILTINS + ("open", "__import__")
+        with mock.patch.object(codecalls, "check", return_value=[]), \
+                mock.patch.object(codecalls, "SAFE_BUILTINS", loose):
+            for source in ('result = open("/etc/passwd").read()',
+                           'result = open("escape.txt", "w").write("x")',
+                           'result = __import__("socket").socket()',
+                           'result = __import__("subprocess").run(["true"])'):
+                with self.subTest(source=source):
+                    result = self.program(source)
+                    self.assertTrue(result.is_error)
+                    self.assertIn("raised PermissionError", result.content)
+                    self.assertIn("a program may not do", result.content)
+            ok = self.program('rows = call("requests_list_today")["requests"]\nresult = len(rows)')
+            self.assertFalse(ok.is_error, ok.content)                       # call() still works
+
     def test_the_child_gets_no_environment_but_what_windows_needs_to_start(self):
         # a review (2026-11-20): with env={} the child cannot start on Windows, which needs SYSTEMROOT
         with mock.patch.dict(codecalls.os.environ, {"SYSTEMROOT": r"C:\Windows", "OPENAI_API_KEY": "sk-x"}):

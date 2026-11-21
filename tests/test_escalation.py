@@ -170,3 +170,71 @@ class EscalationTest(ScratchTest):
         escalation.escalate(self.cp.run_key, "ambiguous_write", **PACKET)
         seed.reset()                                           # make app, run.py
         self.assertEqual(escalation.held(), [])
+
+
+# -- answered from a new process -------------------------------------------------------------
+
+ESC_CHILD = r"""
+import sys
+from unittest import mock
+from agent import commands, escalation, executor, exits
+from agent.bounds import Bound
+from sandbox import access
+from tests import fakes
+from tests.support import fixed_run
+from tests.test_plan import T06
+
+step, rid = sys.argv[1], sys.argv[2]
+with fixed_run(T06, rid, backend="tests.fakes:GoodPlannerWithHold", fresh=(step == "hold")):
+    if step == "hold":
+        access.set_fault("access_revoke", 100)                      # every removal fails as transient
+        with mock.patch.object(exits, "confirm", return_value=None):  # and no read can tell
+            result = executor.run_planned(rid, fakes.T06_TEXT, bound=Bound())
+        print("END", result.end_reason)
+        print("PACKET", escalation.held()[0]["id"])
+    else:
+        access.set_fault("access_revoke", 0)
+        reply = commands.handle(sys.argv[4], f"/answer {sys.argv[3]} The removals did not happen; carry on.")
+        print("ANSWERED", reply.text.replace(chr(10), " ")[:200])
+        fakes.approve_all()
+"""
+
+
+class AnsweredInANewProcess(ScratchTest):
+    """The hold survives the process: one process holds U6's run on a write in doubt and exits; a new
+    process, as after a restart of the app, answers the packet from another console session, and the
+    run carries on in its own session with no removal made twice."""
+
+    def child(self, *args):
+        import os
+        import subprocess
+        import sys
+        from harness import ROOT
+        done = subprocess.run([sys.executable, "-c", ESC_CHILD, *args], cwd=ROOT, env=os.environ.copy(),
+                              capture_output=True, text=True, timeout=240)
+        self.assertEqual(done.returncode, 0, done.stderr[-2000:])
+        return done.stdout
+
+    def test_a_held_run_answered_after_a_restart_resumes_with_no_duplicate(self):
+        from agent import executor
+        rid = "esc-restart"
+        held = self.child("hold", rid)
+        self.assertIn(f"END {executor.ESCALATED}", held)
+        packet_id = held.split("PACKET ")[1].split()[0]
+        answered = self.child("answer", rid, packet_id, LATER)            # a new process, a later session
+        self.assertIn("ANSWERED", answered)
+        lines = read_trace(next((self.tmp / "traces").rglob(f"{rid}.trace.jsonl")))
+        ends = [x["terminal_reason"] for x in lines if x["type"] == "end"]
+        self.assertEqual(ends[0], executor.ESCALATED)
+        self.assertEqual(ends[-1], executor.PLAN_DONE)
+        from tests import fakes
+        from tests.support import fixed_run
+        from tests.test_plan import T06
+        with fixed_run(T06, rid, backend="tests.fakes:GoodPlannerWithHold", fresh=False):
+            self.assertEqual(access.memberships(fakes.ANA), [])
+            with db.connect() as conn:
+                twice = conn.execute("SELECT COUNT(*) AS n FROM (SELECT employee_id, group_id FROM memberships "
+                                     "WHERE removed_at IS NOT NULL GROUP BY employee_id, group_id "
+                                     "HAVING COUNT(*) > 1)").fetchone()["n"]
+            self.assertEqual(twice, 0)
+            self.assertEqual(escalation.held(), [])                      # the packet is answered

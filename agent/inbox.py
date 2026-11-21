@@ -26,6 +26,19 @@ a model's judgement:
 
 A path that does not call take() (a workflow has no model call; the planned path until its
 executor calls it) gets no message mid-run: after_turn hands it on as a new message instead.
+
+A run that waits for a stranger's reply or for an approval has not finished either, though no
+turn of it runs now (waiting_run). A message to it takes the same ways, from the same words:
+
+    carry on     kept for that run (status "for_run"): when the reply or the answer resumes it,
+                 the run reads the message before its next model call, as a live run does
+    start over   the waiting run ends "replaced" at once, its approvals withdrawn; the router
+                 starts a fresh run with the message, and the operator sees what the old run did
+    queue        the router answers it now: the run makes no call while it waits, and a wait
+                 can last days, so a queue behind it would have no bound on its response time
+
+    waiting_run(session_id)              the run of the session that waits for a reply or an approval
+    post_to_waiting(session_id, text, cp)   (way, Reply or None) for one message to that run
 """
 
 from __future__ import annotations
@@ -43,6 +56,8 @@ from harness.turns import Reply
 DB_FILE = "inbox.sqlite3"
 ADD, REPLACE, QUEUE, REJECT = "carry_on", "start_over", "queue", "reject"
 MAX_QUEUED = 5
+FOR_RUN = "for_run"            # a message that adds to the task of a run that waits, kept until it resumes
+WAITS = {"reply": "a reply", "approval": "your approval"}   # the waits a message can reach
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
@@ -121,12 +136,13 @@ def post(session_id: str, text: str, cp) -> Reply:
 
 def take(run_key: str | None) -> list[dict]:
     """The messages for this run that add to or replace its task, oldest first, each once.
-    The loop calls it before each model call."""
+    The loop calls it before each model call. A message kept for the run while it waited
+    (status "for_run") comes too."""
     if not run_key:
         return []
     with _connect(write=True) as conn:
-        rows = conn.execute("SELECT * FROM messages WHERE run_key = ? AND status = 'new' AND way IN (?, ?) "
-                            "ORDER BY id", (run_key, ADD, REPLACE)).fetchall()
+        rows = conn.execute("SELECT * FROM messages WHERE run_key = ? AND status IN ('new', ?) AND way IN (?, ?) "
+                            "ORDER BY id", (run_key, FOR_RUN, ADD, REPLACE)).fetchall()
         conn.executemany("UPDATE messages SET status = 'taken' WHERE id = ?", [(r["id"],) for r in rows])
     return [dict(r) for r in rows]
 
@@ -143,3 +159,42 @@ def after_turn(session_id: str) -> list[dict]:
         conn.executemany("UPDATE messages SET status = 'handed_on' WHERE id = ?",
                          [(r["id"],) for r in [*replaced, *waiting]])
     return [dict(r) for r in [*replaced[-1:], *waiting]]
+
+
+def waiting_run(session_id: str):
+    """The latest run of the session that waits for a stranger's reply or for an approval, or
+    None. A run that a stop or an escalation holds is not one: /resume and /answer carry it on."""
+    from agent import checkpoints
+    runs = [cp for cp in checkpoints.live(session_id)
+            if cp.status in (checkpoints.WAITING_REPLY, checkpoints.WAITING_APPROVAL)]
+    return runs[-1] if runs else None
+
+
+def post_to_waiting(session_id: str, text: str, cp) -> tuple[str, Reply | None]:
+    """Take one message to the run `cp`, which waits. Returns its way, and the Reply for the
+    operator; None for the router to answer (a question, anything else). A replacement ends the
+    run now: the caller starts the fresh run and lists what the old one did."""
+    from agent import approvals, bounds, checkpoints
+    way = way_of(text)
+    wait = (cp.waiting_for or {}).get("kind") or ("reply" if cp.status == checkpoints.WAITING_REPLY else "approval")
+    what = WAITS.get(wait, "something")
+    trace = runtime.trace(session_id)
+    if way == ADD:
+        with _connect(write=True) as conn:
+            conn.execute("INSERT INTO messages (session_id, run_key, text, way, status, at) VALUES (?, ?, ?, ?, ?, ?)",
+                         (session_id, cp.run_key, str(text), way, FOR_RUN, now()))
+        trace.event("midtask_message", run_key=cp.run_key, way=way, waits_for=wait)
+        return way, Reply(f"Run {cp.run_no} waits for {what}. Your message is added to its task: the run reads it "
+                          "when it carries on.", [f"carry on: {cp.run_key}"])
+    if way == REPLACE:
+        withdrawn = approvals.withdraw(cp.run_key)
+        cp.status, cp.waiting_for = checkpoints.CANCELLED, None
+        checkpoints.save(cp, mode="sync")
+        with _connect(write=True) as conn:
+            conn.execute("INSERT INTO messages (session_id, run_key, text, way, status, at) VALUES (?, ?, ?, ?, ?, ?)",
+                         (session_id, cp.run_key, str(text), way, "handed_on", now()))
+        trace.event("midtask_message", run_key=cp.run_key, way=way, waits_for=wait, withdrawn=withdrawn)
+        trace.end(bounds.REPLACED, f"{cp.run_key} waited for {what}; the operator's message replaced its task")
+        return way, None
+    trace.event("midtask_message", run_key=cp.run_key, way=way, waits_for=wait, answered_now=True)
+    return way, None

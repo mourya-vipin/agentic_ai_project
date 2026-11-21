@@ -10,7 +10,9 @@ of calling the tools one at a time:
 The program runs in a process of its own (python -I -S, an empty environment, a scratch folder as
 its working directory, a CPU limit and a wall-clock limit). It has no import, no open(), no
 network and no names starting with an underscore; the checks below stop a program that reaches for
-them before it runs. Its one way out is call(tool, **args), which comes back to this process and
+them before it runs. Under them, a second wall in the child itself: an audit hook (sys.addaudithook,
+which cannot be removed) refuses every file open, socket, process and new module once the program
+starts, so a program that got past the checks still reaches nothing but call(). Its one way out is call(tool, **args), which comes back to this process and
 goes through the registry like any other call: the boundary, the hook (origin "program"), the key
 for a write, the MCP server and the call record. Only the program's final `result` enters the
 model's context; every intermediate result stays in the trace.
@@ -47,7 +49,7 @@ SAFE_BUILTINS = ("abs", "all", "any", "bool", "dict", "enumerate", "filter", "fl
 
 # the child: reads the program, runs it with only call() and SAFE_BUILTINS, one JSON line per message
 RUNNER = r'''
-import json, sys, traceback
+import json, sys, traceback, linecache
 _out, _in = sys.stdout, sys.stdin
 def _send(o):
     _out.write(json.dumps(o, default=str) + "\n"); _out.flush()
@@ -64,8 +66,21 @@ b = __builtins__ if isinstance(__builtins__, dict) else vars(__builtins__)
 safe = {n: b[n] for n in start["builtins"]}
 g = {"__builtins__": safe, "call": call, "ToolFailed": ToolFailed}
 sys.stdout = sys.stderr      # print() inside the program never reaches the protocol
+code = compile(start["program"], "<program>", "exec")
+# the second wall, in the interpreter, under the code check: from here on the process may open no
+# file, make no socket, start no process and load no module it has not loaded already. An audit hook
+# cannot be removed once added, so a program that got past the check still reaches nothing
+DENIED = ("open", "socket.", "subprocess.", "os.system", "os.exec", "os.posix_spawn", "os.spawn", "os.fork",
+          "os.forkpty", "os.kill", "os.remove", "os.rename", "os.mkdir", "os.rmdir", "os.chdir", "os.listdir",
+          "os.scandir", "os.truncate", "os.link", "os.symlink", "shutil.", "ctypes.", "urllib.", "http.",
+          "ftplib.", "smtplib.", "webbrowser.", "pty.", "sys.addaudithook", "sys._getframe", "code.__new__")
+loaded = frozenset(sys.modules)
+def _wall(event, args):
+    if event.startswith(DENIED) or (event == "import" and args[0] not in loaded):
+        raise PermissionError(f"a program may not do {event}")
+sys.addaudithook(_wall)
 try:
-    exec(compile(start["program"], "<program>", "exec"), g)
+    exec(code, g)
     _send({"done": g.get("result")})
 except BaseException as exc:
     line = next((f.lineno for f in reversed(traceback.extract_tb(exc.__traceback__)) if f.filename == "<program>"), None)

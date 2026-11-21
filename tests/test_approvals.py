@@ -209,7 +209,13 @@ class GateTest(ScratchTest):
         self.assertEqual(entry["run_key"], f"{SID}#1")
         self.assertGreaterEqual(entry["seconds"], 0)
         self.assertIn("dry run", entry["shown"])
-        self.assertIn("setting", entry)
+        # a reply on U4 is asked per action, whatever U6's approval.bulk_change says
+        self.assertEqual(entry["setting"], "per_action")
+        with mock.patch.object(runtime, "switch", lambda name, default=None:
+                               "plan" if name == "approval.bulk_change" else default):
+            self.reply(body=TEXT + " Second.")
+            approvals.decide("APR-0002", False, "")
+        self.assertEqual(approvals.log()[-1]["setting"], "per_action")
 
     def test_an_answer_after_a_restart_still_lands(self):
         self.reply()
@@ -259,3 +265,22 @@ class PerActionTest(ScratchTest):
         self.assertIn("the critique: ", shown["this run's checks so far (computed)"])   # read from its own trace
         self.assertIn("when it is sent", shown["what still checks it"])
         self.assertIn("their words", " ".join(shown))
+
+    def test_a_call_after_a_gated_call_in_the_same_step_waits_for_the_answer_and_runs_once(self):
+        # the model sends the gated reply and a status write in one response: nothing in the run
+        # proceeds while the reply waits, so the status write runs only after the operator's yes
+        from tests.fakes import SendsAndSetsStatusAtOnce
+        record = self.run_task("tasks/t10_gated_reply.yaml", "t10-deferred",
+                               backend="tests.fakes:SendsAndSetsStatusAtOnce")
+        self.assertTrue(record["passed"], record["check"])
+        self.assertEqual(record["end_reasons"], ["waiting_reply", "awaiting_approval", "done"])
+        [path] = list(self.tmp.rglob("*t10-deferred*.trace.jsonl"))
+        lines = read_trace(path)
+        at = {kind: [i for i, x in enumerate(lines) if x["type"] == kind] for kind in
+              ("approval_requested", "call_deferred", "approval_decided")}
+        status = [i for i, x in enumerate(lines) if x["type"] == "tool_call" and x.get("name") == "requests_set_status"
+                  and (x.get("input") or {}).get("note") == SendsAndSetsStatusAtOnce.NOTE]
+        self.assertEqual(len(at["call_deferred"]), 1)
+        self.assertLess(at["approval_requested"][0], at["call_deferred"][0])
+        self.assertEqual(len(status), 1)                                  # made once
+        self.assertGreater(status[0], at["approval_decided"][0])          # and only after the answer

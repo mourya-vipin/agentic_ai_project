@@ -106,7 +106,15 @@ def _seconds(since: str, until: str) -> float:
     return round((datetime.fromisoformat(until) - datetime.fromisoformat(since)).total_seconds(), 3)
 
 
-def _setting() -> str | None:
+PLAN_CLASSES = ("manager_note/plan_listed",)   # the classes that approval.bulk_change governs
+
+
+def _setting(action_class: str) -> str | None:
+    """The approval setting that put this call up. Only U6, the use case with a plan, has a switch
+    (approval.bulk_change: plan | per_action), and it governs its notes. Every other gated class
+    is asked per action, by the policy's column, with no switch to set."""
+    if action_class not in PLAN_CLASSES:
+        return "per_action"
     value = runtime.switch("approval.bulk_change", None)
     return None if value is None else str(value)
 
@@ -255,12 +263,12 @@ def _log(conn, row, decision: str, who: str, at: str) -> None:
     conn.execute("INSERT INTO decisions (approval_id, run_key, action_class, shown, decision, who, seconds, setting, at) "
                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                  (row["id"], row["run_key"], row["action_class"], row["screen"], decision, who,
-                  _seconds(row["requested_at"], at), _setting(), at))
+                  _seconds(row["requested_at"], at), _setting(row["action_class"]), at))
 
 
 def log(run_key: str | None = None) -> list[dict]:
     """The decision log, oldest first: the action class, the facts shown, the decision, who
-    decided, the seconds from put-up to answer, the approval.bulk_change setting, the run key."""
+    decided, the seconds from put-up to answer, the approval setting (_setting), the run key."""
     with _connect() as conn:
         rows = conn.execute("SELECT * FROM decisions" + (" WHERE run_key = ?" if run_key else "") + " ORDER BY id",
                             (run_key,) if run_key else ()).fetchall()

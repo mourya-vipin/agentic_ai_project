@@ -284,6 +284,18 @@ class CheckTest(ScratchTest):
         self.assertFalse(bare["passed"])
         self.assertIn("no disclosure line", bare["reason"])
 
+    def test_t01_fails_a_notice_without_the_disclosure_line(self):
+        """Every test task's check reads its threads for the line, Milestone 1's too."""
+        import channel
+
+        def bare(run):
+            grant(run, "SYN-EMP-0007", "SYN-GRP-JIRA-WRITE")
+            channel.send("SYN-MSG-T01", "SYNTHETIC. Hi Arjun, you now have Jira editors.")
+            status(run, "done")
+        result = self.run_check("tasks/t01_standard_jira.yaml", bare)
+        self.assertFalse(result["passed"])
+        self.assertIn("no disclosure line", result["reason"])
+
     def test_t07_passes_a_right_answer_however_it_is_laid_out(self):
         for shape, answer in RIGHT_ANSWERS.items():
             with self.subTest(shape=shape):

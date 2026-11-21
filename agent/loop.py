@@ -77,6 +77,9 @@ from sandbox import clock
 PROGRESS_EVERY = 3        # steps between the progress lines the console shows (Lecture 1, slide 34)
 MAX_PROTOCOL_ERRORS = 2   # the second protocol error in one loop ends it
 NOT_RUN = "Not run: the operator stopped this run before this call."
+DEFERRED = "deferred"     # a call after one that waits for an approval, in the same step
+DEFERRED_TEXT = ("Not run yet: an earlier call of this step waits for the operator's approval. Our code makes "
+                 "this call, with these arguments, once the operator approves; do not make it again.")
 STOP_LIFTED = ("[from our code] The operator lifted the stop on this run. A call that the stop "
                "refused did not run: make it again if it is still needed.")
 RESTARTED = ("[from our code] The process stopped during this run (a crash, or a restart of the app). The run "
@@ -248,6 +251,13 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
                 results.append(tool_result(call, NOT_RUN, True))
                 saved.update(status="not_run", key=None, is_error=True, end_reason="not_run")
                 continue
+            if ended == AWAITING_APPROVAL:
+                # an earlier call of this step waits for the operator: nothing else in the run
+                # proceeds meanwhile. The call is kept, and our code makes it once the answer is yes
+                results.append(tool_result(call, DEFERRED_TEXT, False))
+                saved.update(status="deferred", key=None, is_error=False, end_reason=DEFERRED)
+                trace.event("call_deferred", run_key=run_key, step=step, tool=name)
+                continue
             earlier = repeats.see(call.name, call.input, step)
             if earlier is not None:
                 trace.event("repeat_call", step=step, tool=call.name, first_step=earlier["step"], hash=earlier["hash"])
@@ -292,17 +302,37 @@ def _drive(session_id: str, *, use_case: str, system: str, tools: list[str], bou
 def _make_approved_calls(cp, messages: list[dict], step: int, actions: list[str]) -> str | None:
     """Make again each call of the last saved step that waited for an approval, with its
     saved arguments, and put its result in place of the "waiting" result. Returns the end
-    reason of a call that ends the turn again (a second approval, for example), or None."""
-    registry, ended = get_registry(), None
+    reason of a call that ends the turn again (a second approval, for example), or None.
+    The calls that the wait deferred follow, in the model's order, unless a call before them
+    waits for an approval again."""
+    registry = get_registry()
     last = (cp.steps or [{}])[-1]
-    for saved in [c for c in last.get("calls", []) if c.get("end_reason") == AWAITING_APPROVAL]:
+
+    def make(saved, ctx):
+        return registry.call(saved["tool"], saved["args"], ctx)
+    return _make_waiting_calls(cp, last, messages, step, actions, make)
+
+
+def _make_waiting_calls(cp, last: dict, messages: list[dict], step: int, actions: list[str], make) -> str | None:
+    """Make each call of the step `last` that waited for an approval or that the wait deferred,
+    in the model's order, with `make(saved, ctx)`. Once a call waits for an approval, the calls
+    after it are deferred again. Each call's record is updated and the step saved, so that a
+    second answer does not make a call that already ran."""
+    ended = None
+    for saved in [c for c in last.get("calls", []) if c.get("end_reason") in (AWAITING_APPROVAL, DEFERRED)]:
+        if ended == AWAITING_APPROVAL:
+            saved.update(status="deferred", key=None, is_error=False, end_reason=DEFERRED)
+            continue
         ctx = CallContext(cp.session_id, step, "model", cp.use_case, request_id=(cp.findings or {}).get("request_id"),
                           call_id=saved["id"], run_key=cp.run_key, origin="agent")
-        result = registry.call(saved["tool"], saved["args"], ctx)
+        result = make(saved, ctx)
         if not result.is_error and result.key is not None:
             actions.append(action_line(saved["tool"], saved["args"], result.data))
         _put_result(messages, saved["id"], result)
+        saved.update(status="done", key=result.key, is_error=result.is_error, end_reason=result.end_reason)
         ended = ended or result.end_reason
+    if last.get("calls"):
+        checkpoints.save_step(cp, last, messages=messages)
     return ended
 
 
@@ -312,24 +342,23 @@ def _finish_approved_calls(cp, messages: list[dict], actions: list[str]) -> str 
     takes the three exits, with a read of the target before the same call again: the gate lets
     an approved call through once, so a second call would ask the operator again for a reply that
     went out (the recovery test, t08 and t10). Its result takes the place of the "waiting" result.
-    A call not yet approved waits again. Returns the end reason of a call that ends the turn."""
+    A call not yet approved waits again. A call that the wait deferred takes the three exits too,
+    as our code can stop while it makes it. Returns the end reason of a call that ends the turn."""
     last = (cp.steps or [{}])[-1]
-    waited = [c for c in last.get("calls", []) if c.get("end_reason") == AWAITING_APPROVAL]
+    waited = [c for c in last.get("calls", []) if c.get("end_reason") in (AWAITING_APPROVAL, DEFERRED)]
     if not waited:
         return None
-    registry, ended = get_registry(), None
+    registry = get_registry()
     runtime.trace(cp.session_id).event("approved_calls_finished_after_restart", run_key=cp.run_key,
                                        step=last.get("n"), calls=[c["tool"] for c in waited])
-    for saved in waited:
-        ctx = CallContext(cp.session_id, last.get("n") or 0, "model", cp.use_case,
-                          request_id=(cp.findings or {}).get("request_id"), call_id=saved["id"],
-                          run_key=cp.run_key, origin="agent")
-        result = exits.settle(saved["tool"], saved["args"], ctx, registry=registry, read_first=True).result
-        if not result.is_error and result.key is not None:
-            actions.append(action_line(saved["tool"], saved["args"], result.data))
-        _put_result(messages, saved["id"], result)
-        ended = ended or result.end_reason
-    return ended
+
+    def make(saved, ctx):
+        if saved.get("end_reason") == AWAITING_APPROVAL:
+            return exits.settle(saved["tool"], saved["args"], ctx, registry=registry, read_first=True).result
+        if exits.is_write(saved["tool"]):
+            return exits.settle(saved["tool"], saved["args"], ctx, registry=registry).result
+        return registry.call(saved["tool"], saved["args"], ctx)
+    return _make_waiting_calls(cp, last, messages, last.get("n") or 0, actions, make)
 
 
 def _finish_the_step(cp, messages: list[dict], actions: list[str]) -> tuple[list[dict], str | None, str | None]:
